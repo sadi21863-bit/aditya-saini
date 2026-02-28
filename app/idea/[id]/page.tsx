@@ -7,74 +7,67 @@ import SparkButton from "@/components/SparkButton";
 
 export default async function IdeaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
   const result = await db.select().from(ideas).where(eq(ideas.id, id));
   const idea = result[0];
-
   if (!idea) notFound();
 
-  // TODO: get real viewerId from Clerk auth session
-  const viewerId = "user_test_123";
+  const viewerId = "user_test_123"; // TODO: Clerk session
 
   return (
-    <main className="p-8 max-w-4xl mx-auto min-h-screen">
-      <div className="mb-12">
+    <main className="min-h-screen bg-[#f8fafb] p-8">
+      <div className="max-w-3xl mx-auto">
         <Link
-          href="/"
-          className="text-slate-400 hover:text-slate-900 transition-colors font-bold text-sm flex items-center gap-2 group"
+          href="/feed"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488] transition-colors font-semibold text-sm mb-10 group"
         >
-          <span className="group-hover:-translate-x-1 transition-transform">←</span> RETURN TO THE AETHER
+          <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Feed
         </Link>
-      </div>
 
-      <article className="bg-white border border-slate-100 rounded-[3rem] p-12 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50 rounded-full blur-[100px] -z-10 opacity-50" />
-
-        <header className="mb-10">
+        <article className="bg-white border border-slate-100 rounded-3xl p-10 shadow-sm">
+          {/* Category + Date */}
           <div className="flex items-center gap-4 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] bg-blue-600 text-white px-5 py-2 rounded-full">
-              {idea.category ?? "General"} Category
+            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#0d9488]/10 text-[#0d9488] border border-[#0d9488]/20 uppercase tracking-wider">
+              {idea.category ?? "General"}
             </span>
-            <span className="text-slate-300 font-bold text-xs uppercase tracking-widest">
-              Captured {idea.createdAt ? new Date(idea.createdAt).toLocaleDateString() : 'Recently'}
+            <span className="text-xs text-slate-400 font-medium">
+              {idea.createdAt ? new Date(idea.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : ""}
             </span>
           </div>
 
-          <h1 className="text-5xl font-black text-slate-900 leading-[1.1] tracking-tight mb-8">
+          {/* Title */}
+          <h1 className="text-4xl font-bold text-slate-900 leading-tight mb-4 tracking-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
             {idea.title}
           </h1>
 
-          <div className="flex items-center gap-8">
+          {/* Hook */}
+          {idea.hook && (
+            <p className="text-lg text-[#0d9488] italic font-medium mb-8 pb-8 border-b border-slate-100">
+              "{idea.hook}"
+            </p>
+          )}
+
+          {/* Content */}
+          <div className="prose prose-slate max-w-none">
+            <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
+              {idea.content}
+            </p>
+          </div>
+
+          {/* Footer actions */}
+          <div className="mt-10 pt-8 border-t border-slate-100 flex items-center justify-between">
             <SparkButton
               ideaId={idea.id}
               viewerId={viewerId}
               initialLikes={idea.totalLikes ?? 0}
             />
+            <Link
+              href={`/idea/${idea.id}/edit`}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-700 uppercase tracking-widest transition-colors"
+            >
+              Edit Idea
+            </Link>
           </div>
-        </header>
-
-        <div className="prose prose-slate lg:prose-xl max-w-none">
-          <p className="text-slate-600 leading-relaxed text-xl font-medium whitespace-pre-wrap">
-            {idea.content}
-          </p>
-        </div>
-
-        <footer className="mt-16 pt-8 border-t border-slate-50 flex justify-between items-center text-slate-400 italic font-medium">
-          <p>"This spark is now part of the permanent Aether record."</p>
-          <div className="flex gap-2">
-            <div className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-            <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-          </div>
-        </footer>
-      </article>
-
-      <div className="mt-8 flex justify-end gap-4">
-        <Link
-          href={`/idea/${idea.id}/edit`}
-          className="text-xs font-black text-slate-300 hover:text-slate-600 uppercase tracking-widest transition-colors"
-        >
-          Edit Idea
-        </Link>
+        </article>
       </div>
     </main>
   );

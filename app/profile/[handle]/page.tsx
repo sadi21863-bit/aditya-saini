@@ -1,132 +1,110 @@
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
-import { Box, Globe, Edit3 } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
 import Link from "next/link";
+import { Globe, BookOpen } from "lucide-react";
 
 export default async function ProfilePage({ params }: { params: { handle: string } }) {
-    // Try to find user by handle (requires handle column in users table)
-    const userResult = await db.select()
-        .from(users)
-        .where(eq(users.handle, params.handle))
-        .limit(1);
+  const userResult = await db.select().from(users).where(eq(users.handle, params.handle)).limit(1);
+  const user = userResult[0];
 
-    const user = userResult[0];
-
-    if (!user) {
-        return (
-            <div className="p-20 text-center">
-                <p className="font-black text-slate-400 text-2xl">USER_NOT_FOUND</p>
-                <p className="text-slate-600 mt-2 text-sm">No user with handle @{params.handle}</p>
-                <Link href="/" className="mt-6 inline-block text-blue-400 hover:text-blue-300 font-bold text-sm">
-                    ← Back to Feed
-                </Link>
-            </div>
-        );
-    }
-
-    const publicIdeas = await db.select()
-        .from(ideas)
-        .where(and(eq(ideas.userId, user.id), eq(ideas.status, "public")))
-        .orderBy(desc(ideas.createdAt));
-
-    const draftIdeas = await db.select()
-        .from(ideas)
-        .where(and(eq(ideas.userId, user.id), eq(ideas.status, "draft")))
-        .orderBy(desc(ideas.createdAt));
-
-    const totalLikes = publicIdeas.reduce((sum, i) => sum + (i.totalLikes ?? 0), 0);
-
-    // Placeholder viewerId - replace with Clerk session
-    const viewerId = "user_test_123";
-
+  if (!user) {
     return (
-        <div className="min-h-screen bg-black text-white p-8 font-sans">
-            <div className="max-w-5xl mx-auto">
-
-                {/* PROFILE HEADER */}
-                <div className="relative bg-slate-900/50 border border-slate-800 rounded-[3rem] p-10 mb-12 overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-4xl font-black border-4 border-black">
-                            {(user.name ?? user.id)[0].toUpperCase()}
-                        </div>
-
-                        <div className="text-center md:text-left flex-1">
-                            <h1 className="text-4xl font-black tracking-tight italic">
-                                {user.handle ? `@${user.handle}` : user.name ?? user.id}
-                            </h1>
-                            <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-3">
-                                <span className="flex items-center gap-1 text-blue-400 font-mono text-sm font-bold bg-blue-500/10 px-3 py-1 rounded-full">
-                                    TIER: {user.tier ?? "Beginner"}
-                                </span>
-                                <span className="flex items-center gap-1 text-slate-400 font-mono text-sm font-bold bg-slate-800 px-3 py-1 rounded-full">
-                                    ⚡ {totalLikes} TOTAL LIKES
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-
-                    {/* PUBLIC IDEAS */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <Globe size={20} className="text-blue-500" />
-                            <h3 className="text-xl font-black italic">PUBLIC IDEAS</h3>
-                        </div>
-                        <div className="space-y-4">
-                            {publicIdeas.length === 0 && (
-                                <div className="border border-dashed border-slate-800 rounded-3xl p-10 text-center text-slate-600 italic">
-                                    No public ideas yet.
-                                </div>
-                            )}
-                            {publicIdeas.map(idea => (
-                                <div key={idea.id} className="bg-slate-900/30 border border-slate-800 p-6 rounded-3xl hover:border-blue-500/30 transition-all">
-                                    <h4 className="font-bold text-lg mb-2">{idea.title}</h4>
-                                    <p className="text-sm text-slate-500 line-clamp-2 mb-4 italic">"{idea.hook}"</p>
-                                    <div className="flex justify-between items-center">
-                                        <div className="text-[10px] font-mono text-slate-600">
-                                            {idea.category ?? "General"}
-                                        </div>
-                                        <SparkButton
-                                            ideaId={idea.id}
-                                            viewerId={viewerId}
-                                            initialLikes={idea.totalLikes ?? 0}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* DRAFT IDEAS (HANGAR) */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <Box size={20} className="text-amber-500" />
-                            <h3 className="text-xl font-black italic">THE HANGAR</h3>
-                        </div>
-                        <div className="space-y-4">
-                            {draftIdeas.length === 0 && (
-                                <div className="border border-dashed border-slate-800 rounded-3xl p-10 text-center text-slate-600 italic">
-                                    Hangar empty.
-                                </div>
-                            )}
-                            {draftIdeas.map(idea => (
-                                <div key={idea.id} className="bg-slate-900/20 border border-dashed border-slate-800 p-6 rounded-3xl hover:bg-slate-900/40 transition-all group">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-lg text-slate-400">{idea.title}</h4>
-                                        <Edit3 size={16} className="text-slate-600 group-hover:text-amber-500 cursor-pointer" />
-                                    </div>
-                                    <span className="text-[10px] font-black text-slate-700 uppercase">Draft</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+      <div className="min-h-screen bg-[#f8fafb] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-slate-400" style={{ fontFamily: 'var(--font-playfair)' }}>User not found</p>
+          <p className="text-slate-500 mt-2">No profile for @{params.handle}</p>
+          <Link href="/feed" className="mt-6 inline-block text-[#0d9488] font-semibold hover:underline">← Back to Feed</Link>
         </div>
+      </div>
     );
+  }
+
+  const publicIdeas = await db.select().from(ideas)
+    .where(and(eq(ideas.userId, user.id), eq(ideas.status, "public")))
+    .orderBy(desc(ideas.createdAt));
+
+  const draftIdeas = await db.select().from(ideas)
+    .where(and(eq(ideas.userId, user.id), eq(ideas.status, "draft")))
+    .orderBy(desc(ideas.createdAt));
+
+  const totalLikes = publicIdeas.reduce((sum, i) => sum + (i.totalLikes ?? 0), 0);
+  const viewerId = "user_test_123";
+
+  return (
+    <div className="min-h-screen bg-[#f8fafb] p-8">
+      <div className="max-w-5xl mx-auto">
+
+        {/* PROFILE CARD */}
+        <div className="bg-white border border-slate-100 rounded-3xl p-8 mb-10 shadow-sm">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0d9488] to-teal-300 flex items-center justify-center text-3xl font-bold text-white border-4 border-white shadow-lg">
+              {(user.name ?? user.id)[0].toUpperCase()}
+            </div>
+            <div className="text-center md:text-left flex-1">
+              <h1 className="text-3xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+                {user.handle ? `@${user.handle}` : user.name ?? user.id}
+              </h1>
+              <div className="flex flex-wrap gap-3 mt-3 justify-center md:justify-start">
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0d9488]/10 text-[#0d9488] border border-[#0d9488]/20">
+                  {user.tier ?? "Beginner"}
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
+                  ⚡ {totalLikes} Likes
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
+                  {publicIdeas.length} Public Ideas
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* PUBLIC IDEAS */}
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <Globe size={18} className="text-[#0d9488]" />
+              <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: 'var(--font-playfair)' }}>Public Ideas</h2>
+            </div>
+            <div className="space-y-3">
+              {publicIdeas.length === 0 && (
+                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400 italic text-sm">No public ideas yet.</div>
+              )}
+              {publicIdeas.map(idea => (
+                <div key={idea.id} className="bg-white border border-slate-100 p-5 rounded-2xl hover:border-[#0d9488]/30 transition-all shadow-sm">
+                  <h4 className="font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-playfair)' }}>{idea.title}</h4>
+                  <p className="text-xs text-slate-500 italic mb-3">"{idea.hook}"</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-semibold text-[#0d9488] uppercase">{idea.category}</span>
+                    <SparkButton ideaId={idea.id} viewerId={viewerId} initialLikes={idea.totalLikes ?? 0} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* DRAFTS */}
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <BookOpen size={18} className="text-amber-500" />
+              <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: 'var(--font-playfair)' }}>Drafts</h2>
+            </div>
+            <div className="space-y-3">
+              {draftIdeas.length === 0 && (
+                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400 italic text-sm">No drafts.</div>
+              )}
+              {draftIdeas.map(idea => (
+                <div key={idea.id} className="bg-amber-50 border border-amber-100 p-5 rounded-2xl">
+                  <h4 className="font-bold text-slate-700" style={{ fontFamily: 'var(--font-playfair)' }}>{idea.title}</h4>
+                  <span className="text-[10px] font-semibold text-amber-600 uppercase mt-1 block">Draft</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

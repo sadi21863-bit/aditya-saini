@@ -23,7 +23,7 @@ export async function sparkVision(ideaId: string, viewerId: string) {
             .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
             .where(eq(ideas.id, ideaId));
 
-        revalidatePath("/aether");
+        revalidatePath("/feed");
         return { success: true };
     } catch (error) {
         console.error("Like failed:", error);
