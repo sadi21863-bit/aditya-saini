@@ -27,7 +27,7 @@ export async function saveToHangar(formData: {
             totalLikes: 0,
         }).returning();
 
-        revalidatePath('/hangar');
+        revalidatePath('/dashboard');
         return { success: true, genesisCode: result[0].genesisCode };
     } catch (error) {
         console.error("Save Failed:", error);

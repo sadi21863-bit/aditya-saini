@@ -5,8 +5,11 @@ import SparkButton from "@/components/SparkButton";
 import Link from "next/link";
 import { Globe, BookOpen } from "lucide-react";
 
-export default async function ProfilePage({ params }: { params: { handle: string } }) {
-  const userResult = await db.select().from(users).where(eq(users.handle, params.handle)).limit(1);
+// Next.js 16: dynamic params must be typed as Promise and awaited
+export default async function ProfilePage({ params }: { params: Promise<{ handle: string }> }) {
+  const { handle } = await params;
+
+  const userResult = await db.select().from(users).where(eq(users.handle, handle)).limit(1);
   const user = userResult[0];
 
   if (!user) {
@@ -14,7 +17,7 @@ export default async function ProfilePage({ params }: { params: { handle: string
       <div className="min-h-screen bg-[#f8fafb] flex items-center justify-center">
         <div className="text-center">
           <p className="text-2xl font-bold text-slate-400" style={{ fontFamily: 'var(--font-playfair)' }}>User not found</p>
-          <p className="text-slate-500 mt-2">No profile for @{params.handle}</p>
+          <p className="text-slate-500 mt-2">No profile for @{handle}</p>
           <Link href="/feed" className="mt-6 inline-block text-[#0d9488] font-semibold hover:underline">← Back to Feed</Link>
         </div>
       </div>
