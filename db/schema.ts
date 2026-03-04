@@ -108,6 +108,22 @@ export const likes = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 4. FOLLOWS (Phase 7: Social Graph)
+// ─────────────────────────────────────────────────────────────────────────────
+export const follows = pgTable(
+  "follows",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    followerId: text("follower_id").notNull(),
+    followingId: text("following_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueFollow: uniqueIndex("unique_follow").on(table.followerId, table.followingId),
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INFERRED TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
@@ -118,3 +134,5 @@ export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
 
 export type AccessLevel = "viewer" | "partner";
+export type Follow = typeof follows.$inferSelect;
+export type NewFollow = typeof follows.$inferInsert;

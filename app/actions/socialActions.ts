@@ -1,0 +1,167 @@
+// app/actions/socialActions.ts
+"use server";
+
+import { db } from "@/db";
+import { follows, users } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Follow a user
+ */
+export async function followUser(followerId: string, targetId: string) {
+    try {
+        if (followerId === targetId) {
+            return { success: false, error: "Cannot follow yourself" };
+        }
+
+        // Check if already following
+        const existing = await db
+            .select()
+            .from(follows)
+            .where(
+                and(
+                    eq(follows.followerId, followerId),
+                    eq(follows.followingId, targetId)
+                )
+            );
+
+        if (existing.length > 0) {
+            return { success: false, error: "Already following" };
+        }
+
+        // Create follow relationship
+        await db.insert(follows).values({
+            followerId,
+            followingId: targetId,
+        });
+
+        revalidatePath(`/profile/${targetId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Follow error:", error);
+        return { success: false, error: "Failed to follow user" };
+    }
+}
+
+/**
+ * Unfollow a user
+ */
+export async function unfollowUser(followerId: string, targetId: string) {
+    try {
+        await db
+            .delete(follows)
+            .where(
+                and(
+                    eq(follows.followerId, followerId),
+                    eq(follows.followingId, targetId)
+                )
+            );
+
+        revalidatePath(`/profile/${targetId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Unfollow error:", error);
+        return { success: false, error: "Failed to unfollow user" };
+    }
+}
+
+/**
+ * Get followers for a user
+ */
+export async function getFollowers(userId: string) {
+    try {
+        const followers = await db
+            .select({
+                id: users.id,
+                name: users.name,
+                handle: users.handle,
+                image: users.image,
+                tier: users.tier,
+                xp: users.xp,
+                createdAt: follows.createdAt,
+            })
+            .from(follows)
+            .leftJoin(users, eq(follows.followerId, users.id))
+            .where(eq(follows.followingId, userId));
+
+        return { success: true, followers };
+    } catch (error) {
+        console.error("Get followers error:", error);
+        return { success: false, followers: [], error: "Failed to fetch followers" };
+    }
+}
+
+/**
+ * Get following (users this user follows)
+ */
+export async function getFollowing(userId: string) {
+    try {
+        const following = await db
+            .select({
+                id: users.id,
+                name: users.name,
+                handle: users.handle,
+                image: users.image,
+                tier: users.tier,
+                xp: users.xp,
+                createdAt: follows.createdAt,
+            })
+            .from(follows)
+            .leftJoin(users, eq(follows.followingId, users.id))
+            .where(eq(follows.followerId, userId));
+
+        return { success: true, following };
+    } catch (error) {
+        console.error("Get following error:", error);
+        return { success: false, following: [], error: "Failed to fetch following" };
+    }
+}
+
+/**
+ * Check if user A follows user B
+ */
+export async function isFollowing(followerId: string, targetId: string) {
+    try {
+        const result = await db
+            .select()
+            .from(follows)
+            .where(
+                and(
+                    eq(follows.followerId, followerId),
+                    eq(follows.followingId, targetId)
+                )
+            );
+
+        return { success: true, isFollowing: result.length > 0 };
+    } catch (error) {
+        console.error("Check following error:", error);
+        return { success: false, isFollowing: false };
+    }
+}
+
+/**
+ * Get follow stats for a user
+ */
+export async function getFollowStats(userId: string) {
+    try {
+        const [followersCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(follows)
+            .where(eq(follows.followingId, userId));
+
+        const [followingCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(follows)
+            .where(eq(follows.followerId, userId));
+
+        return {
+            success: true,
+            followers: Number(followersCount?.count || 0),
+            following: Number(followingCount?.count || 0),
+        };
+    } catch (error) {
+        console.error("Get stats error:", error);
+        return { success: false, followers: 0, following: 0 };
+    }
+}

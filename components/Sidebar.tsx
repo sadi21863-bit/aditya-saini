@@ -1,89 +1,100 @@
+// components/Sidebar.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Lightbulb,
   LayoutDashboard,
+  Newspaper,
   PlusCircle,
   Trophy,
   User,
-  Zap,
-  Shield,
-  Sparkles,
-  Rss,
+  Search,
 } from "lucide-react";
 
-export default function Sidebar() {
+interface SidebarProps {
+  currentUserId: string;
+}
+
+export default function Sidebar({ currentUserId }: SidebarProps) {
   const pathname = usePathname();
 
-  const menuItems = [
-    { name: "The Feed", href: "/feed", icon: Rss },
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "My Profile", href: "/profile/user_test_123", icon: User },
-    { name: "Justice Engine", href: "/admin/justice", icon: Shield },
-    { name: "New Idea", href: "/new", icon: PlusCircle },
-    { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
+  const links = [
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: <LayoutDashboard size={20} />,
+    },
+    {
+      href: "/feed",
+      label: "Feed",
+      icon: <Newspaper size={20} />,
+    },
+    {
+      href: "/new",
+      label: "New Idea",
+      icon: <PlusCircle size={20} />,
+    },
+    {
+      href: "/registry",
+      label: "Global Registry",
+      icon: <Search size={20} />,
+    },
+    {
+      href: "/leaderboard",
+      label: "Leaderboard",
+      icon: <Trophy size={20} />,
+    },
+    {
+      href: `/profile/${currentUserId}`,
+      label: "My Profile",
+      icon: <User size={20} />,
+    },
   ];
 
-  // Exact-match for dashboard so /dashboard/studio gets its own highlight
-  const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname === href || pathname.startsWith(href + "/");
-  };
-
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100 p-6 z-50 flex flex-col justify-between hidden lg:flex shadow-sm">
-      <div className="flex flex-col h-full">
-        {/* BRANDING */}
-        <Link href="/feed" className="flex items-center gap-3 mb-10 px-2 group">
-          <div className="w-9 h-9 bg-gradient-to-tr from-[#0d9488] to-teal-400 rounded-xl flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-            <Zap size={18} fill="white" />
-          </div>
-          <span
-            className="font-black tracking-tight text-xl text-slate-900"
+    <aside className="w-64 bg-white border-r border-slate-100 h-screen sticky top-0 p-6 flex flex-col">
+      {/* Logo */}
+      <div className="mb-8">
+        <Link href="/dashboard">
+          <h2
+            className="text-2xl font-bold text-[#0d9488] hover:text-[#0f766e] transition-colors cursor-pointer"
             style={{ fontFamily: "var(--font-playfair)" }}
           >
-            Idea<span className="text-[#0d9488]">Connect</span>
-          </span>
+            IdeaConnect
+          </h2>
         </Link>
+        <p className="text-xs text-slate-500 mt-1">Where Ideas Unite</p>
+      </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
+      {/* Navigation Links */}
+      <nav className="space-y-2 flex-1">
+        {links.map((link) => {
+          const isActive = pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${isActive
+                ? "bg-[#0d9488] text-white shadow-md"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+            >
+              {link.icon}
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${active
-                    ? "bg-teal-50 text-[#0d9488] font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-[#0d9488]"
-                  }`}
-              >
-                <Icon size={20} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* USER SECTION */}
-        <div className="border-t border-slate-100 pt-6 mt-6">
-          <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-2xl border border-teal-100">
-            <div className="w-9 h-9 rounded-full bg-[#0d9488] flex items-center justify-center text-white font-black text-xs">
-              U
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-900">Test User</span>
-              <span className="text-[10px] font-medium text-teal-600 uppercase tracking-wider">
-                Initiate
-              </span>
-            </div>
-          </div>
-        </div>
+      {/* Footer Info */}
+      <div className="pt-6 border-t border-slate-100">
+        <p className="text-xs text-slate-400 text-center">
+          © 2026 IdeaConnect
+        </p>
+        <p className="text-xs text-slate-400 text-center mt-1">
+          Version 9.0
+        </p>
       </div>
     </aside>
   );

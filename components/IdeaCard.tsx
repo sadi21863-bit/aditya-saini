@@ -55,12 +55,43 @@ const PROTECTION_CONFIG = {
   },
 } as const;
 
+// ─────────────────────────────────────────────────────────────────────────
+// Tier config for author display
+// ─────────────────────────────────────────────────────────────────────────
+const TIER_CONFIG = {
+  initiate: {
+    label: "Initiate",
+    color: "text-slate-600",
+    bgColor: "bg-slate-50",
+    borderColor: "border-slate-200",
+  },
+  architect: {
+    label: "Architect",
+    color: "text-[#0d9488]",
+    bgColor: "bg-[#0d9488]/10",
+    borderColor: "border-[#0d9488]/30",
+  },
+  master: {
+    label: "Master",
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-300",
+  },
+  genesis_legend: {
+    label: "Genesis Legend",
+    color: "text-amber-600",
+    bgColor: "bg-gradient-to-br from-amber-50 to-yellow-50",
+    borderColor: "border-amber-300",
+  },
+} as const;
+
 interface Author {
   id: string;
   name: string | null;
   handle: string | null;
   image: string | null;
   tier: string | null;
+  xp?: number | null;
 }
 
 interface IdeaCardProps {
@@ -141,7 +172,10 @@ export default function IdeaCard({
   const viewerCount = idea.viewerIds?.length ?? 0;
   const partnerCount = idea.partnerIds?.length ?? 0;
   const hasGenesis = Boolean(idea.genesisHash);
-  const authorName = author?.name || author?.handle || "Anonymous";
+
+  // ── Author tier config ─────────────────────────────────────────────────────
+  const authorTier = (author?.tier || "initiate") as keyof typeof TIER_CONFIG;
+  const tierConfig = TIER_CONFIG[authorTier] || TIER_CONFIG.initiate;
 
   // ── Audit Status ───────────────────────────────────────────────────────────
   const auditMetadata = idea.aiMetadata as any;
@@ -192,9 +226,32 @@ export default function IdeaCard({
         >
           {idea.title}
         </h3>
-        <p className="text-xs text-slate-400 mt-2 font-medium">
-          by {authorName}
-        </p>
+
+        {/* ── AUTHOR LINK (Phase 8 Update) ──────────────────────────────────── */}
+        <Link
+          href={`/profile/${author?.handle || author?.id || "unknown"}`}
+          className="flex items-center gap-2 mt-3 hover:opacity-70 transition-opacity w-fit"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${tierConfig.bgColor} ${tierConfig.color} border-2 ${tierConfig.borderColor}`}
+          >
+            {author?.name?.[0]?.toUpperCase() || "?"}
+          </div>
+          <div className="flex flex-col">
+            <p className="text-xs font-semibold text-slate-900">
+              {author?.name || "Anonymous"}
+            </p>
+            <p className="text-[10px] text-slate-500">
+              @{author?.handle || "unknown"}
+              {author?.xp !== undefined && (
+                <span className={`ml-1 font-bold ${tierConfig.color}`}>
+                  · {author.xp} XP
+                </span>
+              )}
+            </p>
+          </div>
+        </Link>
       </div>
 
       {/* ── CONTENT / BLUR GUARD ──────────────────────────────────────────── */}
