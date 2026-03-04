@@ -1,6 +1,5 @@
 // app/layout.tsx
 import { ClerkProvider } from "@clerk/nextjs";
-import { currentUser } from "@clerk/nextjs/server";
 import Sidebar from "@/components/Sidebar";
 import { Playfair_Display } from "next/font/google";
 import "./globals.css";
@@ -15,14 +14,13 @@ export const metadata = {
   description: "Connect, collaborate, and bring your ideas to life",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Get current user server-side
-  const clerkUser = await currentUser();
-  const userId = clerkUser?.id || "user_test_123";
+  // Hardcoded for dev - remove Clerk call
+  const userId = "user_test_123";
 
   return (
     <ClerkProvider>

@@ -4,9 +4,10 @@ import { users, ideas } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Users, Award } from "lucide-react";
+import { ArrowLeft, Sparkles, Users, Award, UserPlus, UserCheck } from "lucide-react";
 import { getTier } from "@/lib/tier-engine";
-import { currentUser } from "@clerk/nextjs/server";
+import { getFollowStats, isFollowing } from "@/app/actions/socialActions";
+import FollowButton from "@/components/FollowButton";
 
 export default async function ProfilePage({
   params,
@@ -16,9 +17,8 @@ export default async function ProfilePage({
   const resolvedParams = await params;
   const handle = resolvedParams.handle;
 
-  // Get current logged-in user
-  const clerkUser = await currentUser();
-  const currentUserId = clerkUser?.id || "user_test_123";
+  // Hardcoded for dev testing
+  const currentUserId = "user_test_123";
 
   // Find user by handle or ID
   const [profileUser] = await db
@@ -33,6 +33,10 @@ export default async function ProfilePage({
 
   // Get tier info
   const tier = getTier(profileUser.xp ?? 0);
+
+  // Get follow stats
+  const followStats = await getFollowStats(profileUser.id);
+  const followingStatus = await isFollowing(currentUserId, profileUser.id);
 
   // Get Genesis Ideas (ideas user owns)
   const genesisIdeas = await db
@@ -106,27 +110,58 @@ export default async function ProfilePage({
                   >
                     {profileUser.name || "Anonymous"}
                   </h1>
-                  <p className="text-slate-500 text-sm">
+                  <p className="text-slate-500 text-sm mb-3">
                     @{profileUser.handle || profileUser.id}
                   </p>
+
+                  {/* Follow Stats */}
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-slate-900">
+                        {followStats.followers}
+                      </span>
+                      <span className="text-slate-500">Followers</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-slate-900">
+                        {followStats.following}
+                      </span>
+                      <span className="text-slate-500">Following</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Tier Badge */}
-                <div
-                  className={`px-4 py-2 rounded-xl font-bold text-sm ${tier.bgColor} ${tier.color} border-2 ${tier.borderColor} flex items-center gap-2`}
-                >
-                  <span>{tier.icon}</span>
-                  <span>{tier.displayName}</span>
+                {/* Right Side: Tier Badge + Follow Button */}
+                <div className="flex flex-col items-end gap-3">
+                  {/* Tier Badge */}
+                  <div
+                    className={`px-4 py-2 rounded-xl font-bold text-sm ${tier.bgColor} ${tier.color} border-2 ${tier.borderColor} flex items-center gap-2`}
+                  >
+                    <span>{tier.icon}</span>
+                    <span>{tier.displayName}</span>
+                  </div>
+
+                  {/* Follow Button */}
+                  {!isOwnProfile && (
+                    <FollowButton
+                      currentUserId={currentUserId}
+                      targetUserId={profileUser.id}
+                      targetHandle={profileUser.handle || profileUser.id}
+                      initialIsFollowing={followingStatus.isFollowing}
+                      size="md"
+                      variant="default"
+                    />
+                  )}
                 </div>
               </div>
 
               {/* Bio */}
               {profileUser.bio && (
-                <p className="text-slate-600 mb-4">{profileUser.bio}</p>
+                <p className="text-slate-600 mb-4 mt-4">{profileUser.bio}</p>
               )}
 
               {/* Stats */}
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
                 <div className="flex items-center gap-2">
                   <Sparkles size={18} className="text-[#0d9488]" />
                   <span className="font-bold text-slate-900">
@@ -157,11 +192,13 @@ export default async function ProfilePage({
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           {/* Tab Headers */}
           <div className="flex border-b border-slate-100">
-            <button className="flex-1 px-6 py-4 font-semibold text-sm bg-[#0d9488] text-white">
-              {tier.icon} Genesis Ideas ({genesisIdeas.length})
+            <button className="flex-1 px-6 py-4 font-semibold text-sm bg-[#0d9488] text-white flex items-center justify-center gap-2">
+              <span>{tier.icon}</span>
+              Genesis Ideas ({genesisIdeas.length})
             </button>
-            <button className="flex-1 px-6 py-4 font-semibold text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-              🤝 Partnered Ideas ({partneredIdeas.length})
+            <button className="flex-1 px-6 py-4 font-semibold text-sm text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+              <span>🤝</span>
+              Partnered Ideas ({partneredIdeas.length})
             </button>
           </div>
 
@@ -202,8 +239,8 @@ export default async function ProfilePage({
                         <div className="flex items-center justify-between mb-3">
                           <span
                             className={`text-xs font-bold px-3 py-1 rounded-full ${idea.status === "public"
-                              ? "bg-teal-50 text-teal-700 border border-teal-200"
-                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                                ? "bg-teal-50 text-teal-700 border border-teal-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
                               }`}
                           >
                             {idea.status === "public" ? "Live" : "Draft"}
