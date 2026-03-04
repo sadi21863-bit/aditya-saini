@@ -13,7 +13,7 @@ import { getAuthenticatedUserId } from "@/lib/auth";
  * Server Component responsibilities:
  *   1. await params (Next.js 16 requirement) using resolvedParams
  *   2. Fetch idea, author, hasLiked in parallel
- *   3. Compute isOwner + isContributor server-side — never expose to client as raw data
+ *   3. Compute isOwner + isPartner server-side — never expose to client as raw data
  *   4. Render <ViewCounter> client component which POSTs to /api/view/[id]
  *      That route owns cookie-based dedup and the actual DB increment.
  *      We never call recordView() here to avoid double-counting.
@@ -47,19 +47,19 @@ export default async function IdeaPage({
 
     viewerId
       ? db
-          .select({ id: likes.id })
-          .from(likes)
-          .where(and(eq(likes.userId, viewerId), eq(likes.ideaId, ideaId)))
-          .limit(1)
+        .select({ id: likes.id })
+        .from(likes)
+        .where(and(eq(likes.userId, viewerId), eq(likes.ideaId, ideaId)))
+        .limit(1)
       : Promise.resolve([]),
   ]);
 
-  const author   = authorResult[0] ?? null;
+  const author = authorResult[0] ?? null;
   const hasLiked = likedResult.length > 0;
 
   // ── Step 5: Compute access flags ──────────────────────────────────────────
-  const isOwner       = Boolean(viewerId && idea.userId === viewerId);
-  const isContributor = Boolean(viewerId && idea.contributorIds?.includes(viewerId));
+  const isOwner = Boolean(viewerId && idea.userId === viewerId);
+  const isPartner = Boolean(viewerId && idea.partnerIds?.includes(viewerId));
 
   return (
     <main className="min-h-screen bg-[#f8fafb] p-8">
@@ -83,7 +83,7 @@ export default async function IdeaPage({
         <ViewCounter id={ideaId} />
 
         {/*
-          All security flags (hasLiked, isOwner, isContributor) are
+          All security flags (hasLiked, isOwner, isPartner) are
           pre-computed server-side and passed as props.
           No DB queries run inside the client component.
         */}
@@ -93,7 +93,7 @@ export default async function IdeaPage({
           viewerId={viewerId}
           hasLiked={hasLiked}
           isOwner={isOwner}
-          isContributor={isContributor}
+          isPartner={isPartner}
         />
 
       </div>

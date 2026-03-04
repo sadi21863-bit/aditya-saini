@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
 import type { Idea, User } from "@/db/schema";
-import { getTierFromXp } from "@/lib/tier-engine";
+import { getTier } from "@/lib/tier-engine";
 import Link from "next/link";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,20 +34,20 @@ const HONEST_HOOK_CHARS = 150; // Always revealed regardless of tier
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IdeaDetailClientProps {
-  idea:         Idea;
-  author:       User | null;
-  viewerId:     string;
-  hasLiked:     boolean;  // Server pre-checked: did this viewer already like it?
-  isOwner:      boolean;  // Is the viewer the Genesis Creator?
-  isContributor: boolean; // Is the viewer in contributor_ids[]?
+  idea: Idea;
+  author: User | null;
+  viewerId: string;
+  hasLiked: boolean;  // Server pre-checked: did this viewer already like it?
+  isOwner: boolean;  // Is the viewer the Genesis Creator?
+  isPartner: boolean;  // Is the viewer in partnerIds[]?
 }
 
 // ─── Protection level badge config ────────────────────────────────────────────
 const SHIELD_CONFIG = {
-  0: { label: "Open",     Icon: ShieldOff,  textColor: "text-slate-500",  badgeCls: "bg-slate-100  border-slate-200"   },
-  1: { label: "Guarded",  Icon: Shield,     textColor: "text-blue-700",   badgeCls: "bg-blue-50    border-blue-200"    },
-  2: { label: "Shielded", Icon: ShieldCheck, textColor: "text-violet-700", badgeCls: "bg-violet-50  border-violet-200"  },
-  3: { label: "Vault",    Icon: Lock,        textColor: "text-amber-700",  badgeCls: "bg-amber-50   border-amber-200"   },
+  0: { label: "Open", Icon: ShieldOff, textColor: "text-slate-500", badgeCls: "bg-slate-100  border-slate-200" },
+  1: { label: "Guarded", Icon: Shield, textColor: "text-blue-700", badgeCls: "bg-blue-50    border-blue-200" },
+  2: { label: "Shielded", Icon: ShieldCheck, textColor: "text-violet-700", badgeCls: "bg-violet-50  border-violet-200" },
+  3: { label: "Vault", Icon: Lock, textColor: "text-amber-700", badgeCls: "bg-amber-50   border-amber-200" },
 } as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -57,21 +57,21 @@ export default function IdeaDetailClient({
   viewerId,
   hasLiked,
   isOwner,
-  isContributor,
+  isPartner,
 }: IdeaDetailClientProps) {
   // Blur is lifted when: user already liked (server-confirmed) OR sparks now
-  const [isRevealed, setIsRevealed] = useState(hasLiked || isOwner || isContributor);
+  const [isRevealed, setIsRevealed] = useState(hasLiked || isOwner || isPartner);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const blurLevel  = idea.blurLevel ?? 0;
-  const shieldCfg  = SHIELD_CONFIG[blurLevel as keyof typeof SHIELD_CONFIG] ?? SHIELD_CONFIG[0];
+  const blurLevel = idea.blurLevel ?? 0;
+  const shieldCfg = SHIELD_CONFIG[blurLevel as keyof typeof SHIELD_CONFIG] ?? SHIELD_CONFIG[0];
   const ShieldIcon = shieldCfg.Icon;
 
   // ── "Honest Hook" split ──────────────────────────────────────────────────
   // Always clear: first 150 chars. Subject to blur: everything after.
   const fullContent = idea.content ?? "";
-  const clearPart   = fullContent.slice(0, HONEST_HOOK_CHARS);
-  const blurPart    = fullContent.slice(HONEST_HOOK_CHARS);
+  const clearPart = fullContent.slice(0, HONEST_HOOK_CHARS);
+  const blurPart = fullContent.slice(HONEST_HOOK_CHARS);
   const hasBlurPart = blurPart.length > 0;
 
   // ── Tier 2 & 3: JS-level copy / right-click protection ──────────────────
@@ -96,12 +96,12 @@ export default function IdeaDetailClient({
     const el = contentRef.current;
     if (!el || blurLevel < 2) return;
 
-    el.addEventListener("copy",        blockCopy);
+    el.addEventListener("copy", blockCopy);
     el.addEventListener("contextmenu", blockContextMenu);
     document.addEventListener("keydown", blockKeyboardShortcuts);
 
     return () => {
-      el.removeEventListener("copy",        blockCopy);
+      el.removeEventListener("copy", blockCopy);
       el.removeEventListener("contextmenu", blockContextMenu);
       document.removeEventListener("keydown", blockKeyboardShortcuts);
     };
@@ -116,7 +116,7 @@ export default function IdeaDetailClient({
   ].filter(Boolean).join(" ");
 
   // ── Author tier badge ────────────────────────────────────────────────────
-  const authorTier = author ? getTierFromXp(author.xp ?? 0) : null;
+  const authorTier = author ? getTier(author.xp ?? 0) : null;
 
   return (
     <article className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
@@ -149,21 +149,21 @@ export default function IdeaDetailClient({
             </span>
           )}
 
-          {/* Contributor tag */}
-          {isContributor && !isOwner && (
+          {/* Partner tag */}
+          {isPartner && !isOwner && (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5
               rounded-full border uppercase tracking-wider
               text-violet-700 bg-violet-50 border-violet-200">
               <GitBranch size={12} />
-              Verified Contributor
+              Verified Partner
             </span>
           )}
 
           <span className="text-xs text-slate-400 font-medium ml-auto">
             {idea.createdAt
               ? new Date(idea.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric", month: "long", day: "numeric",
-                })
+                year: "numeric", month: "long", day: "numeric",
+              })
               : ""}
           </span>
         </div>
@@ -200,20 +200,20 @@ export default function IdeaDetailClient({
                 </Link>
                 {authorTier && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border
-                    uppercase tracking-wider ${authorTier.color} ${authorTier.bg}`}>
-                    {authorTier.label}
+                    uppercase tracking-wider ${authorTier.color} ${authorTier.bgColor}`}>
+                    {authorTier.displayName}
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-400 mt-0.5">Genesis Creator</p>
             </div>
 
-            {/* Contributors count */}
-            {(idea.contributorIds?.length ?? 0) > 0 && (
+            {/* Partners count */}
+            {(idea.partnerIds?.length ?? 0) > 0 && (
               <div className="ml-auto flex items-center gap-1.5 text-xs text-violet-600 font-semibold">
                 <GitBranch size={13} />
-                {idea.contributorIds!.length} Contributor
-                {idea.contributorIds!.length !== 1 ? "s" : ""}
+                {idea.partnerIds!.length} Partner
+                {idea.partnerIds!.length !== 1 ? "s" : ""}
               </div>
             )}
           </div>
@@ -239,11 +239,10 @@ export default function IdeaDetailClient({
           <div className="relative mt-4">
             {/* The blurred text — always in the DOM so layout is stable */}
             <div
-              className={`transition-all duration-700 ease-in-out ${
-                isRevealed
+              className={`transition-all duration-700 ease-in-out ${isRevealed
                   ? "blur-none"
                   : "blur-md pointer-events-none select-none"
-              } ${contentWrapperCls}`}
+                } ${contentWrapperCls}`}
               aria-hidden={!isRevealed}
             >
               <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">

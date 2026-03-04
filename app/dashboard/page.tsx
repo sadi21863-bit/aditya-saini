@@ -5,7 +5,7 @@ import IdeaCard from "@/components/IdeaCard";
 import Link from "next/link";
 import { LayoutDashboard, PlusCircle, Zap, Sparkles } from "lucide-react";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { getTierFromXp } from "@/lib/tier-engine";
+import { getTier } from "@/lib/tier-engine";
 
 type Tab = "all" | "drafts" | "launched";
 
@@ -24,28 +24,28 @@ export default async function DashboardPage({
     tab === "drafts"
       ? and(eq(ideas.userId, userId), eq(ideas.status, "draft"))
       : tab === "launched"
-      ? and(eq(ideas.userId, userId), eq(ideas.status, "public"))
-      : eq(ideas.userId, userId);
+        ? and(eq(ideas.userId, userId), eq(ideas.status, "public"))
+        : eq(ideas.userId, userId);
 
   const [tabIdeas, allIdeas, userRow] = await Promise.all([
     db.select().from(ideas).where(whereClause).orderBy(desc(ideas.updatedAt)),
     db.select().from(ideas).where(eq(ideas.userId, userId)),
     db.select({ xp: users.xp, tier: users.tier, score: users.score })
-       .from(users)
-       .where(eq(users.id, userId))
-       .limit(1),
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
   ]);
 
-  const user        = userRow[0] ?? null;
-  const tierConfig  = getTierFromXp(user?.xp ?? 0);
-  const totalLikes  = allIdeas.reduce((s, i) => s + (i.totalLikes ?? 0), 0);
-  const draftCount  = allIdeas.filter((i) => i.status === "draft").length;
+  const user = userRow[0] ?? null;
+  const tierConfig = getTier(user?.xp ?? 0);
+  const totalLikes = allIdeas.reduce((s, i) => s + (i.totalLikes ?? 0), 0);
+  const draftCount = allIdeas.filter((i) => i.status === "draft").length;
   const publicCount = allIdeas.filter((i) => i.status === "public").length;
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "all",      label: "All Ideas", count: allIdeas.length },
-    { key: "drafts",   label: "Drafts",    count: draftCount },
-    { key: "launched", label: "Launched",  count: publicCount },
+    { key: "all", label: "All Ideas", count: allIdeas.length },
+    { key: "drafts", label: "Drafts", count: draftCount },
+    { key: "launched", label: "Launched", count: publicCount },
   ];
 
   return (
@@ -94,9 +94,9 @@ export default async function DashboardPage({
         {/* ── STATS STRIP ────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Total Ideas",  value: allIdeas.length,  color: "text-slate-900"   },
-            { label: "Total Likes",  value: totalLikes,        color: "text-[#0d9488]"   },
-            { label: "Live in Feed", value: publicCount,       color: "text-teal-600"    },
+            { label: "Total Ideas", value: allIdeas.length, color: "text-slate-900" },
+            { label: "Total Likes", value: totalLikes, color: "text-[#0d9488]" },
+            { label: "Live in Feed", value: publicCount, color: "text-teal-600" },
           ].map((stat) => (
             <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
               <p
@@ -112,7 +112,7 @@ export default async function DashboardPage({
           ))}
 
           {/* XP + Tier card */}
-          <div className={`border rounded-2xl p-5 shadow-sm ${tierConfig.bg}`}>
+          <div className={`border rounded-2xl p-5 shadow-sm ${tierConfig.bgColor}`}>
             <div className="flex items-center gap-1.5">
               <Zap size={14} className={`${tierConfig.color} fill-current`} />
               <p
@@ -123,7 +123,7 @@ export default async function DashboardPage({
               </p>
             </div>
             <p className="text-xs font-medium uppercase tracking-wider mt-1 text-slate-500">
-              XP · <span className={`font-bold ${tierConfig.color}`}>{tierConfig.label}</span>
+              XP · <span className={`font-bold ${tierConfig.color}`}>{tierConfig.displayName}</span>
             </p>
           </div>
         </div>
@@ -136,18 +136,16 @@ export default async function DashboardPage({
               key={t.key}
               href={`/dashboard?tab=${t.key}`}
               className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
-                flex items-center gap-2 ${
-                tab === t.key
+                flex items-center gap-2 ${tab === t.key
                   ? "bg-[#0d9488] text-white shadow-md"
                   : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-              }`}
+                }`}
             >
               {t.label}
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                tab === t.key
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tab === t.key
                   ? "bg-white/20 text-white"
                   : "bg-slate-100 text-slate-500"
-              }`}>
+                }`}>
                 {t.count}
               </span>
             </Link>
@@ -165,8 +163,8 @@ export default async function DashboardPage({
               {tab === "drafts"
                 ? "No drafts yet."
                 : tab === "launched"
-                ? "Nothing launched yet. Publish a draft to see it here."
-                : "Your workspace is empty. Create your first idea!"}
+                  ? "Nothing launched yet. Publish a draft to see it here."
+                  : "Your workspace is empty. Create your first idea!"}
             </p>
             <Link
               href="/new"
