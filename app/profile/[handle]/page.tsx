@@ -166,11 +166,15 @@ export default async function ProfilePage({
   params,
   searchParams,
 }: {
-  params: { handle: string };
-  searchParams: { tab?: string };
+  params: Promise<{ handle: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
-  const { handle } = params;
-  const activeTab = searchParams.tab || "genesis";
+  // ── Await params (Next.js 16 requirement) ────────────────────────────────
+  const resolvedParams = await params;
+  const { handle } = resolvedParams;
+
+  const resolvedSearchParams = await searchParams;
+  const activeTab = resolvedSearchParams.tab || "genesis";
 
   // Fetch user by handle
   const [profileUser] = await db
@@ -304,8 +308,8 @@ export default async function ProfilePage({
             <a
               href={`/profile/${handle}?tab=genesis`}
               className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === "genesis"
-                  ? "text-[#0d9488] border-[#0d9488]"
-                  : "text-slate-500 border-transparent hover:text-slate-700"
+                ? "text-[#0d9488] border-[#0d9488]"
+                : "text-slate-500 border-transparent hover:text-slate-700"
                 }`}
             >
               My Genesis
@@ -313,8 +317,8 @@ export default async function ProfilePage({
             <a
               href={`/profile/${handle}?tab=partnered`}
               className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === "partnered"
-                  ? "text-[#0d9488] border-[#0d9488]"
-                  : "text-slate-500 border-transparent hover:text-slate-700"
+                ? "text-[#0d9488] border-[#0d9488]"
+                : "text-slate-500 border-transparent hover:text-slate-700"
                 }`}
             >
               Partnered Ideas

@@ -3,7 +3,7 @@ import { users, ideas } from "@/db/schema";
 import { desc, eq, sql, and, gte } from "drizzle-orm";
 import { Trophy, TrendingUp, Zap, Clock, Calendar, Infinity } from "lucide-react";
 import Link from "next/link";
-import { getTierFromXp } from "@/lib/tier-engine";
+import { getTier } from "@/lib/tier-engine";
 
 type Range = "alltime" | "daily" | "weekly";
 
@@ -96,8 +96,8 @@ export default async function LeaderboardPage({
               key={t.key}
               href={`/leaderboard?range=${t.key}`}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${range === t.key
-                ? "bg-[#0d9488] text-white shadow-md"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-[#0d9488] text-white shadow-md"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
             >
               {t.icon}
@@ -124,7 +124,7 @@ export default async function LeaderboardPage({
             <tbody>
               {topUsers.map((user, index) => {
                 // Derive tier from live XP — never trust cached string alone
-                const tierConfig = getTierFromXp(user.xp ?? 0);
+                const tierConfig = getTier(user.xp ?? 0);
 
                 return (
                   <tr
@@ -133,11 +133,16 @@ export default async function LeaderboardPage({
                   >
                     {/* Rank */}
                     <td className="p-5">
-                      <span className={`text-xl font-bold font-mono ${index === 0 ? "text-amber-500" :
-                        index === 1 ? "text-slate-400" :
-                          index === 2 ? "text-orange-400" :
-                            "text-slate-300"
-                        }`}>
+                      <span
+                        className={`text-xl font-bold font-mono ${index === 0
+                            ? "text-amber-500"
+                            : index === 1
+                              ? "text-slate-400"
+                              : index === 2
+                                ? "text-orange-400"
+                                : "text-slate-300"
+                          }`}
+                      >
                         {index + 1}
                       </span>
                     </td>
@@ -145,8 +150,10 @@ export default async function LeaderboardPage({
                     {/* Creator */}
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center
-                          font-bold text-sm border ${tierConfig.bg} ${tierConfig.color} border-current/20`}>
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center
+                          font-bold text-sm border ${tierConfig.bgColor} ${tierConfig.color} border-current/20`}
+                        >
                           {(user.name ?? user.id)[0].toUpperCase()}
                         </div>
                         <div>
@@ -154,11 +161,13 @@ export default async function LeaderboardPage({
                             href={`/profile/${user.handle ?? user.id}`}
                             className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors"
                           >
-                            {user.handle ? `@${user.handle}` : (user.name ?? user.id)}
+                            {user.handle ? `@${user.handle}` : user.name ?? user.id}
                           </Link>
                           {index === 0 && (
-                            <span className="block text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5
-                              rounded-full font-bold uppercase border border-amber-200 w-fit mt-0.5">
+                            <span
+                              className="block text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5
+                              rounded-full font-bold uppercase border border-amber-200 w-fit mt-0.5"
+                            >
                               Top Creator
                             </span>
                           )}
@@ -168,9 +177,11 @@ export default async function LeaderboardPage({
 
                     {/* Tier — derived from XP */}
                     <td className="p-5">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1
-                        rounded-full border ${tierConfig.color} ${tierConfig.bg}`}>
-                        {tierConfig.label}
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1
+                        rounded-full border ${tierConfig.color} ${tierConfig.bgColor}`}
+                      >
+                        {tierConfig.displayName}
                       </span>
                     </td>
 
