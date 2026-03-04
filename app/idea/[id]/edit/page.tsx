@@ -5,13 +5,25 @@ import { updateIdea, deleteIdea } from "@/app/actions/ideaActions";
 import { CATEGORIES } from "@/lib/categories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Shield, ShieldCheck, ShieldOff, Lock } from "lucide-react";
+
+// Protection level options for the blur_level selector
+const BLUR_OPTIONS = [
+  { value: 0, label: "Open",     description: "Fully visible to everyone",          Icon: ShieldOff  },
+  { value: 1, label: "Guarded",  description: "Text cannot be selected/highlighted", Icon: Shield     },
+  { value: 2, label: "Shielded", description: "Copy, right-click & select-all blocked", Icon: ShieldCheck },
+  { value: 3, label: "Vault",    description: "Content blurred until viewer Likes it",  Icon: Lock    },
+] as const;
 
 export default async function EditIdea({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  // Next.js 16: always use resolvedParams pattern
+  const resolvedParams = await params;
+  const id = resolvedParams.id;
+
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, id));
   if (!idea) notFound();
 
@@ -23,7 +35,8 @@ export default async function EditIdea({
       <div className="max-w-2xl mx-auto">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488] font-semibold text-sm mb-8 transition-colors group"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488]
+            font-semibold text-sm mb-8 transition-colors group"
         >
           <span className="group-hover:-translate-x-1 transition-transform">←</span>
           Back to Dashboard
@@ -37,7 +50,7 @@ export default async function EditIdea({
             Edit Idea
           </h1>
 
-          <form action={updateIdeaWithId} className="flex flex-col gap-5">
+          <form action={updateIdeaWithId} className="flex flex-col gap-6">
             {/* Title */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
@@ -46,12 +59,13 @@ export default async function EditIdea({
               <input
                 name="title"
                 defaultValue={idea.title}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
+                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200
+                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
                 required
               />
             </div>
 
-            {/* Category — mapped from lib/categories.ts */}
+            {/* Category */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
                 Category
@@ -59,12 +73,11 @@ export default async function EditIdea({
               <select
                 name="category"
                 defaultValue={idea.category ?? CATEGORIES[0]}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 focus:border-[#0d9488] outline-none"
+                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200
+                  focus:border-[#0d9488] outline-none"
               >
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
@@ -73,12 +86,14 @@ export default async function EditIdea({
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
                 Hook
+                <span className="normal-case text-slate-400 font-normal ml-1">(one-sentence summary)</span>
               </label>
               <input
                 name="hook"
                 defaultValue={idea.hook ?? ""}
                 placeholder="One-sentence essence..."
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 italic focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
+                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 italic
+                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
               />
             </div>
 
@@ -90,15 +105,54 @@ export default async function EditIdea({
               <textarea
                 name="content"
                 defaultValue={idea.content ?? ""}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 h-40 focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none resize-none"
+                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 h-48
+                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none resize-none"
                 required
               />
+            </div>
+
+            {/* IP Protection Level */}
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
+                IP Protection Level
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {BLUR_OPTIONS.map(({ value, label, description, Icon }) => (
+                  <label
+                    key={value}
+                    className="relative flex items-start gap-3 p-4 rounded-2xl border
+                      border-slate-200 bg-slate-50 cursor-pointer hover:border-[#0d9488]/40
+                      has-[:checked]:border-[#0d9488] has-[:checked]:bg-teal-50 transition-all"
+                  >
+                    <input
+                      type="radio"
+                      name="blurLevel"
+                      value={value}
+                      defaultChecked={(idea.blurLevel ?? 0) === value}
+                      className="mt-0.5 accent-[#0d9488]"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Icon size={13} className="text-slate-500 shrink-0" />
+                        <span className="text-sm font-bold text-slate-900">{label}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {idea.genesisHash && (
+                <p className="text-[11px] text-emerald-600 mt-2 italic">
+                  ✓ Genesis hash locked — protection level is independent of your timestamp proof.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="flex-1 bg-[#0d9488] text-white py-4 rounded-2xl font-bold hover:bg-teal-700 transition-all shadow-md active:scale-95"
+                className="flex-1 bg-[#0d9488] text-white py-4 rounded-2xl font-bold
+                  hover:bg-teal-700 transition-all shadow-md active:scale-95"
               >
                 Save Changes
               </button>
@@ -111,11 +165,12 @@ export default async function EditIdea({
             </div>
           </form>
 
-          {/* Delete */}
+          {/* Danger zone */}
           <form action={deleteIdeaWithId} className="mt-6 pt-6 border-t border-slate-100">
             <button
               type="submit"
-              className="w-full text-red-400 text-sm font-semibold hover:text-red-600 transition-colors py-2"
+              className="w-full text-red-400 text-sm font-semibold hover:text-red-600
+                transition-colors py-2"
             >
               Delete this Idea
             </button>

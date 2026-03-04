@@ -3,28 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Rss,
+  Lightbulb,
   LayoutDashboard,
   PlusCircle,
   Trophy,
   User,
   Zap,
+  Shield,
   Sparkles,
+  Rss,
 } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   const menuItems = [
-    { name: "The Feed",    href: "/feed",              icon: <Rss size={18} /> },
-    { name: "Dashboard",   href: "/dashboard",         icon: <LayoutDashboard size={18} /> },
-    { name: "Studio",      href: "/dashboard/studio",  icon: <Sparkles size={18} /> },
-    { name: "New Idea",    href: "/new",               icon: <PlusCircle size={18} /> },
-    { name: "Leaderboard", href: "/leaderboard",       icon: <Trophy size={18} /> },
+    { name: "The Feed", href: "/feed", icon: Rss },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "My Profile", href: "/profile/user_test_123", icon: User },
+    { name: "Justice Engine", href: "/admin/justice", icon: Shield },
+    { name: "New Idea", href: "/new", icon: PlusCircle },
+    { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   ];
 
-  // Exact-match for dashboard so /dashboard/studio gets its own highlight,
-  // not the Dashboard item too.
+  // Exact-match for dashboard so /dashboard/studio gets its own highlight
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname === href || pathname.startsWith(href + "/");
@@ -32,7 +34,7 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100 p-6 z-50 flex flex-col justify-between hidden lg:flex shadow-sm">
-      <div>
+      <div className="flex flex-col h-full">
         {/* BRANDING */}
         <Link href="/feed" className="flex items-center gap-3 mb-10 px-2 group">
           <div className="w-9 h-9 bg-gradient-to-tr from-[#0d9488] to-teal-400 rounded-xl flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
@@ -46,43 +48,40 @@ export default function Sidebar() {
           </span>
         </Link>
 
-        {/* NAV ITEMS */}
-        <nav className="space-y-1">
-          {menuItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm transition-all ${
-                isActive(item.href)
-                  ? "bg-[#0d9488] text-white shadow-md"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-teal-50"
-              }`}
-            >
-              {item.icon}
-              {item.name}
-            </Link>
-          ))}
-        </nav>
-      </div>
+        {/* Navigation Links */}
+        <nav className="flex-1 space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
 
-      {/* USER SECTION */}
-      <div className="border-t border-slate-100 pt-6">
-        <Link
-          href="/profile/me"
-          className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-500 hover:text-slate-900 hover:bg-teal-50 transition-all"
-        >
-          <User size={18} />
-          <span className="font-semibold text-sm">My Profile</span>
-        </Link>
-        <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-2xl border border-teal-100 mt-2">
-          <div className="w-9 h-9 rounded-full bg-[#0d9488] flex items-center justify-center text-white font-black text-xs">
-            U
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-slate-900">User</span>
-            <span className="text-[10px] font-medium text-teal-600 uppercase tracking-wider">
-              Member
-            </span>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${active
+                    ? "bg-teal-50 text-[#0d9488] font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-[#0d9488]"
+                  }`}
+              >
+                <Icon size={20} />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* USER SECTION */}
+        <div className="border-t border-slate-100 pt-6 mt-6">
+          <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-2xl border border-teal-100">
+            <div className="w-9 h-9 rounded-full bg-[#0d9488] flex items-center justify-center text-white font-black text-xs">
+              U
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-slate-900">Test User</span>
+              <span className="text-[10px] font-medium text-teal-600 uppercase tracking-wider">
+                Initiate
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,15 @@
 "use server";
 
-// This file re-exports from ideaActions for backwards compatibility.
-// New code should import from @/app/actions/ideaActions directly.
-export { addIdea, updateIdea, deleteIdea, launchIdea, addLike } from "@/app/actions/ideaActions";
+// Backwards-compatibility re-export shim.
+// New code should import directly from @/app/actions/ideaActions.
+export {
+  addIdea,
+  updateIdea,
+  deleteIdea,
+  launchIdea,
+  recallIdea,
+  addLike,
+  sparkIdea,
+  addContributor,
+  recordView,
+} from "@/app/actions/ideaActions";

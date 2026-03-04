@@ -1,32 +1,15 @@
-'use server'
+/**
+ * app/actions/sparkAction.ts
+ *
+ * SHIM — all logic now lives in app/actions/ideaActions.ts (sparkIdea).
+ * This file re-exports sparkVision pointing to sparkIdea so SparkButton.tsx
+ * continues to work without modification until the UI is rebuilt.
+ */
+"use server";
 
-import { db } from "@/db";
-import { ideas, likes } from "@/db/schema";
-import { eq, sql, and } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { sparkIdea } from "@/app/actions/ideaActions";
 
+/** @deprecated use sparkIdea() from ideaActions instead */
 export async function sparkVision(ideaId: string, viewerId: string) {
-    try {
-        // 1. Check for duplicate like (also enforced by DB unique index)
-        const existing = await db.select().from(likes)
-            .where(and(eq(likes.userId, viewerId), eq(likes.ideaId, ideaId)));
-
-        if (existing.length > 0) {
-            return { success: false, error: "Already liked" };
-        }
-
-        // 2. Record the like
-        await db.insert(likes).values({ userId: viewerId, ideaId });
-
-        // 3. Increment totalLikes on the idea
-        await db.update(ideas)
-            .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
-            .where(eq(ideas.id, ideaId));
-
-        revalidatePath("/feed");
-        return { success: true };
-    } catch (error) {
-        console.error("Like failed:", error);
-        return { success: false };
-    }
+  return sparkIdea(ideaId, viewerId);
 }
