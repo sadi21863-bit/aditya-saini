@@ -1,7 +1,7 @@
 // app/registry/page.tsx
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
-import { eq, desc, ilike, or, and } from "drizzle-orm";
+import { eq, desc, ilike, or, and, SQL } from "drizzle-orm";
 import { Search, Filter } from "lucide-react";
 import Link from "next/link";
 import { getTier } from "@/lib/tier-engine";
@@ -21,13 +21,13 @@ export default async function RegistryPage({
     }>;
 }) {
     const resolvedParams = await searchParams;
-    const query = resolvedParams.q || "";
+    const query = resolvedParams.q?.trim() || "";
     const category = resolvedParams.category || "";
     const sort = (resolvedParams.sort || "recent") as SortOption;
     const searchType = (resolvedParams.type || "all") as SearchType;
 
-    // Build search conditions
-    const conditions = [eq(ideas.status, "public")];
+    // Build conditions array
+    const conditions: (SQL | undefined)[] = [eq(ideas.status, "public")];
 
     // Category filter
     if (category && category !== "all") {
@@ -36,28 +36,32 @@ export default async function RegistryPage({
 
     // Text search based on type
     if (query) {
-        const searchConditions = [];
-
-        if (searchType === "all" || searchType === "ideas") {
-            searchConditions.push(
-                ilike(ideas.title, `%${query}%`),
-                ilike(ideas.hook, `%${query}%`)
+        if (searchType === "ideas") {
+            conditions.push(
+                or(
+                    ilike(ideas.title, `%${query}%`),
+                    ilike(ideas.hook, `%${query}%`)
+                )
             );
-        }
-
-        if (searchType === "all" || searchType === "creators") {
-            searchConditions.push(
-                ilike(users.name, `%${query}%`),
-                ilike(users.handle, `%${query}%`)
+        } else if (searchType === "creators") {
+            conditions.push(
+                or(
+                    ilike(users.name, `%${query}%`),
+                    ilike(users.handle, `%${query}%`)
+                )
             );
-        }
-
-        if (searchType === "category") {
-            searchConditions.push(ilike(ideas.category, `%${query}%`));
-        }
-
-        if (searchConditions.length > 0) {
-            conditions.push(or(...searchConditions));
+        } else if (searchType === "category") {
+            conditions.push(ilike(ideas.category, `%${query}%`));
+        } else {
+            // Search all
+            conditions.push(
+                or(
+                    ilike(ideas.title, `%${query}%`),
+                    ilike(ideas.hook, `%${query}%`),
+                    ilike(users.name, `%${query}%`),
+                    ilike(users.handle, `%${query}%`)
+                )
+            );
         }
     }
 
@@ -96,7 +100,9 @@ export default async function RegistryPage({
         .filter(Boolean) as string[];
 
     const totalResults = publicIdeas.length;
-    const uniqueCreators = new Set(publicIdeas.map(i => i.creator?.id).filter(Boolean)).size;
+    const uniqueCreators = new Set(
+        publicIdeas.map((i) => i.creator?.id).filter(Boolean)
+    ).size;
 
     return (
         <div className="min-h-screen bg-[#f8fafb] p-8">
@@ -200,12 +206,15 @@ export default async function RegistryPage({
                             <span className="font-bold">{totalResults}</span> ideas found
                             {searchType === "all" && uniqueCreators > 0 && (
                                 <>
-                                    {" "}from <span className="font-bold">{uniqueCreators}</span> creators
+                                    {" "}
+                                    from <span className="font-bold">{uniqueCreators}</span>{" "}
+                                    creators
                                 </>
                             )}
                             {query && (
                                 <>
-                                    {" "}matching "<span className="font-semibold">{query}</span>"
+                                    {" "}
+                                    matching "<span className="font-semibold">{query}</span>"
                                 </>
                             )}
                         </p>
@@ -280,7 +289,8 @@ export default async function RegistryPage({
                                         {/* Creator - Separate clickable area */}
                                         <div className="pt-4 border-t border-slate-100">
                                             <Link
-                                                href={`/profile/${item.creator?.handle || item.creator?.id}`}
+                                                href={`/profile/${item.creator?.handle || item.creator?.id
+                                                    }`}
                                                 className="flex items-center gap-3 hover:bg-slate-50 -mx-6 -mb-6 px-6 pb-6 rounded-b-3xl transition-colors"
                                             >
                                                 <div
