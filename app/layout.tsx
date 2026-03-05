@@ -2,6 +2,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import Sidebar from "@/components/Sidebar";
 import { Playfair_Display } from "next/font/google";
+import { getDevUserId } from "@/lib/auth";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -14,13 +15,13 @@ export const metadata = {
   description: "Connect, collaborate, and bring your ideas to life",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Hardcoded for dev - remove Clerk call
-  const userId = "user_test_123";
+  // Get authenticated user ID (or dev fallback)
+  const userId = await getDevUserId();
 
   return (
     <ClerkProvider>

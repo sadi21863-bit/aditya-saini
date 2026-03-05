@@ -5,39 +5,61 @@ import { eq, desc, ilike, or, and } from "drizzle-orm";
 import { Search, Filter } from "lucide-react";
 import Link from "next/link";
 import { getTier } from "@/lib/tier-engine";
+import RegistrySearchTabs from "@/components/RegistrySearchTabs";
 
 type SortOption = "recent" | "xp";
+type SearchType = "all" | "ideas" | "creators" | "category";
 
 export default async function RegistryPage({
     searchParams,
 }: {
-    searchParams: Promise<{ q?: string; category?: string; sort?: string }>;
+    searchParams: Promise<{
+        q?: string;
+        category?: string;
+        sort?: string;
+        type?: string;
+    }>;
 }) {
     const resolvedParams = await searchParams;
     const query = resolvedParams.q || "";
     const category = resolvedParams.category || "";
     const sort = (resolvedParams.sort || "recent") as SortOption;
+    const searchType = (resolvedParams.type || "all") as SearchType;
 
     // Build search conditions
-    const searchConditions = [];
+    const conditions = [eq(ideas.status, "public")];
 
-    if (query) {
-        searchConditions.push(
-            or(
-                ilike(ideas.title, `%${query}%`),
-                ilike(ideas.hook, `%${query}%`),
-                ilike(users.handle, `%${query}%`),
-                ilike(users.name, `%${query}%`)
-            )
-        );
-    }
-
+    // Category filter
     if (category && category !== "all") {
-        searchConditions.push(eq(ideas.category, category));
+        conditions.push(eq(ideas.category, category));
     }
 
-    // Always filter to public ideas only
-    searchConditions.push(eq(ideas.status, "public"));
+    // Text search based on type
+    if (query) {
+        const searchConditions = [];
+
+        if (searchType === "all" || searchType === "ideas") {
+            searchConditions.push(
+                ilike(ideas.title, `%${query}%`),
+                ilike(ideas.hook, `%${query}%`)
+            );
+        }
+
+        if (searchType === "all" || searchType === "creators") {
+            searchConditions.push(
+                ilike(users.name, `%${query}%`),
+                ilike(users.handle, `%${query}%`)
+            );
+        }
+
+        if (searchType === "category") {
+            searchConditions.push(ilike(ideas.category, `%${query}%`));
+        }
+
+        if (searchConditions.length > 0) {
+            conditions.push(or(...searchConditions));
+        }
+    }
 
     // Fetch ideas with creator info
     const publicIdeas = await db
@@ -45,33 +67,25 @@ export default async function RegistryPage({
             id: ideas.id,
             title: ideas.title,
             hook: ideas.hook,
-            content: ideas.content,
             category: ideas.category,
             totalLikes: ideas.totalLikes,
             views: ideas.views,
-            blurLevel: ideas.blurLevel,
             partnerIds: ideas.partnerIds,
             createdAt: ideas.createdAt,
             creator: {
                 id: users.id,
                 name: users.name,
                 handle: users.handle,
-                image: users.image,
-                tier: users.tier,
                 xp: users.xp,
             },
         })
         .from(ideas)
         .leftJoin(users, eq(ideas.userId, users.id))
-        .where(and(...searchConditions))
-        .orderBy(
-            sort === "xp"
-                ? desc(users.xp)
-                : desc(ideas.createdAt)
-        )
+        .where(and(...conditions))
+        .orderBy(sort === "xp" ? desc(users.xp) : desc(ideas.createdAt))
         .limit(50);
 
-    // Get unique categories for filter
+    // Get unique categories
     const categories = await db
         .selectDistinct({ category: ideas.category })
         .from(ideas)
@@ -80,6 +94,9 @@ export default async function RegistryPage({
     const uniqueCategories = categories
         .map((c) => c.category)
         .filter(Boolean) as string[];
+
+    const totalResults = publicIdeas.length;
+    const uniqueCreators = new Set(publicIdeas.map(i => i.creator?.id).filter(Boolean)).size;
 
     return (
         <div className="min-h-screen bg-[#f8fafb] p-8">
@@ -101,7 +118,7 @@ export default async function RegistryPage({
                         Global Registry
                     </h1>
                     <p className="text-slate-500">
-                        Explore all public Genesis Ideas from the IdeaConnect community
+                        Explore ideas, discover creators, and find inspiration
                     </p>
                 </header>
 
@@ -118,10 +135,13 @@ export default async function RegistryPage({
                                 type="text"
                                 name="q"
                                 defaultValue={query}
-                                placeholder="Search by title, description, or creator..."
+                                placeholder="Search ideas, creators, or categories..."
                                 className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0d9488] focus:border-transparent"
                             />
                         </div>
+
+                        {/* Search Type Tabs */}
+                        <RegistrySearchTabs />
 
                         {/* Filters Row */}
                         <div className="flex flex-wrap gap-3">
@@ -161,10 +181,10 @@ export default async function RegistryPage({
                             </button>
 
                             {/* Clear Filters */}
-                            {(query || category) && (
+                            {(query || category || searchType !== "all") && (
                                 <Link
                                     href="/registry"
-                                    className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium transition-colors"
+                                    className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium transition-colors inline-flex items-center"
                                 >
                                     Clear
                                 </Link>
@@ -173,12 +193,31 @@ export default async function RegistryPage({
                     </form>
                 </div>
 
+                {/* Search Results Summary */}
+                {query && (
+                    <div className="mb-6 p-4 bg-teal-50 border border-teal-200 rounded-2xl">
+                        <p className="text-sm text-teal-800">
+                            <span className="font-bold">{totalResults}</span> ideas found
+                            {searchType === "all" && uniqueCreators > 0 && (
+                                <>
+                                    {" "}from <span className="font-bold">{uniqueCreators}</span> creators
+                                </>
+                            )}
+                            {query && (
+                                <>
+                                    {" "}matching "<span className="font-semibold">{query}</span>"
+                                </>
+                            )}
+                        </p>
+                    </div>
+                )}
+
                 {/* Results */}
                 {publicIdeas.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-3xl border border-slate-100">
                         <Search size={48} className="mx-auto text-slate-300 mb-4" />
                         <h3 className="text-xl font-bold text-slate-900 mb-2">
-                            No ideas found
+                            No results found
                         </h3>
                         <p className="text-slate-500">
                             Try adjusting your search or filters
@@ -188,8 +227,11 @@ export default async function RegistryPage({
                     <>
                         <div className="mb-6 flex items-center justify-between">
                             <p className="text-sm text-slate-600 font-medium">
-                                Found <span className="font-bold text-[#0d9488]">{publicIdeas.length}</span>{" "}
-                                Genesis Ideas
+                                Showing{" "}
+                                <span className="font-bold text-[#0d9488]">
+                                    {publicIdeas.length}
+                                </span>{" "}
+                                results
                             </p>
                         </div>
 
@@ -199,48 +241,48 @@ export default async function RegistryPage({
                                 const partnerCount = item.partnerIds?.length || 0;
 
                                 return (
-                                    <Link
+                                    <div
                                         key={item.id}
-                                        href={`/idea/${item.id}`}
-                                        className="group"
+                                        className="bg-white rounded-3xl border border-slate-100 p-6 hover:border-[#0d9488] hover:shadow-lg transition-all"
                                     >
-                                        <div className="bg-white rounded-3xl border border-slate-100 p-6 h-full hover:border-[#0d9488] hover:shadow-lg transition-all">
-                                            {/* Category Badge */}
-                                            {item.category && (
-                                                <span className="inline-block px-3 py-1 bg-violet-50 text-violet-700 text-xs font-bold rounded-full mb-3 border border-violet-200">
-                                                    {item.category}
-                                                </span>
-                                            )}
+                                        {/* Category Badge */}
+                                        {item.category && (
+                                            <span className="inline-block px-3 py-1 bg-violet-50 text-violet-700 text-xs font-bold rounded-full mb-3 border border-violet-200">
+                                                {item.category}
+                                            </span>
+                                        )}
 
-                                            {/* Title */}
-                                            <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#0d9488] transition-colors line-clamp-2">
+                                        {/* Title - Clickable to idea */}
+                                        <Link href={`/idea/${item.id}`}>
+                                            <h3 className="text-xl font-bold text-slate-900 mb-2 hover:text-[#0d9488] transition-colors line-clamp-2 cursor-pointer">
                                                 {item.title}
                                             </h3>
+                                        </Link>
 
-                                            {/* Hook */}
-                                            {item.hook && (
-                                                <p className="text-slate-600 text-sm mb-4 line-clamp-2">
-                                                    {item.hook}
-                                                </p>
+                                        {/* Hook */}
+                                        {item.hook && (
+                                            <p className="text-slate-600 text-sm mb-4 line-clamp-2">
+                                                {item.hook}
+                                            </p>
+                                        )}
+
+                                        {/* Stats */}
+                                        <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                                            <span>❤️ {item.totalLikes}</span>
+                                            <span>👁️ {item.views}</span>
+                                            {partnerCount > 0 && (
+                                                <span className="text-[#0d9488] font-semibold">
+                                                    🤝 {partnerCount}
+                                                </span>
                                             )}
+                                        </div>
 
-                                            {/* Stats */}
-                                            <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
-                                                <span className="flex items-center gap-1">
-                                                    ❤️ {item.totalLikes}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    👁️ {item.views}
-                                                </span>
-                                                {partnerCount > 0 && (
-                                                    <span className="flex items-center gap-1 text-[#0d9488] font-semibold">
-                                                        🤝 {partnerCount} Partners
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Creator */}
-                                            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                                        {/* Creator - Separate clickable area */}
+                                        <div className="pt-4 border-t border-slate-100">
+                                            <Link
+                                                href={`/profile/${item.creator?.handle || item.creator?.id}`}
+                                                className="flex items-center gap-3 hover:bg-slate-50 -mx-6 -mb-6 px-6 pb-6 rounded-b-3xl transition-colors"
+                                            >
                                                 <div
                                                     className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${tier.bgColor} ${tier.color} border-2 ${tier.borderColor}`}
                                                 >
@@ -259,9 +301,9 @@ export default async function RegistryPage({
                                                 >
                                                     {item.creator?.xp || 0} XP
                                                 </div>
-                                            </div>
+                                            </Link>
                                         </div>
-                                    </Link>
+                                    </div>
                                 );
                             })}
                         </div>

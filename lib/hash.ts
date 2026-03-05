@@ -88,3 +88,15 @@ export async function generateCombinedSimHash(
     const combined = `${title}${content}`;
     return generateSimHash(combined);
 }
+
+/**
+ * Check if two simHashes are similar (potential duplicate)
+ * Currently uses exact match, but can be upgraded to fuzzy matching
+ * 
+ * @param hash1 - First hash to compare
+ * @param hash2 - Second hash to compare
+ * @returns Boolean indicating if hashes match
+ */
+export function areSimilar(hash1: string, hash2: string): boolean {
+    return hash1 === hash2;
+}

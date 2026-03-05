@@ -1,3 +1,6 @@
+// app/admin/justice/page.tsx
+import { requireAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -229,9 +232,53 @@ function JusticeTableSkeleton() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main Admin Page
+// Stats Cards Component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function JusticeAdminPage() {
+async function StatsCards() {
+    const allIdeas = await db
+        .select({
+            aiMetadata: ideas.aiMetadata,
+        })
+        .from(ideas)
+        .where(eq(ideas.status, "public"));
+
+    const totalPublic = allIdeas.length;
+    const scanned = allIdeas.filter((i) => (i.aiMetadata as any)?.scanned).length;
+    const verified = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "verified").length;
+    const flagged = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "flagged").length;
+
+    const stats = [
+        { label: "Total Public", value: totalPublic, color: "bg-blue-50 text-blue-700" },
+        { label: "Scanned", value: scanned, color: "bg-teal-50 text-teal-700" },
+        { label: "Verified", value: verified, color: "bg-emerald-50 text-emerald-700" },
+        { label: "Flagged", value: flagged, color: "bg-amber-50 text-amber-700" },
+    ];
+
+    return (
+        <>
+            {stats.map((stat, i) => (
+                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-6">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        {stat.label}
+                    </p>
+                    <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
+                </div>
+            ))}
+        </>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Admin Page - WITH PROTECTION
+// ─────────────────────────────────────────────────────────────────────────────
+export default async function JusticeAdminPage() {
+    // 🔒 ADMIN PROTECTION - THIS IS THE FIX!
+    try {
+        await requireAdmin();
+    } catch (error) {
+        redirect("/dashboard");
+    }
+
     return (
         <div className="min-h-screen bg-[#f8fafb] p-4 md:p-8">
             <div className="max-w-[1400px] mx-auto">
@@ -274,42 +321,5 @@ export default function JusticeAdminPage() {
                 </Suspense>
             </div>
         </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stats Cards Component
-// ─────────────────────────────────────────────────────────────────────────────
-async function StatsCards() {
-    const allIdeas = await db
-        .select({
-            aiMetadata: ideas.aiMetadata,
-        })
-        .from(ideas)
-        .where(eq(ideas.status, "public"));
-
-    const totalPublic = allIdeas.length;
-    const scanned = allIdeas.filter((i) => (i.aiMetadata as any)?.scanned).length;
-    const verified = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "verified").length;
-    const flagged = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "flagged").length;
-
-    const stats = [
-        { label: "Total Public", value: totalPublic, color: "bg-blue-50 text-blue-700" },
-        { label: "Scanned", value: scanned, color: "bg-teal-50 text-teal-700" },
-        { label: "Verified", value: verified, color: "bg-emerald-50 text-emerald-700" },
-        { label: "Flagged", value: flagged, color: "bg-amber-50 text-amber-700" },
-    ];
-
-    return (
-        <>
-            {stats.map((stat, i) => (
-                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-6">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        {stat.label}
-                    </p>
-                    <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
-                </div>
-            ))}
-        </>
     );
 }

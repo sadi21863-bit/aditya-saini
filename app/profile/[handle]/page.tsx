@@ -4,9 +4,10 @@ import { users, ideas } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Users, Award, UserPlus, UserCheck } from "lucide-react";
+import { ArrowLeft, Sparkles, Users, Award } from "lucide-react";
 import { getTier } from "@/lib/tier-engine";
 import { getFollowStats, isFollowing } from "@/app/actions/socialActions";
+import { getDevUserId } from "@/lib/auth";
 import FollowButton from "@/components/FollowButton";
 
 export default async function ProfilePage({
@@ -17,8 +18,8 @@ export default async function ProfilePage({
   const resolvedParams = await params;
   const handle = resolvedParams.handle;
 
-  // Hardcoded for dev testing
-  const currentUserId = "user_test_123";
+  // Get authenticated user ID
+  const currentUserId = await getDevUserId();
 
   // Find user by handle or ID
   const [profileUser] = await db
@@ -283,7 +284,7 @@ export default async function ProfilePage({
           </div>
         </div>
 
-        {/* Partnered Ideas Section (Below for now) */}
+        {/* Partnered Ideas Section */}
         {partneredIdeas.length > 0 && (
           <div className="mt-8 bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
