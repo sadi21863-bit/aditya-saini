@@ -13,26 +13,23 @@ import { sql } from "drizzle-orm";
 // 1. USERS
 // ─────────────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
-  id: text("id").primaryKey(),             // Clerk Auth ID
+  id: text("id").primaryKey(),
   name: text("name"),
-  handle: text("handle").unique(),             // Unique @username
+  handle: text("handle").unique(),
   email: text("email").notNull(),
   image: text("image"),
-  bio: text("bio"),                          // Profile bio/tagline
-  avatarUrl: text("avatar_url"),                   // Custom avatar URL
+  bio: text("bio"),
+  avatarUrl: text("avatar_url"),
 
   // Tier is derived from XP at runtime (lib/tier-engine.ts).
-  // Stored here as a cache so UI queries are cheap.
   // Values: "initiate" | "architect" | "master" | "genesis_legend"
   tier: text("tier").default("initiate").notNull(),
 
-  // Lifetime accumulated XP. Used for tier calculation.
+  // Lifetime accumulated XP.
   // +10 on launch, +5 per like received, -10 on recall, +25 when added as partner.
   xp: integer("xp").default(0).notNull(),
 
-  // Score is the user's total XP received from likes specifically.
-  // Used for leaderboard ordering: ORDER BY score DESC.
-  // Incremented +5 whenever someone likes one of their ideas.
+  // Score = total XP from likes only. Used for leaderboard ORDER BY score DESC.
   score: integer("score").default(0).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
@@ -43,48 +40,39 @@ export const users = pgTable("users", {
 // ─────────────────────────────────────────────────────────────────────────────
 export const ideas = pgTable("ideas", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id"),                        // Genesis Creator's Clerk ID
+  userId: text("user_id"),
 
   title: text("title").notNull(),
-  hook: text("hook"),                          // One-sentence summary
-  content: text("content"),                       // Full body text
+  hook: text("hook"),
+  content: text("content"),
   category: text("category"),
   status: text("status").default("draft").notNull(), // "draft" | "public"
 
-  // ── Engagement ──────────────────────────────────────────────────────────
   totalLikes: integer("total_likes").default(0).notNull(),
   views: integer("views").default(0).notNull(),
 
-  // ── IP Protection ───────────────────────────────────────────────────────
-  // 0 = open, 1 = CSS select-none, 2 = JS right-click/copy block, 3 = full blur shield
+  // 0 = open, 1 = CSS select-none, 2 = JS block, 3 = full blur shield
   blurLevel: integer("blur_level").default(0).notNull(),
 
-  // ── Genesis Security ────────────────────────────────────────────────────
-  // Populated ONLY when idea first transitions draft → public.
-  // Hash seed: SHA-256(title + content + userId + timestamp)
-  // Null means the idea has never been launched.
+  // Populated ONLY on first draft → public transition.
   genesisHash: text("genesis_hash"),
 
-  // ── Phase 4: Similarity Hash ────────────────────────────────────────────
   // Fuzzy content fingerprint for plagiarism detection.
-  // Generated from normalized(title + content).
-  // If a match is found, launch is BLOCKED.
   simHash: text("sim_hash"),
 
-  // ── Phase 5: Access & Partner System ────────────────────────────────────
-  // TIER 1: Viewers - Unlocks hidden/blurred content (+5 XP)
+  // TIER 1: Viewers — unlocks blurred content (+5 XP)
   viewerIds: text("viewer_ids")
     .array()
     .notNull()
     .default(sql`ARRAY[]::text[]`),
 
-  // TIER 2: Partners - Unlocks content + Top-Shelf commenting authority (+25 XP)
+  // TIER 2: Partners — unlocks content + Top-Shelf commenting (+25 XP)
   partnerIds: text("partner_ids")
     .array()
     .notNull()
     .default(sql`ARRAY[]::text[]`),
 
-  // ── Phase 3: AI Metadata (Justice Engine) ───────────────────────────────
+  // AI Metadata (Justice Engine)
   aiMetadata: jsonb("ai_metadata"),
 
   createdAt: timestamp("created_at").defaultNow(),
@@ -108,7 +96,7 @@ export const likes = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. FOLLOWS (Phase 7: Social Graph)
+// 4. FOLLOWS
 // ─────────────────────────────────────────────────────────────────────────────
 export const follows = pgTable(
   "follows",
@@ -124,15 +112,36 @@ export const follows = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 5. COMMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+export const comments = pgTable("comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+
+  content: text("content").notNull(),
+
+  // "public" = regular comment, "partner" = Top-Shelf (partners only)
+  tier: text("tier").default("public").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INFERRED TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Idea = typeof ideas.$inferSelect;
 export type Like = typeof likes.$inferSelect;
+export type Follow = typeof follows.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
+export type NewComment = typeof comments.$inferInsert;
 
 export type AccessLevel = "viewer" | "partner";
-export type Follow = typeof follows.$inferSelect;
 export type NewFollow = typeof follows.$inferInsert;

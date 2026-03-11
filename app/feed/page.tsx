@@ -1,11 +1,17 @@
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import IdeaCard from "@/components/IdeaCard";
+import FeedIdeaCard from "@/components/FeedIdeaCard";
 import { Suspense } from "react";
 import { Lightbulb } from "lucide-react";
+import { getDevUserId } from "@/lib/auth";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Feed Content
+// ─────────────────────────────────────────────────────────────────────────────
 async function FeedContent() {
+  const viewerId = await getDevUserId();
+
   const publicIdeas = await db
     .select({
       id: ideas.id,
@@ -46,16 +52,16 @@ async function FeedContent() {
         </div>
         <h2 className="text-xl font-bold text-slate-700 mb-2">No Ideas Yet</h2>
         <p className="text-slate-500 text-sm max-w-md">
-          Be the first to share an idea with the community!
+          Be the first to launch an idea to the Genesis Registry!
         </p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {publicIdeas.map((item) => (
-        <IdeaCard
+        <FeedIdeaCard
           key={item.id}
           idea={{
             id: item.id,
@@ -77,30 +83,28 @@ async function FeedContent() {
             updatedAt: item.updatedAt,
           }}
           author={item.author}
-          viewerId="user_test_123"
+          viewerId={viewerId}
         />
       ))}
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Skeleton
+// ─────────────────────────────────────────────────────────────────────────────
 function FeedSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
-          className="bg-white border border-slate-100 rounded-3xl p-6 animate-pulse"
+          className="bg-white border border-slate-100 rounded-2xl p-5 animate-pulse h-28"
         >
-          <div className="space-y-4">
-            <div className="h-4 bg-slate-100 rounded w-1/3" />
-            <div className="h-6 bg-slate-100 rounded w-2/3" />
-            <div className="h-4 bg-slate-100 rounded w-full" />
-            <div className="h-4 bg-slate-100 rounded w-full" />
-            <div className="flex gap-2">
-              <div className="h-6 bg-slate-100 rounded w-16" />
-              <div className="h-6 bg-slate-100 rounded w-16" />
-            </div>
+          <div className="space-y-3">
+            <div className="h-3 bg-slate-100 rounded w-1/4" />
+            <div className="h-5 bg-slate-100 rounded w-3/4" />
+            <div className="h-3 bg-slate-100 rounded w-1/2" />
           </div>
         </div>
       ))}
@@ -108,18 +112,20 @@ function FeedSkeleton() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────────────────────
 export default function FeedPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-10">
+        <div className="mb-8">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-[#0d9488]/10 rounded-xl">
               <Lightbulb className="text-[#0d9488]" size={22} />
             </div>
             <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
-              Community Feed
+              Genesis Registry
             </p>
           </div>
           <h1
@@ -128,12 +134,11 @@ export default function FeedPage() {
           >
             Live Ideas
           </h1>
-          <p className="text-slate-500 mt-2">
-            Explore ideas shared by the community
+          <p className="text-slate-500 mt-2 text-sm">
+            Hover a card to preview · click More to read in full
           </p>
         </div>
 
-        {/* Feed Grid */}
         <Suspense fallback={<FeedSkeleton />}>
           <FeedContent />
         </Suspense>
