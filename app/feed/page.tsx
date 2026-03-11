@@ -5,14 +5,9 @@ import IdeaCard from "@/components/IdeaCard";
 import { Suspense } from "react";
 import { Lightbulb } from "lucide-react";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Feed Content Component
-// ─────────────────────────────────────────────────────────────────────────────
 async function FeedContent() {
-  // Fetch all public ideas with author info
   const publicIdeas = await db
     .select({
-      // Idea fields
       id: ideas.id,
       userId: ideas.userId,
       title: ideas.title,
@@ -30,7 +25,6 @@ async function FeedContent() {
       aiMetadata: ideas.aiMetadata,
       createdAt: ideas.createdAt,
       updatedAt: ideas.updatedAt,
-      // Author fields
       author: {
         id: users.id,
         name: users.name,
@@ -52,7 +46,7 @@ async function FeedContent() {
         </div>
         <h2 className="text-xl font-bold text-slate-700 mb-2">No Ideas Yet</h2>
         <p className="text-slate-500 text-sm max-w-md">
-          Be the first to launch an idea to the Genesis Registry!
+          Be the first to share an idea with the community!
         </p>
       </div>
     );
@@ -90,9 +84,6 @@ async function FeedContent() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Loading Skeleton
-// ─────────────────────────────────────────────────────────────────────────────
 function FeedSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -117,9 +108,6 @@ function FeedSkeleton() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Feed Page
-// ─────────────────────────────────────────────────────────────────────────────
 export default function FeedPage() {
   return (
     <div className="min-h-screen bg-[#f8fafb] p-4 md:p-8">
@@ -131,7 +119,7 @@ export default function FeedPage() {
               <Lightbulb className="text-[#0d9488]" size={22} />
             </div>
             <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
-              Genesis Registry
+              Community Feed
             </p>
           </div>
           <h1
@@ -141,7 +129,7 @@ export default function FeedPage() {
             Live Ideas
           </h1>
           <p className="text-slate-500 mt-2">
-            Explore verified ideas from the community
+            Explore ideas shared by the community
           </p>
         </div>
 
