@@ -14,42 +14,24 @@ import {
 
 interface SidebarProps {
   currentUserId: string;
+  userHandle?: string | null; // ← add this
 }
 
-export default function Sidebar({ currentUserId }: SidebarProps) {
+export default function Sidebar({ currentUserId, userHandle }: SidebarProps) {
   const pathname = usePathname();
 
+  // Use handle if available, fall back to userId so it never crashes
+  const profileHref = userHandle
+    ? `/profile/${userHandle}`
+    : `/profile/${currentUserId}`;
+
   const links = [
-    {
-      href: "/dashboard",
-      label: "Dashboard",
-      icon: <LayoutDashboard size={20} />,
-    },
-    {
-      href: "/feed",
-      label: "Feed",
-      icon: <Newspaper size={20} />,
-    },
-    {
-      href: "/new",
-      label: "New Idea",
-      icon: <PlusCircle size={20} />,
-    },
-    {
-      href: "/registry",
-      label: "Global Registry",
-      icon: <Search size={20} />,
-    },
-    {
-      href: "/leaderboard",
-      label: "Leaderboard",
-      icon: <Trophy size={20} />,
-    },
-    {
-      href: `/profile/${currentUserId}`,
-      label: "My Profile",
-      icon: <User size={20} />,
-    },
+    { href: "/dashboard",   label: "Dashboard",       icon: <LayoutDashboard size={20} /> },
+    { href: "/feed",        label: "Feed",             icon: <Newspaper size={20} /> },
+    { href: "/new",         label: "New Idea",         icon: <PlusCircle size={20} /> },
+    { href: "/registry",    label: "Global Registry",  icon: <Search size={20} /> },
+    { href: "/leaderboard", label: "Leaderboard",      icon: <Trophy size={20} /> },
+    { href: profileHref,    label: "My Profile",       icon: <User size={20} /> },
   ];
 
   return (
@@ -75,10 +57,11 @@ export default function Sidebar({ currentUserId }: SidebarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${isActive
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${
+                isActive
                   ? "bg-[#0d9488] text-white shadow-md"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
+              }`}
             >
               {link.icon}
               {link.label}
@@ -89,12 +72,8 @@ export default function Sidebar({ currentUserId }: SidebarProps) {
 
       {/* Footer Info */}
       <div className="pt-6 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center">
-          © 2026 IdeaConnect
-        </p>
-        <p className="text-xs text-slate-400 text-center mt-1">
-          Version 9.0
-        </p>
+        <p className="text-xs text-slate-400 text-center">© 2026 IdeaConnect</p>
+        <p className="text-xs text-slate-400 text-center mt-1">Version 9.0</p>
       </div>
     </aside>
   );

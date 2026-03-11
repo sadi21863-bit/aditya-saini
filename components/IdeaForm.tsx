@@ -4,6 +4,7 @@ import { addIdea } from "@/app/actions/ideaActions";
 import { useRef, useState } from "react";
 import { Lightbulb, Save, Shield, ShieldCheck, ShieldOff, Lock } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
+import IdeaTextEditor from "@/components/IdeaTextEditor";
 
 const BLUR_OPTIONS = [
   { value: 0, label: "Open",     Icon: ShieldOff,   description: "Fully public" },
@@ -13,10 +14,10 @@ const BLUR_OPTIONS = [
 ] as const;
 
 export default function IdeaForm({ existingCategories = [] }: { existingCategories?: string[] }) {
-  const formRef    = useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
+  const [content, setContent] = useState("");
 
-  // Merge passed-in categories with the canonical list, deduped
   const allCategories = Array.from(new Set([...CATEGORIES, ...existingCategories]));
 
   return (
@@ -26,6 +27,7 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
         setIsPending(true);
         await addIdea(formData);
         formRef.current?.reset();
+        setContent("");
         setIsPending(false);
       }}
       className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8"
@@ -91,18 +93,17 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
           />
         </div>
 
-        {/* Content */}
+        {/* Full Content — Smart Editor */}
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
             Full Content *
           </label>
-          <textarea
+          <IdeaTextEditor
             name="content"
+            value={content}
+            onChange={setContent}
             placeholder="Explain your idea in detail — how it works, why it matters, what it needs..."
-            className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
-              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20
-              outline-none transition-all resize-none"
-            rows={5}
+            rows={7}
             required
           />
         </div>
@@ -152,10 +153,7 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
               : "bg-[#0d9488] text-white hover:bg-teal-700 active:scale-[0.98] shadow-md"
           }`}
         >
-          {isPending
-            ? "Saving to Dashboard..."
-            : <><Save size={16} /> Save to Dashboard</>
-          }
+          {isPending ? "Saving to Dashboard..." : <><Save size={16} /> Save to Dashboard</>}
         </button>
       </div>
     </form>
