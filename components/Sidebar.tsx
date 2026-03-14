@@ -1,79 +1,71 @@
-// components/Sidebar.tsx
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Newspaper,
-  PlusCircle,
-  Trophy,
-  User,
-  Search,
-} from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 
-interface SidebarProps {
+const NAV = [
+  { href: "/feed", label: "🌐 Feed" },
+  { href: "/registry", label: "🔍 Registry" },
+  { href: "/leaderboard", label: "🏆 Leaderboard" },
+  { href: "/dashboard", label: "⚡ My Workspace" },
+  { href: "/new", label: "✦ New Idea" },
+];
+
+export default function Sidebar({
+  currentUserId,
+  currentHandle,
+}: {
   currentUserId: string;
-  userHandle?: string | null; // ← add this
-}
-
-export default function Sidebar({ currentUserId, userHandle }: SidebarProps) {
+  currentHandle: string;
+}) {
   const pathname = usePathname();
 
-  // Use handle if available, fall back to userId so it never crashes
-  const profileHref = userHandle
-    ? `/profile/${userHandle}`
-    : `/profile/${currentUserId}`;
-
-  const links = [
-    { href: "/dashboard",   label: "Dashboard",       icon: <LayoutDashboard size={20} /> },
-    { href: "/feed",        label: "Feed",             icon: <Newspaper size={20} /> },
-    { href: "/new",         label: "New Idea",         icon: <PlusCircle size={20} /> },
-    { href: "/registry",    label: "Global Registry",  icon: <Search size={20} /> },
-    { href: "/leaderboard", label: "Leaderboard",      icon: <Trophy size={20} /> },
-    { href: profileHref,    label: "My Profile",       icon: <User size={20} /> },
-  ];
-
   return (
-    <aside className="fixed left-0 top-0 w-64 bg-white border-r border-slate-100 h-screen p-6 flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col px-4 py-6 z-50">
       {/* Logo */}
-      <div className="mb-8">
-        <Link href="/dashboard">
-          <h2
-            className="text-2xl font-bold text-[#0d9488] hover:text-[#0f766e] transition-colors cursor-pointer"
-            style={{ fontFamily: "var(--font-playfair)" }}
-          >
-            IdeaConnect
-          </h2>
-        </Link>
-        <p className="text-xs text-slate-500 mt-1">Where Ideas Unite</p>
-      </div>
+      <Link href="/feed" className="mb-8 block">
+        <h2 className="text-xl font-bold text-teal-400 tracking-tight">
+          IdeaConnect
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">Genesis Registry</p>
+      </Link>
 
-      {/* Navigation Links */}
-      <nav className="space-y-2 flex-1">
-        {links.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${
-                isActive
-                  ? "bg-[#0d9488] text-white shadow-md"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+      {/* Nav */}
+      <nav className="flex flex-col gap-1 flex-1">
+        {NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${pathname === item.href
+                ? "bg-teal-700 text-white"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
-            >
-              {link.icon}
-              {link.label}
-            </Link>
-          );
-        })}
+          >
+            {item.label}
+          </Link>
+        ))}
+
+        {currentHandle && (
+          <Link
+            href={`/profile/${currentHandle}`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${pathname === `/profile/${currentHandle}`
+                ? "bg-teal-700 text-white"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+          >
+            👤 My Profile
+          </Link>
+        )}
       </nav>
 
-      {/* Footer Info */}
-      <div className="pt-6 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center">© 2026 IdeaConnect</p>
-        <p className="text-xs text-slate-400 text-center mt-1">Version 9.0</p>
+      {/* User */}
+      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-800">
+        <UserButton afterSignOutUrl="/" />
+        {currentHandle && (
+          <span className="text-slate-400 text-sm truncate">
+            @{currentHandle}
+          </span>
+        )}
       </div>
     </aside>
   );

@@ -4,7 +4,7 @@ import { ideas, users } from "@/db/schema";
 import { eq, desc, ilike, or, and, SQL } from "drizzle-orm";
 import { Search, Filter } from "lucide-react";
 import Link from "next/link";
-import { getTier } from "@/lib/tier-engine";
+import { getTierFromXp } from "@/lib/tier-engine";
 import RegistrySearchTabs from "@/components/RegistrySearchTabs";
 
 type SortOption = "recent" | "xp";
@@ -26,38 +26,27 @@ export default async function RegistryPage({
     const sort = (resolvedParams.sort || "recent") as SortOption;
     const searchType = (resolvedParams.type || "all") as SearchType;
 
-    // Build conditions array
     const conditions: (SQL | undefined)[] = [eq(ideas.status, "public")];
 
-    // Category filter
     if (category && category !== "all") {
         conditions.push(eq(ideas.category, category));
     }
 
-    // Text search based on type
     if (query) {
         if (searchType === "ideas") {
             conditions.push(
-                or(
-                    ilike(ideas.title, `%${query}%`),
-                    ilike(ideas.hook, `%${query}%`)
-                )
+                or(ilike(ideas.title, `%${query}%`), ilike(ideas.content, `%${query}%`))
             );
         } else if (searchType === "creators") {
             conditions.push(
-                or(
-                    ilike(users.name, `%${query}%`),
-                    ilike(users.handle, `%${query}%`)
-                )
+                or(ilike(users.name, `%${query}%`), ilike(users.handle, `%${query}%`))
             );
         } else if (searchType === "category") {
             conditions.push(ilike(ideas.category, `%${query}%`));
         } else {
-            // Search all
             conditions.push(
                 or(
                     ilike(ideas.title, `%${query}%`),
-                    ilike(ideas.hook, `%${query}%`),
                     ilike(users.name, `%${query}%`),
                     ilike(users.handle, `%${query}%`)
                 )
@@ -65,16 +54,14 @@ export default async function RegistryPage({
         }
     }
 
-    // Fetch ideas with creator info
     const publicIdeas = await db
         .select({
             id: ideas.id,
             title: ideas.title,
-            hook: ideas.hook,
+            context: ideas.context,
             category: ideas.category,
             totalLikes: ideas.totalLikes,
             views: ideas.views,
-            partnerIds: ideas.partnerIds,
             createdAt: ideas.createdAt,
             creator: {
                 id: users.id,
@@ -89,7 +76,6 @@ export default async function RegistryPage({
         .orderBy(sort === "xp" ? desc(users.xp) : desc(ideas.createdAt))
         .limit(50);
 
-    // Get unique categories
     const categories = await db
         .selectDistinct({ category: ideas.category })
         .from(ideas)
@@ -105,33 +91,29 @@ export default async function RegistryPage({
     ).size;
 
     return (
-        <div className="min-h-screen bg-[#f8fafb] p-8">
+        <div className="min-h-screen bg-slate-950 p-8">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <header className="mb-10">
                     <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-[#0d9488]/10 rounded-xl">
-                            <Search className="text-[#0d9488]" size={22} />
+                        <div className="p-2 bg-teal-500/10 rounded-xl">
+                            <Search className="text-teal-400" size={22} />
                         </div>
-                        <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
+                        <p className="text-sm font-semibold text-teal-400 uppercase tracking-widest">
                             Discovery
                         </p>
                     </div>
-                    <h1
-                        className="text-4xl font-bold text-slate-900 tracking-tight mb-2"
-                        style={{ fontFamily: "var(--font-playfair)" }}
-                    >
+                    <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
                         Global Registry
                     </h1>
-                    <p className="text-slate-500">
+                    <p className="text-slate-400">
                         Explore ideas, discover creators, and find inspiration
                     </p>
                 </header>
 
                 {/* Search & Filters */}
-                <div className="bg-white rounded-3xl border border-slate-100 p-6 mb-8 shadow-sm">
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 mb-8">
                     <form method="GET" className="space-y-4">
-                        {/* Search Bar */}
                         <div className="relative">
                             <Search
                                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -142,22 +124,19 @@ export default async function RegistryPage({
                                 name="q"
                                 defaultValue={query}
                                 placeholder="Search ideas, creators, or categories..."
-                                className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0d9488] focus:border-transparent"
+                                className="w-full pl-12 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                             />
                         </div>
 
-                        {/* Search Type Tabs */}
                         <RegistrySearchTabs />
 
-                        {/* Filters Row */}
                         <div className="flex flex-wrap gap-3">
-                            {/* Category Filter */}
                             <div className="flex items-center gap-2">
                                 <Filter size={16} className="text-slate-400" />
                                 <select
                                     name="category"
                                     defaultValue={category}
-                                    className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0d9488]"
+                                    className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                                 >
                                     <option value="">All Categories</option>
                                     {uniqueCategories.map((cat) => (
@@ -168,29 +147,26 @@ export default async function RegistryPage({
                                 </select>
                             </div>
 
-                            {/* Sort */}
                             <select
                                 name="sort"
                                 defaultValue={sort}
-                                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0d9488]"
+                                className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                             >
                                 <option value="recent">📅 Most Recent</option>
                                 <option value="xp">🏆 Highest XP</option>
                             </select>
 
-                            {/* Search Button */}
                             <button
                                 type="submit"
-                                className="px-6 py-2 bg-[#0d9488] text-white rounded-lg font-semibold hover:bg-[#0f766e] transition-colors"
+                                className="px-6 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-500 transition"
                             >
                                 Search
                             </button>
 
-                            {/* Clear Filters */}
                             {(query || category || searchType !== "all") && (
                                 <Link
                                     href="/registry"
-                                    className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium transition-colors inline-flex items-center"
+                                    className="px-4 py-2 text-slate-400 hover:text-white font-medium transition inline-flex items-center"
                                 >
                                     Clear
                                 </Link>
@@ -199,33 +175,28 @@ export default async function RegistryPage({
                     </form>
                 </div>
 
-                {/* Search Results Summary */}
+                {/* Results Summary */}
                 {query && (
-                    <div className="mb-6 p-4 bg-teal-50 border border-teal-200 rounded-2xl">
-                        <p className="text-sm text-teal-800">
+                    <div className="mb-6 p-4 bg-teal-900/30 border border-teal-800 rounded-xl">
+                        <p className="text-sm text-teal-300">
                             <span className="font-bold">{totalResults}</span> ideas found
-                            {searchType === "all" && uniqueCreators > 0 && (
+                            {uniqueCreators > 0 && (
                                 <>
-                                    {" "}
-                                    from <span className="font-bold">{uniqueCreators}</span>{" "}
-                                    creators
+                                    {" "}from{" "}
+                                    <span className="font-bold">{uniqueCreators}</span> creators
                                 </>
                             )}
-                            {query && (
-                                <>
-                                    {" "}
-                                    matching "<span className="font-semibold">{query}</span>"
-                                </>
-                            )}
+                            {" "}matching "
+                            <span className="font-semibold">{query}</span>"
                         </p>
                     </div>
                 )}
 
-                {/* Results */}
+                {/* Results Grid */}
                 {publicIdeas.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-3xl border border-slate-100">
-                        <Search size={48} className="mx-auto text-slate-300 mb-4" />
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">
+                    <div className="text-center py-16 bg-slate-900 rounded-2xl border border-slate-800">
+                        <Search size={48} className="mx-auto text-slate-600 mb-4" />
+                        <h3 className="text-xl font-bold text-white mb-2">
                             No results found
                         </h3>
                         <p className="text-slate-500">
@@ -234,10 +205,10 @@ export default async function RegistryPage({
                     </div>
                 ) : (
                     <>
-                        <div className="mb-6 flex items-center justify-between">
-                            <p className="text-sm text-slate-600 font-medium">
+                        <div className="mb-6">
+                            <p className="text-sm text-slate-400">
                                 Showing{" "}
-                                <span className="font-bold text-[#0d9488]">
+                                <span className="font-bold text-teal-400">
                                     {publicIdeas.length}
                                 </span>{" "}
                                 results
@@ -246,32 +217,31 @@ export default async function RegistryPage({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {publicIdeas.map((item) => {
-                                const tier = getTier(item.creator?.xp ?? 0);
-                                const partnerCount = item.partnerIds?.length || 0;
+                                const tier = getTierFromXp(item.creator?.xp ?? 0);
 
                                 return (
                                     <div
                                         key={item.id}
-                                        className="bg-white rounded-3xl border border-slate-100 p-6 hover:border-[#0d9488] hover:shadow-lg transition-all"
+                                        className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-teal-600 hover:shadow-lg transition-all"
                                     >
                                         {/* Category Badge */}
                                         {item.category && (
-                                            <span className="inline-block px-3 py-1 bg-violet-50 text-violet-700 text-xs font-bold rounded-full mb-3 border border-violet-200">
+                                            <span className="inline-block px-3 py-1 bg-violet-900/40 text-violet-300 text-xs font-bold rounded-full mb-3 border border-violet-800">
                                                 {item.category}
                                             </span>
                                         )}
 
-                                        {/* Title - Clickable to idea */}
+                                        {/* Title */}
                                         <Link href={`/idea/${item.id}`}>
-                                            <h3 className="text-xl font-bold text-slate-900 mb-2 hover:text-[#0d9488] transition-colors line-clamp-2 cursor-pointer">
+                                            <h3 className="text-lg font-bold text-white mb-2 hover:text-teal-400 transition line-clamp-2 cursor-pointer">
                                                 {item.title}
                                             </h3>
                                         </Link>
 
-                                        {/* Hook */}
-                                        {item.hook && (
-                                            <p className="text-slate-600 text-sm mb-4 line-clamp-2">
-                                                {item.hook}
+                                        {/* Context */}
+                                        {item.context && (
+                                            <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+                                                {item.context}
                                             </p>
                                         )}
 
@@ -279,38 +249,32 @@ export default async function RegistryPage({
                                         <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
                                             <span>❤️ {item.totalLikes}</span>
                                             <span>👁️ {item.views}</span>
-                                            {partnerCount > 0 && (
-                                                <span className="text-[#0d9488] font-semibold">
-                                                    🤝 {partnerCount}
-                                                </span>
-                                            )}
                                         </div>
 
-                                        {/* Creator - Separate clickable area */}
-                                        <div className="pt-4 border-t border-slate-100">
+                                        {/* Creator */}
+                                        <div className="pt-4 border-t border-slate-800">
                                             <Link
-                                                href={`/profile/${item.creator?.handle || item.creator?.id
-                                                    }`}
-                                                className="flex items-center gap-3 hover:bg-slate-50 -mx-6 -mb-6 px-6 pb-6 rounded-b-3xl transition-colors"
+                                                href={`/profile/${item.creator?.handle ?? item.creator?.id}`}
+                                                className="flex items-center gap-3 hover:opacity-80 transition"
                                             >
                                                 <div
-                                                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${tier.bgColor} ${tier.color} border-2 ${tier.borderColor}`}
+                                                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${tier.bg} ${tier.color}`}
                                                 >
-                                                    {item.creator?.name?.[0]?.toUpperCase() || "?"}
+                                                    {item.creator?.name?.[0]?.toUpperCase() ?? "?"}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-semibold text-slate-900 text-sm truncate">
-                                                        {item.creator?.name || "Anonymous"}
+                                                    <p className="font-semibold text-white text-sm truncate">
+                                                        {item.creator?.name ?? "Anonymous"}
                                                     </p>
                                                     <p className="text-xs text-slate-500 truncate">
-                                                        @{item.creator?.handle || "unknown"}
+                                                        @{item.creator?.handle ?? "unknown"}
                                                     </p>
                                                 </div>
-                                                <div
-                                                    className={`px-2 py-1 rounded-lg text-xs font-bold ${tier.bgColor} ${tier.color}`}
+                                                <span
+                                                    className={`px-2 py-1 rounded-lg text-xs font-bold ${tier.bg} ${tier.color}`}
                                                 >
-                                                    {item.creator?.xp || 0} XP
-                                                </div>
+                                                    {tier.label}
+                                                </span>
                                             </Link>
                                         </div>
                                     </div>

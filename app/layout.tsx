@@ -1,18 +1,22 @@
-// app/layout.tsx
-import { ClerkProvider } from "@clerk/nextjs";
-import Sidebar from "@/components/Sidebar";
+import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
-import { getDevUserId } from "@/lib/auth";
+import { ClerkProvider } from "@clerk/nextjs";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
+import Sidebar from "@/components/Sidebar";
+import { getAuthenticatedUserId } from "@/lib/auth";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
 });
 
-export const metadata = {
-  title: "IdeaConnect - Where Ideas Unite",
-  description: "Connect, collaborate, and bring your ideas to life",
+export const metadata: Metadata = {
+  title: "IdeaConnect",
+  description: "Anchor your ideas. Protect your genius.",
 };
 
 export default async function RootLayout({
@@ -20,22 +24,24 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Get authenticated user ID (or dev fallback)
-  const userId = await getDevUserId();
+  const userId = await getAuthenticatedUserId();
+
+  let handle: string | null = null;
+  if (userId) {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { handle: true },
+    });
+    handle = user?.handle ?? null;
+  }
 
   return (
     <ClerkProvider>
       <html lang="en" className={playfair.variable}>
-        <body className="antialiased">
-          <div className="flex min-h-screen">
-            {/* Sidebar - Fixed on left */}
-            <Sidebar currentUserId={userId} />
-
-            {/* Main Content Area */}
-            <div className="flex-1 lg:ml-64 transition-all duration-300 min-h-screen">
-              {children}
-            </div>
-          </div>
+        <body className="bg-slate-950 text-white min-h-screen">
+          <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
+          <main className="ml-64 min-h-screen">{children}</main>
+          <Toaster position="bottom-right" />
         </body>
       </html>
     </ClerkProvider>

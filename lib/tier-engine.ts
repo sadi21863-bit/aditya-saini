@@ -51,6 +51,10 @@ export function getTierFromXp(xp: number) {
   return TIERS[0];
 }
 
+export function getTierNameFromXp(xp: number): string {
+  return getTierFromXp(xp).name;
+}
+
 export function xpToNextTier(xp: number): number | null {
   const next = TIERS.find((t) => t.minXp > xp);
   return next ? next.minXp - xp : null;
