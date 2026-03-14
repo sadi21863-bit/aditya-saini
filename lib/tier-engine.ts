@@ -1,124 +1,76 @@
-/**
- * lib/tier-engine.ts
- * 
- * XP-based tier progression system.
- * Calculates user rank and visual styling based on lifetime XP.
- */
-
-export type TierName = "initiate" | "architect" | "master" | "genesis_legend";
-
-export interface Tier {
-  name: TierName;
-  displayName: string;
-  minXp: number;
-  maxXp: number | null; // null for highest tier
-  color: string;
-  bgColor: string;
-  borderColor: string;
-  gradient: string;
-  icon: string; // Emoji or icon identifier
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER DEFINITIONS
-// ─────────────────────────────────────────────────────────────────────────────
-export const TIERS: Record<TierName, Tier> = {
-  initiate: {
-    name: "initiate",
-    displayName: "Initiate",
+export const TIERS = [
+  {
+    name: "dreamer",
+    label: "Dreamer",
     minXp: 0,
-    maxXp: 49,
-    color: "text-slate-600",
-    bgColor: "bg-slate-100",
-    borderColor: "border-slate-300",
-    gradient: "from-slate-400 to-slate-600",
-    icon: "🌱",
+    color: "text-slate-400",
+    bg: "bg-slate-800",
+    unlockedProtection: "open",
   },
-  architect: {
-    name: "architect",
-    displayName: "Architect",
-    minXp: 50,
-    maxXp: 199,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-300",
-    gradient: "from-blue-400 to-blue-600",
-    icon: "🏗️",
-  },
-  master: {
-    name: "master",
-    displayName: "Master",
-    minXp: 200,
-    maxXp: 499,
-    color: "text-[#0d9488]",
-    bgColor: "bg-teal-100",
-    borderColor: "border-teal-300",
-    gradient: "from-teal-400 to-teal-600",
-    icon: "⚡",
-  },
-  genesis_legend: {
-    name: "genesis_legend",
-    displayName: "Genesis Legend",
+  {
+    name: "visionary",
+    label: "Visionary",
     minXp: 500,
-    maxXp: null,
-    color: "text-yellow-600",
-    bgColor: "bg-gradient-to-r from-yellow-100 to-amber-100",
-    borderColor: "border-yellow-400",
-    gradient: "from-yellow-400 to-amber-600",
-    icon: "👑",
+    color: "text-teal-400",
+    bg: "bg-teal-900",
+    unlockedProtection: "guarded",
   },
-};
+  {
+    name: "architect",
+    label: "Architect",
+    minXp: 2000,
+    color: "text-violet-400",
+    bg: "bg-violet-900",
+    unlockedProtection: "shielded",
+  },
+  {
+    name: "oracle",
+    label: "Oracle",
+    minXp: 5000,
+    color: "text-amber-400",
+    bg: "bg-amber-900",
+    unlockedProtection: "vault",
+  },
+] as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET TIER FROM XP
-// ─────────────────────────────────────────────────────────────────────────────
-export function getTier(xp: number): Tier {
-  if (xp >= 500) return TIERS.genesis_legend;
-  if (xp >= 200) return TIERS.master;
-  if (xp >= 50) return TIERS.architect;
-  return TIERS.initiate;
-}
+export type TierName = typeof TIERS[number]["name"];
+export type ProtectionLevel = "open" | "guarded" | "shielded" | "vault";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET TIER NAME (for database storage)
-// ─────────────────────────────────────────────────────────────────────────────
-export function getTierNameFromXp(xp: number): TierName {
-  return getTier(xp).name;
-}
+export const XP_EVENTS = {
+  LAUNCH_IDEA: 10,
+  RECEIVE_LIKE: 5,
+  GAIN_FOLLOWER: 1,
+  RECALL_TO_DRAFT: 0,
+  DELETE_IDEA: -10,
+} as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET PROGRESS TO NEXT TIER
-// ─────────────────────────────────────────────────────────────────────────────
-export function getTierProgress(xp: number): {
-  current: Tier;
-  next: Tier | null;
-  progress: number; // 0-100
-  xpToNext: number;
-} {
-  const current = getTier(xp);
-
-  // Already at max tier
-  if (current.maxXp === null) {
-    return {
-      current,
-      next: null,
-      progress: 100,
-      xpToNext: 0,
-    };
+export function getTierFromXp(xp: number) {
+  for (let i = TIERS.length - 1; i >= 0; i--) {
+    if (xp >= TIERS[i].minXp) return TIERS[i];
   }
+  return TIERS[0];
+}
 
-  const nextTierMinXp = current.maxXp + 1;
-  const nextTier = getTier(nextTierMinXp);
+export function xpToNextTier(xp: number): number | null {
+  const next = TIERS.find((t) => t.minXp > xp);
+  return next ? next.minXp - xp : null;
+}
 
-  const tierRange = current.maxXp - current.minXp + 1;
-  const currentProgress = xp - current.minXp;
-  const progress = Math.min(100, Math.round((currentProgress / tierRange) * 100));
-  const xpToNext = (current.maxXp + 1) - xp;
+export function tierProgress(xp: number): number {
+  const current = getTierFromXp(xp);
+  const nextMinXp = TIERS.find((t) => t.minXp > xp)?.minXp ?? null;
+  if (!nextMinXp) return 100;
+  return Math.round(
+    ((xp - current.minXp) / (nextMinXp - current.minXp)) * 100
+  );
+}
 
-  return {
-    current,
-    next: nextTier,
-    progress,
-    xpToNext,
+export function canUseProtection(xp: number, level: ProtectionLevel): boolean {
+  const required: Record<ProtectionLevel, number> = {
+    open: 0,
+    guarded: 500,
+    shielded: 2000,
+    vault: 5000,
   };
+  return xp >= required[level];
 }

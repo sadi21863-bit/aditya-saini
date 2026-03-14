@@ -15,6 +15,13 @@
       "when": 1773226038059,
       "tag": "0001_whole_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773501777582,
+      "tag": "0002_gifted_tana_nile",
+      "breakpoints": true
     }
   ]
 }

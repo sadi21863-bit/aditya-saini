@@ -22,11 +22,12 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
 
   // Tier is derived from XP at runtime (lib/tier-engine.ts).
-  // Values: "initiate" | "architect" | "master" | "genesis_legend"
-  tier: text("tier").default("initiate").notNull(),
+  // Values: "dreamer" | "visionary" | "architect" | "oracle"
+  tier: text("tier").default("dreamer").notNull(),
 
   // Lifetime accumulated XP.
-  // +10 on launch, +5 per like received, -10 on recall, +25 when added as partner.
+  // +10 on launch, +5 per like received, +1 per follower gained
+  // 0 on recall to draft, -10 on permanent delete
   xp: integer("xp").default(0).notNull(),
 
   // Score = total XP from likes only. Used for leaderboard ORDER BY score DESC.
@@ -43,31 +44,32 @@ export const ideas = pgTable("ideas", {
   userId: text("user_id"),
 
   title: text("title").notNull(),
-  hook: text("hook"),
+
+  // Public pitch written by the creator — always visible regardless of protection
+  context: text("context"),
+
   content: text("content"),
   category: text("category"),
   status: text("status").default("draft").notNull(), // "draft" | "public"
 
+  // Collaboration mode — "open" (anyone reads) | "closed" (access required)
+  collaborationMode: text("collaboration_mode").default("open").notNull(),
+
   totalLikes: integer("total_likes").default(0).notNull(),
   views: integer("views").default(0).notNull(),
 
-  // 0 = open, 1 = CSS select-none, 2 = JS block, 3 = full blur shield
-  blurLevel: integer("blur_level").default(0).notNull(),
+  // Protection level — unlocked by tier
+  // "open" | "guarded" | "shielded" | "vault"
+  protectionLevel: text("protection_level").default("open").notNull(),
 
-  // Populated ONLY on first draft → public transition.
+  // Populated ONLY on first draft → public transition. Never updated after.
   genesisHash: text("genesis_hash"),
 
-  // Fuzzy content fingerprint for plagiarism detection.
+  // Fuzzy content fingerprint for silent plagiarism detection.
   simHash: text("sim_hash"),
 
-  // TIER 1: Viewers — unlocks blurred content (+5 XP)
+  // Users granted read access to protected ideas
   viewerIds: text("viewer_ids")
-    .array()
-    .notNull()
-    .default(sql`ARRAY[]::text[]`),
-
-  // TIER 2: Partners — unlocks content + Top-Shelf commenting (+25 XP)
-  partnerIds: text("partner_ids")
     .array()
     .notNull()
     .default(sql`ARRAY[]::text[]`),
@@ -107,7 +109,10 @@ export const follows = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
-    uniqueFollow: uniqueIndex("unique_follow").on(table.followerId, table.followingId),
+    uniqueFollow: uniqueIndex("unique_follow").on(
+      table.followerId,
+      table.followingId
+    ),
   })
 );
 
@@ -120,14 +125,38 @@ export const comments = pgTable("comments", {
     .notNull()
     .references(() => ideas.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
-
   content: text("content").notNull(),
-
-  // "public" = regular comment, "partner" = Top-Shelf (partners only)
-  tier: text("tier").default("public").notNull(),
-
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. SIMILARITY FLAGS (Justice Engine — silent, admin-only)
+// ─────────────────────────────────────────────────────────────────────────────
+export const similarityFlags = pgTable("similarity_flags", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  idea1Id: uuid("idea1_id").notNull().references(() => ideas.id),
+  idea2Id: uuid("idea2_id").notNull().references(() => ideas.id),
+  similarityScore: integer("similarity_score").notNull(),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  // "silent" = detected, no report yet
+  // "under_review" = formal report filed
+  // "resolved" = admin has ruled
+  status: text("status").default("silent").notNull(),
+  adminNotes: text("admin_notes"),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. IDEA REVISIONS
+// ─────────────────────────────────────────────────────────────────────────────
+export const ideaRevisions = pgTable("idea_revisions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  editedAt: timestamp("edited_at").defaultNow(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,10 +167,10 @@ export type Idea = typeof ideas.$inferSelect;
 export type Like = typeof likes.$inferSelect;
 export type Follow = typeof follows.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type SimilarityFlag = typeof similarityFlags.$inferSelect;
+export type IdeaRevision = typeof ideaRevisions.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
 export type NewComment = typeof comments.$inferInsert;
-
-export type AccessLevel = "viewer" | "partner";
 export type NewFollow = typeof follows.$inferInsert;
