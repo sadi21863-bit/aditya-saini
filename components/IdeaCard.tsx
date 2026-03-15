@@ -87,9 +87,8 @@ export default function IdeaCard({
     }
   };
 
-  // ── Read directly from typed schema — no "as any" needed ──────────────────
   const context = idea.context;
-  const protectionLevel = idea.protectionLevel ?? "open";   // "open"|"guarded"|"shielded"|"vault"
+  const protectionLevel = idea.protectionLevel ?? "open";
   const viewerIds: string[] = idea.viewerIds ?? [];
   const hasGenesis = Boolean(idea.genesisHash);
 
@@ -98,7 +97,6 @@ export default function IdeaCard({
 
   const isOwner = isOwnerProp ?? (idea.userId === viewerId && viewerId !== "");
   const isViewer = viewerIds.includes(viewerId);
-  // protected = any level that isn't "open"
   const isProtected = protectionLevel !== "open";
   const hasAccess = isOwner || isViewer || !isProtected;
   const isBlurred = isProtected && !hasAccess;
@@ -108,13 +106,12 @@ export default function IdeaCard({
 
   return (
     <div
-      className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 hover:border-teal-700 transition-all duration-300 cursor-pointer"
+      className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 hover:border-teal-700 transition-colors duration-200 cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* ── COLLAPSED: always visible ─────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
-        {/* Left — category + title */}
         <div className="flex-1 min-w-0">
           <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">
             {idea.category ?? "General"}
@@ -124,7 +121,6 @@ export default function IdeaCard({
           </h3>
         </div>
 
-        {/* Right — mini stats */}
         <div className="flex items-center gap-3 text-xs text-slate-500 shrink-0">
           <span className={`flex items-center gap-1 ${liked ? "text-rose-400" : ""}`}>
             <Heart size={11} className={liked ? "fill-current" : ""} />
@@ -136,15 +132,26 @@ export default function IdeaCard({
         </div>
       </div>
 
-      {/* ── EXPANDED: visible on hover ────────────────────────────────────── */}
+      {/* ── EXPANDED: animates open on hover ──────────────────────────────── */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${hovered ? "max-h-64 opacity-100 mt-3" : "max-h-0 opacity-0"
-          }`}
+        style={{
+          maxHeight: hovered ? "300px" : "0px",
+          opacity: hovered ? 1 : 0,
+          marginTop: hovered ? "12px" : "0px",
+          overflow: "hidden",
+          transition: "max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, margin-top 0.3s ease-in-out",
+        }}
       >
         {/* Context */}
         {context && !isBlurred && (
           <p className="text-sm text-slate-400 line-clamp-3 mb-3">
             {context}
+          </p>
+        )}
+
+        {!context && !isBlurred && (
+          <p className="text-sm text-slate-600 italic mb-3">
+            No public pitch added.
           </p>
         )}
 
@@ -162,7 +169,9 @@ export default function IdeaCard({
             className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${tier.bgColor} ${tier.color} border ${tier.borderColor}`}>
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${tier.bgColor} ${tier.color} border ${tier.borderColor}`}
+            >
               {author.name?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div>
@@ -240,8 +249,8 @@ export default function IdeaCard({
                 onClick={handleDeleteClick}
                 disabled={loading === "delete"}
                 className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${confirmDelete
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "text-red-400 bg-slate-800 hover:bg-red-900/30"
+                  ? "bg-red-600 text-white animate-pulse"
+                  : "text-red-400 bg-slate-800 hover:bg-red-900/30"
                   }`}
               >
                 {loading === "delete"
