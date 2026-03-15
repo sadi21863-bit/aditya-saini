@@ -46,9 +46,17 @@ export const XP_EVENTS = {
 
 export function getTierFromXp(xp: number) {
   for (let i = TIERS.length - 1; i >= 0; i--) {
-    if (xp >= TIERS[i].minXp) return TIERS[i];
+    if (xp >= TIERS[i].minXp) {
+      const t = TIERS[i];
+      return {
+        ...t,
+        bgColor: t.bg,
+        displayName: t.label,
+      };
+    }
   }
-  return TIERS[0];
+  const t = TIERS[0];
+  return { ...t, bgColor: t.bg, displayName: t.label };
 }
 
 export function getTierNameFromXp(xp: number): string {

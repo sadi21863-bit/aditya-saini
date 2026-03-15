@@ -6,11 +6,11 @@ import { Lightbulb, Save, Shield, ShieldCheck, ShieldOff, Lock } from "lucide-re
 import { CATEGORIES } from "@/lib/categories";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
 
-const BLUR_OPTIONS = [
-  { value: 0, label: "Open",     Icon: ShieldOff,   description: "Fully public" },
-  { value: 1, label: "Guarded",  Icon: Shield,      description: "No text select" },
-  { value: 2, label: "Shielded", Icon: ShieldCheck, description: "Copy blocked" },
-  { value: 3, label: "Vault",    Icon: Lock,        description: "Like to reveal" },
+const PROTECTION_OPTIONS = [
+  { value: "open", label: "Open", Icon: ShieldOff, description: "Fully public" },
+  { value: "guarded", label: "Guarded", Icon: Shield, description: "No text select" },
+  { value: "shielded", label: "Shielded", Icon: ShieldCheck, description: "Copy blocked" },
+  { value: "vault", label: "Vault", Icon: Lock, description: "Like to reveal" },
 ] as const;
 
 export default function IdeaForm({ existingCategories = [] }: { existingCategories?: string[] }) {
@@ -77,23 +77,22 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
           </datalist>
         </div>
 
-        {/* Hook */}
+        {/* Context — public pitch */}
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
-            Hook{" "}
-            <span className="normal-case text-slate-400 font-normal">(one-sentence summary)</span>
+            Public Pitch{" "}
+            <span className="normal-case text-slate-400 font-normal">(always visible — your hook)</span>
           </label>
           <input
-            name="hook"
+            name="context"
             placeholder="The one-sentence essence of your idea..."
             className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
               placeholder:text-slate-400 italic focus:border-[#0d9488] focus:ring-2
               focus:ring-[#0d9488]/20 outline-none transition-all"
-            required
           />
         </div>
 
-        {/* Full Content — Smart Editor */}
+        {/* Full Content */}
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
             Full Content *
@@ -114,7 +113,7 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
             IP Protection Level
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {BLUR_OPTIONS.map(({ value, label, Icon, description }) => (
+            {PROTECTION_OPTIONS.map(({ value, label, Icon, description }) => (
               <label
                 key={value}
                 className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200
@@ -123,9 +122,9 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
               >
                 <input
                   type="radio"
-                  name="blurLevel"
+                  name="protectionLevel"
                   value={value}
-                  defaultChecked={value === 0}
+                  defaultChecked={value === "open"}
                   className="accent-[#0d9488]"
                 />
                 <div>
@@ -147,11 +146,10 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
           type="submit"
           disabled={isPending}
           className={`w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all
-            flex items-center justify-center gap-2 ${
-            isPending
+            flex items-center justify-center gap-2 ${isPending
               ? "bg-slate-100 text-slate-400 cursor-not-allowed"
               : "bg-[#0d9488] text-white hover:bg-teal-700 active:scale-[0.98] shadow-md"
-          }`}
+            }`}
         >
           {isPending ? "Saving to Dashboard..." : <><Save size={16} /> Save to Dashboard</>}
         </button>
