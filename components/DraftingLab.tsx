@@ -6,7 +6,7 @@ import { saveToHangar } from "@/app/actions/visionActions";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
 
 export default function DraftingLab({ userId }: { userId: string }) {
-  const [form, setForm] = useState({ title: "", hook: "", content: "", category: "" });
+  const [form, setForm] = useState({ title: "", context: "", content: "", category: "" });
   const [luminosity, setLuminosity] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | ""; text: string }>({ type: "", text: "" });
@@ -32,14 +32,14 @@ export default function DraftingLab({ userId }: { userId: string }) {
     try {
       const result = await saveToHangar({
         title: form.title,
-        hook: form.hook,
+        context: form.context,   // ← was hook
         content: form.content,
         category: form.category || "General",
         userId,
       });
       if (result.success) {
-        setMessage({ type: "success", text: `Saved to Dashboard! Code: ${result.genesisCode?.substring(0, 12)}` });
-        setForm({ title: "", hook: "", content: "", category: "" });
+        setMessage({ type: "success", text: "Saved to Dashboard!" });
+        setForm({ title: "", context: "", content: "", category: "" });
       } else {
         setMessage({ type: "error", text: result.error || "Failed to save." });
       }
@@ -52,7 +52,6 @@ export default function DraftingLab({ userId }: { userId: string }) {
 
   return (
     <div className="max-w-4xl mx-auto p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-900" style={{ fontFamily: "var(--font-playfair)" }}>
@@ -60,7 +59,6 @@ export default function DraftingLab({ userId }: { userId: string }) {
           </h2>
           <p className="text-slate-500 text-sm mt-1">Build a high-quality idea before publishing.</p>
         </div>
-        {/* Luminosity bar */}
         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Score</p>
@@ -95,17 +93,16 @@ export default function DraftingLab({ userId }: { userId: string }) {
           onChange={(e) => setForm({ ...form, category: e.target.value })}
         />
         <textarea
-          placeholder="The Hook — one sentence that captures the idea's essence"
-          maxLength={140}
+          placeholder="Public Pitch — one sentence that captures the idea's essence"
+          maxLength={280}
           className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:ring-2
             focus:ring-[#0d9488]/20 focus:border-[#0d9488] outline-none italic text-slate-600
             placeholder:text-slate-400 resize-none"
           rows={2}
-          value={form.hook}
-          onChange={(e) => setForm({ ...form, hook: e.target.value })}
+          value={form.context}
+          onChange={(e) => setForm({ ...form, context: e.target.value })}
         />
 
-        {/* Smart Editor for content */}
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
             Full Content *{" "}
@@ -117,7 +114,7 @@ export default function DraftingLab({ userId }: { userId: string }) {
             name="content"
             value={form.content}
             onChange={(val) => setForm((f) => ({ ...f, content: val }))}
-            placeholder="Full content — aim for 250+ words, use ## for headings and * for bullet points..."
+            placeholder="Full content — aim for 250+ words..."
             rows={9}
             required
           />
@@ -126,11 +123,10 @@ export default function DraftingLab({ userId }: { userId: string }) {
 
       {message.text && (
         <div
-          className={`mt-5 p-4 rounded-2xl flex items-center gap-3 border text-sm font-medium ${
-            message.type === "success"
-              ? "bg-teal-50 border-teal-200 text-teal-700"
-              : "bg-red-50 border-red-200 text-red-600"
-          }`}
+          className={`mt-5 p-4 rounded-2xl flex items-center gap-3 border text-sm font-medium ${message.type === "success"
+            ? "bg-teal-50 border-teal-200 text-teal-700"
+            : "bg-red-50 border-red-200 text-red-600"
+            }`}
         >
           {message.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           {message.text}

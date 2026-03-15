@@ -7,12 +7,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Shield, ShieldCheck, ShieldOff, Lock } from "lucide-react";
 
-// Protection level options for the blur_level selector
-const BLUR_OPTIONS = [
-  { value: 0, label: "Open",     description: "Fully visible to everyone",          Icon: ShieldOff  },
-  { value: 1, label: "Guarded",  description: "Text cannot be selected/highlighted", Icon: Shield     },
-  { value: 2, label: "Shielded", description: "Copy, right-click & select-all blocked", Icon: ShieldCheck },
-  { value: 3, label: "Vault",    description: "Content blurred until viewer Likes it",  Icon: Lock    },
+const PROTECTION_OPTIONS = [
+  { value: "open", label: "Open", description: "Fully visible to everyone", Icon: ShieldOff },
+  { value: "guarded", label: "Guarded", description: "Text cannot be selected/highlighted", Icon: Shield },
+  { value: "shielded", label: "Shielded", description: "Copy, right-click & select-all blocked", Icon: ShieldCheck },
+  { value: "vault", label: "Vault", description: "Content blurred until viewer Likes it", Icon: Lock },
 ] as const;
 
 export default async function EditIdea({
@@ -20,7 +19,6 @@ export default async function EditIdea({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // Next.js 16: always use resolvedParams pattern
   const resolvedParams = await params;
   const id = resolvedParams.id;
 
@@ -51,6 +49,7 @@ export default async function EditIdea({
           </h1>
 
           <form action={updateIdeaWithId} className="flex flex-col gap-6">
+
             {/* Title */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
@@ -82,16 +81,16 @@ export default async function EditIdea({
               </select>
             </div>
 
-            {/* Hook */}
+            {/* Context (was: Hook) */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
-                Hook
-                <span className="normal-case text-slate-400 font-normal ml-1">(one-sentence summary)</span>
+                Public Pitch
+                <span className="normal-case text-slate-400 font-normal ml-1">(always visible)</span>
               </label>
               <input
-                name="hook"
-                defaultValue={idea.hook ?? ""}
-                placeholder="One-sentence essence..."
+                name="context"
+                defaultValue={idea.context ?? ""}
+                placeholder="One-sentence essence of your idea..."
                 className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 italic
                   focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
               />
@@ -117,7 +116,7 @@ export default async function EditIdea({
                 IP Protection Level
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {BLUR_OPTIONS.map(({ value, label, description, Icon }) => (
+                {PROTECTION_OPTIONS.map(({ value, label, description, Icon }) => (
                   <label
                     key={value}
                     className="relative flex items-start gap-3 p-4 rounded-2xl border
@@ -126,9 +125,9 @@ export default async function EditIdea({
                   >
                     <input
                       type="radio"
-                      name="blurLevel"
+                      name="protectionLevel"
                       value={value}
-                      defaultChecked={(idea.blurLevel ?? 0) === value}
+                      defaultChecked={(idea.protectionLevel ?? "open") === value}
                       className="mt-0.5 accent-[#0d9488]"
                     />
                     <div className="min-w-0">
