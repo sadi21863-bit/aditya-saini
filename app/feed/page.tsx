@@ -4,7 +4,9 @@ import { eq, desc, and } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import IdeaCard from "@/components/IdeaCard";
 import FeedFilter from "@/components/FeedFilter";
+import IdeaOfTheDay from "@/components/IdeaOfTheDay";
 import { computeFeedScore } from "@/lib/feed-score";
+import { pickIdeaOfTheDay } from "@/lib/idea-of-the-day";
 import { Flame, Clock } from "lucide-react";
 import Link from "next/link";
 
@@ -34,18 +36,22 @@ export default async function FeedPage({
     .from(ideas)
     .leftJoin(users, eq(ideas.userId, users.id))
     .where(whereClause)
-    .orderBy(desc(ideas.createdAt)) // base fetch — we re-sort in JS
+    .orderBy(desc(ideas.createdAt))
     .limit(100);
 
-  // ── Sort ────────────────────────────────────────────────────────────────
+  // ── Sort ─────────────────────────────────────────────────────────────────
   const sorted =
     sort === "new"
-      ? rawIdeas // already ordered by createdAt desc
+      ? rawIdeas
       : [...rawIdeas].sort(
         (a, b) =>
           computeFeedScore(b.idea.totalLikes, b.idea.views, b.idea.createdAt) -
           computeFeedScore(a.idea.totalLikes, a.idea.views, a.idea.createdAt)
       );
+
+  // ── Idea of the Day (only on Hot, no category filter) ───────────────────
+  const ideaOfTheDay =
+    sort !== "new" && !category ? pickIdeaOfTheDay(rawIdeas) : null;
 
   // ── Liked IDs ────────────────────────────────────────────────────────────
   const likedIds = currentUserId
@@ -77,7 +83,7 @@ export default async function FeedPage({
     .map((c) => c.category)
     .filter(Boolean) as string[];
 
-  // ── Editor's Picks (top 1 editors_pick idea) ─────────────────────────────
+  // ── Editor's Pick ─────────────────────────────────────────────────────────
   const editorsPick = sorted.find((r) => r.idea.editorsPick);
 
   return (
@@ -119,7 +125,15 @@ export default async function FeedPage({
         </div>
       </div>
 
-      {/* Editor's Pick Banner */}
+      {/* 💡 Idea of the Day */}
+      {ideaOfTheDay && (
+        <IdeaOfTheDay
+          idea={ideaOfTheDay.idea}
+          author={ideaOfTheDay.author}
+        />
+      )}
+
+      {/* ⭐ Editor's Pick */}
       {editorsPick && sort !== "new" && (
         <Link
           href={`/idea/${editorsPick.idea.id}`}
@@ -147,23 +161,25 @@ export default async function FeedPage({
       {/* Category Filter */}
       <FeedFilter categories={categories} />
 
-      {/* Idea List */}
+      {/* Idea List — hide IOTD from list to avoid duplicate */}
       <div className="mt-6 flex flex-col gap-4">
         {sorted.length === 0 && (
           <p className="text-slate-500 text-center py-20">
             No ideas found. Be the first to launch one.
           </p>
         )}
-        {sorted.map(({ idea, author }) => (
-          <IdeaCard
-            key={idea.id}
-            idea={idea}
-            author={author}
-            viewerId={currentUserId ?? ""}
-            hasLiked={likedIds.includes(idea.id)}
-            initialBookmarked={bookmarkedIds.includes(idea.id)}
-          />
-        ))}
+        {sorted
+          .filter((r) => r.idea.id !== ideaOfTheDay?.idea.id)
+          .map(({ idea, author }) => (
+            <IdeaCard
+              key={idea.id}
+              idea={idea}
+              author={author}
+              viewerId={currentUserId ?? ""}
+              hasLiked={likedIds.includes(idea.id)}
+              initialBookmarked={bookmarkedIds.includes(idea.id)}
+            />
+          ))}
       </div>
     </div>
   );
