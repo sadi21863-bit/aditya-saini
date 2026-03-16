@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import NotificationCenter from "@/components/NotificationCenter";
+import { Bookmark } from "lucide-react";
 
 export default async function Navbar() {
   let handle: string | null = null;
@@ -43,16 +44,29 @@ export default async function Navbar() {
         <Link href="/leaderboard" className="text-slate-500 hover:text-[#0d9488] transition-colors">
           Leaderboard
         </Link>
+        <Link href="/registry" className="text-slate-500 hover:text-[#0d9488] transition-colors">
+          Registry
+        </Link>
         <Link href="/dashboard" className="text-slate-500 hover:text-[#0d9488] transition-colors">
           Dashboard
         </Link>
 
         {userId ? (
           <>
+            {/* Saved / Bookmarks */}
+            <Link
+              href="/bookmarks"
+              className="flex items-center gap-1 text-slate-500 hover:text-[#0d9488] transition-colors"
+              title="Saved Ideas"
+            >
+              <Bookmark size={15} />
+              <span>Saved</span>
+            </Link>
+
             {/* Notification Bell */}
             <NotificationCenter userId={userId} />
 
-            {/* Profile Avatar / Handle */}
+            {/* Profile Handle */}
             {handle && (
               <Link
                 href={`/profile/${handle}`}

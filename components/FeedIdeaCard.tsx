@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Heart, Eye, Fingerprint, Lock, Loader2, Unlock } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Heart, Eye, Fingerprint, Lock, Loader2, Unlock, Bookmark } from "lucide-react";
 import { sparkIdea, requestAccess } from "@/app/actions/ideaActions";
+import { toggleBookmark } from "@/app/actions/bookmarkActions";
 import type { Idea } from "@/db/schema";
 
 const TIER_COLORS: Record<string, string> = {
@@ -28,23 +29,31 @@ interface FeedIdeaCardProps {
   idea: Idea;
   author?: Author | null;
   viewerId: string;
+  initialBookmarked?: boolean; // ✅ new
 }
 
-export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardProps) {
+export default function FeedIdeaCard({
+  idea,
+  author,
+  viewerId,
+  initialBookmarked = false,
+}: FeedIdeaCardProps) {
   const [hovered, setHovered] = useState(false);
   const [liking, setLiking] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(idea.totalLikes ?? 0);
   const [accessLoading, setAccessLoading] = useState(false);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked); // ✅ new
+  const [, startBookmarkTransition] = useTransition();             // ✅ new
 
   const isOwner = idea.userId === viewerId;
-  const isViewer = idea.viewerIds?.includes(viewerId) ?? false;       // ← was partnerIds
-  const protectionLevel = idea.protectionLevel ?? "open";               // ← was blurLevel
+  const isViewer = idea.viewerIds?.includes(viewerId) ?? false;
+  const protectionLevel = idea.protectionLevel ?? "open";
   const isBlurred = protectionLevel !== "open" && !isOwner && !isViewer;
   const hasGenesis = Boolean(idea.genesisHash);
 
   const tierColor = TIER_COLORS[author?.tier ?? "dreamer"] ?? TIER_COLORS.dreamer;
-  const summary = idea.context || (idea.content ? idea.content.slice(0, 120) + "…" : null); // ← was idea.hook
+  const summary = idea.context || (idea.content ? idea.content.slice(0, 120) + "…" : null);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -71,6 +80,17 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
     }
   };
 
+  // ✅ new
+  const handleBookmark = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!viewerId) return;
+    setBookmarked((v) => !v);
+    startBookmarkTransition(async () => {
+      const result = await toggleBookmark(idea.id);
+      if (!result.success) setBookmarked((v) => !v); // revert on failure
+    });
+  };
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -78,7 +98,7 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
       className="group bg-white border border-slate-100 rounded-2xl transition-all
         duration-300 overflow-hidden hover:border-[#0d9488]/40 hover:shadow-lg"
     >
-      {/* ── COLLAPSED (always visible) ──────────────────────────────────── */}
+      {/* ── COLLAPSED ─────────────────────────────────────────────── */}
       <div className="p-5">
 
         {/* Category row + badges */}
@@ -128,14 +148,13 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
         </div>
       </div>
 
-      {/* ── EXPANDED (on hover) ─────────────────────────────────────────── */}
+      {/* ── EXPANDED ──────────────────────────────────────────────── */}
       <div
         className={`overflow-hidden transition-all duration-300 ${hovered ? "max-h-80 opacity-100" : "max-h-0 opacity-0"
           }`}
       >
         <div className="px-5 pb-5 space-y-4">
 
-          {/* Summary or blur guard */}
           {isBlurred ? (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
               <Lock className="mx-auto text-slate-400 mb-2" size={18} />
@@ -161,9 +180,11 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
             )
           )}
 
-          {/* Like / views / More link */}
+          {/* Actions row */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-50">
             <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+
+              {/* Spark */}
               <button
                 onClick={handleLike}
                 disabled={liking || liked}
@@ -174,10 +195,24 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
                 <Heart size={13} className={liked ? "fill-current" : ""} />
                 {likeCount}
               </button>
+
+              {/* Views */}
               <span className="flex items-center gap-1">
                 <Eye size={12} />
                 {idea.views ?? 0}
               </span>
+
+              {/* ✅ Bookmark */}
+              {viewerId && (
+                <button
+                  onClick={handleBookmark}
+                  className={`flex items-center gap-1 transition-all hover:scale-110 active:scale-95
+                    ${bookmarked ? "text-[#0d9488]" : "hover:text-[#0d9488]"}`}
+                  title={bookmarked ? "Remove bookmark" : "Save idea"}
+                >
+                  <Bookmark size={12} className={bookmarked ? "fill-current" : ""} />
+                </button>
+              )}
             </div>
 
             <Link
