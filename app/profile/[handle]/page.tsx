@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { ideas, users, follows } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getTierFromXp, tierProgress, xpToNextTier } from "@/lib/tier-engine";
 import FollowButton from "@/components/FollowButton";
 import IdeaCard from "@/components/IdeaCard";
+import PinButton from "@/components/PinButton";
 import Link from "next/link";
+import { Pin } from "lucide-react";
 
 export default async function ProfilePage({
   params,
@@ -15,7 +17,6 @@ export default async function ProfilePage({
 }) {
   const { handle } = await params;
 
-  // ✅ Safe auth — null for guests
   let currentUserId: string | null = null;
   try {
     currentUserId = await getAuthenticatedUserId();
@@ -34,12 +35,30 @@ export default async function ProfilePage({
   const xpLeft = xpToNextTier(profileUser.xp);
   const isOwnProfile = currentUserId === profileUser.id;
 
-  // Get user's public ideas
+  // All public ideas
   const userIdeas = await db
     .select()
     .from(ideas)
     .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "public")))
     .orderBy(desc(ideas.createdAt));
+
+  // Pinned ideas (ordered by pinnedIdeaIds order)
+  const pinnedIds = profileUser.pinnedIdeaIds ?? [];
+  const pinnedIdeas =
+    pinnedIds.length > 0
+      ? await db
+        .select()
+        .from(ideas)
+        .where(inArray(ideas.id, pinnedIds))
+      : [];
+
+  // Preserve pin order
+  const orderedPinned = pinnedIds
+    .map((id) => pinnedIdeas.find((i) => i.id === id))
+    .filter(Boolean) as typeof pinnedIdeas;
+
+  // Non-pinned ideas
+  const unpinnedIdeas = userIdeas.filter((i) => !pinnedIds.includes(i.id));
 
   // Follow state
   const isFollowing =
@@ -52,7 +71,6 @@ export default async function ProfilePage({
       }))
       : false;
 
-  // Follower / following counts
   const followerCount = await db
     .select()
     .from(follows)
@@ -64,6 +82,13 @@ export default async function ProfilePage({
     .from(follows)
     .where(eq(follows.followerId, profileUser.id))
     .then((r) => r.length);
+
+  const authorMeta = {
+    handle: profileUser.handle,
+    name: profileUser.name,
+    tier: profileUser.tier,
+    xp: profileUser.xp,
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -92,7 +117,6 @@ export default async function ProfilePage({
         </div>
 
         <div className="flex flex-col items-end gap-2 shrink-0">
-          {/* ✅ Fixed prop names */}
           {!isOwnProfile && currentUserId && (
             <FollowButton
               currentUserId={currentUserId}
@@ -101,8 +125,6 @@ export default async function ProfilePage({
               initialIsFollowing={isFollowing}
             />
           )}
-
-          {/* Edit button if own profile */}
           {isOwnProfile && (
             <Link
               href={`/profile/${handle}/edit`}
@@ -116,7 +138,8 @@ export default async function ProfilePage({
       </div>
 
       {/* Tier Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold mb-4 ${tier.bg} ${tier.color}`}>
+      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+        text-sm font-semibold mb-4 ${tier.bg} ${tier.color}`}>
         {tier.label} · {profileUser.xp} XP
         {xpLeft !== null && (
           <span className="text-xs font-normal opacity-70">
@@ -133,25 +156,62 @@ export default async function ProfilePage({
         />
       </div>
 
-      {/* Ideas */}
-      <h2 className="text-xl font-bold text-white mb-4">Anchored Ideas</h2>
-      {userIdeas.length === 0 ? (
+      {/* ── PINNED IDEAS ─────────────────────────────────────────────────── */}
+      {orderedPinned.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Pin size={14} className="text-[#0d9488]" />
+            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">
+              Pinned
+            </h2>
+          </div>
+          <div className="flex flex-col gap-3">
+            {orderedPinned.map((idea) => (
+              <div key={idea.id} className="relative">
+                <IdeaCard
+                  idea={idea}
+                  author={authorMeta}
+                  viewerId={currentUserId ?? ""}
+                  hasLiked={false}
+                />
+                {isOwnProfile && (
+                  <div className="absolute top-3 right-3">
+                    <PinButton ideaId={idea.id} initialPinned={true} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── ALL IDEAS ────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-white">
+          {orderedPinned.length > 0 ? "All Ideas" : "Anchored Ideas"}
+        </h2>
+        <span className="text-xs text-slate-500">{userIdeas.length} total</span>
+      </div>
+
+      {unpinnedIdeas.length === 0 && orderedPinned.length === 0 ? (
         <p className="text-slate-500 text-sm">No public ideas yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {userIdeas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              author={{
-                handle: profileUser.handle,
-                name: profileUser.name,
-                tier: profileUser.tier,
-                xp: profileUser.xp,
-              }}
-              viewerId={currentUserId ?? ""}
-              hasLiked={false}
-            />
+          {unpinnedIdeas.map((idea) => (
+            <div key={idea.id} className="relative">
+              <IdeaCard
+                idea={idea}
+                author={authorMeta}
+                viewerId={currentUserId ?? ""}
+                hasLiked={false}
+              />
+              {/* Pin button for owner */}
+              {isOwnProfile && pinnedIds.length < 3 && (
+                <div className="absolute top-3 right-3">
+                  <PinButton ideaId={idea.id} initialPinned={false} />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
