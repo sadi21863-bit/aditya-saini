@@ -7,9 +7,12 @@ import { sparkIdea, requestAccess } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
 
 const TIER_COLORS: Record<string, string> = {
-  initiate:       "bg-slate-100 text-slate-600",
-  architect:      "bg-teal-50 text-teal-700",
-  master:         "bg-purple-50 text-purple-700",
+  dreamer: "bg-slate-100 text-slate-600",
+  visionary: "bg-teal-50 text-teal-700",
+  architect: "bg-violet-50 text-violet-700",
+  oracle: "bg-amber-50 text-amber-700",
+  initiate: "bg-slate-100 text-slate-600",
+  master: "bg-purple-50 text-purple-700",
   genesis_legend: "bg-amber-50 text-amber-700",
 };
 
@@ -28,21 +31,20 @@ interface FeedIdeaCardProps {
 }
 
 export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardProps) {
-  const [hovered, setHovered]           = useState(false);
-  const [liking, setLiking]             = useState(false);
-  const [liked, setLiked]               = useState(false);
-  const [likeCount, setLikeCount]       = useState(idea.totalLikes ?? 0);
+  const [hovered, setHovered] = useState(false);
+  const [liking, setLiking] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(idea.totalLikes ?? 0);
   const [accessLoading, setAccessLoading] = useState(false);
 
-  const isOwner    = idea.userId === viewerId;
-  const isViewer   = idea.viewerIds?.includes(viewerId) ?? false;
-  const isPartner  = idea.partnerIds?.includes(viewerId) ?? false;
-  const blurLevel  = idea.blurLevel ?? 0;
-  const isBlurred  = blurLevel > 0 && !isOwner && !isViewer && !isPartner;
+  const isOwner = idea.userId === viewerId;
+  const isViewer = idea.viewerIds?.includes(viewerId) ?? false;       // ← was partnerIds
+  const protectionLevel = idea.protectionLevel ?? "open";               // ← was blurLevel
+  const isBlurred = protectionLevel !== "open" && !isOwner && !isViewer;
   const hasGenesis = Boolean(idea.genesisHash);
 
-  const tierColor = TIER_COLORS[author?.tier ?? "initiate"] ?? TIER_COLORS.initiate;
-  const summary   = idea.hook || (idea.content ? idea.content.slice(0, 120) + "…" : null);
+  const tierColor = TIER_COLORS[author?.tier ?? "dreamer"] ?? TIER_COLORS.dreamer;
+  const summary = idea.context || (idea.content ? idea.content.slice(0, 120) + "…" : null); // ← was idea.hook
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -128,9 +130,8 @@ export default function FeedIdeaCard({ idea, author, viewerId }: FeedIdeaCardPro
 
       {/* ── EXPANDED (on hover) ─────────────────────────────────────────── */}
       <div
-        className={`overflow-hidden transition-all duration-300 ${
-          hovered ? "max-h-80 opacity-100" : "max-h-0 opacity-0"
-        }`}
+        className={`overflow-hidden transition-all duration-300 ${hovered ? "max-h-80 opacity-100" : "max-h-0 opacity-0"
+          }`}
       >
         <div className="px-5 pb-5 space-y-4">
 

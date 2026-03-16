@@ -46,7 +46,8 @@ export default function IdeaDetailClient({
       protectionLevel === "shielded" ? 2 :
         protectionLevel === "guarded" ? 1 : 0;
 
-  const shieldCfg = SHIELD_CONFIG[blurLevel as keyof typeof SHIELD_CONFIG] ?? SHIELD_CONFIG[0];
+  const safeLevel = (blurLevel in SHIELD_CONFIG ? blurLevel : 0) as 0 | 1 | 2 | 3;
+  const shieldCfg = SHIELD_CONFIG[safeLevel];
   const ShieldIcon = shieldCfg.Icon;
 
   const fullContent = idea.content ?? "";
