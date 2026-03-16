@@ -7,7 +7,67 @@ import IdeaDetailClient from "@/components/IdeaDetailClient";
 import ViewCounter from "@/components/ViewCounter";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getComments } from "@/app/actions/commentActions";
+import type { Metadata } from "next";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OG METADATA
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id: ideaId } = await params;
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId));
+  if (!idea) return { title: "Idea Not Found" };
+
+  const author = idea.userId
+    ? (await db.select().from(users).where(eq(users.id, idea.userId)).limit(1))[0] ?? null
+    : null;
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://ideaconnect.vercel.app";
+
+  const ogUrl =
+    `${baseUrl}/api/og?` +
+    new URLSearchParams({
+      title: idea.title ?? "",
+      category: idea.category ?? "General",
+      author: author?.name ?? "Anonymous",
+      handle: author?.handle ?? "",
+      tier: author?.tier ?? "dreamer",
+      flair: idea.flair ?? "",
+      sparks: String(idea.totalLikes ?? 0),
+      views: String(idea.views ?? 0),
+    }).toString();
+
+  const description =
+    idea.context ?? "An idea anchored on IdeaConnect Genesis Registry.";
+
+  return {
+    title: `${idea.title} — IdeaConnect`,
+    description,
+    openGraph: {
+      title: idea.title ?? "IdeaConnect",
+      description,
+      url: `${baseUrl}/idea/${ideaId}`,
+      siteName: "IdeaConnect",
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: idea.title ?? "" }],
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: idea.title ?? "IdeaConnect",
+      description,
+      images: [ogUrl],
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 export default async function IdeaPage({
   params,
 }: {
