@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   Rocket, Trash2, Edit3, Eye, Loader2,
-  RotateCcw, Heart, Fingerprint, Lock, Unlock, Award,
+  RotateCcw, Heart, Fingerprint, Lock, Unlock,
 } from "lucide-react";
 import { launchIdea, deleteIdea, recallIdea, requestAccess } from "@/app/actions/ideaActions";
+import FlairBadge from "@/components/FlairBadge";
 import type { Idea } from "@/db/schema";
 
 const TIER_CONFIG = {
@@ -34,6 +35,7 @@ interface IdeaCardProps {
   isOwner?: boolean;
   showActions?: boolean;
   showAccessButtons?: boolean;
+  initialBookmarked?: boolean;
 }
 
 export default function IdeaCard({
@@ -106,17 +108,23 @@ export default function IdeaCard({
 
   return (
     <div
-      className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 hover:border-teal-700 transition-colors duration-200 cursor-pointer"
+      className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4
+        hover:border-teal-700 transition-colors duration-200 cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* ── COLLAPSED: always visible ─────────────────────────────────────── */}
+      {/* ── COLLAPSED ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">
-            {idea.category ?? "General"}
-          </span>
-          <h3 className="text-sm font-bold text-white truncate mt-0.5">
+          {/* Category + Flair row */}
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">
+              {idea.category ?? "General"}
+            </span>
+            {/* ✅ Flair Badge */}
+            <FlairBadge flair={idea.flair} size="xs" />
+          </div>
+          <h3 className="text-sm font-bold text-white truncate">
             {idea.title}
           </h3>
         </div>
@@ -132,7 +140,7 @@ export default function IdeaCard({
         </div>
       </div>
 
-      {/* ── EXPANDED: animates open on hover ──────────────────────────────── */}
+      {/* ── EXPANDED ────────────────────────────────────────────────────── */}
       <div
         style={{
           maxHeight: hovered ? "300px" : "0px",
@@ -142,19 +150,12 @@ export default function IdeaCard({
           transition: "max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, margin-top 0.3s ease-in-out",
         }}
       >
-        {/* Context */}
         {context && !isBlurred && (
-          <p className="text-sm text-slate-400 line-clamp-3 mb-3">
-            {context}
-          </p>
+          <p className="text-sm text-slate-400 line-clamp-3 mb-3">{context}</p>
         )}
-
         {!context && !isBlurred && (
-          <p className="text-sm text-slate-600 italic mb-3">
-            No public pitch added.
-          </p>
+          <p className="text-sm text-slate-600 italic mb-3">No public pitch added.</p>
         )}
-
         {isBlurred && (
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
             <Lock size={12} />
@@ -169,9 +170,8 @@ export default function IdeaCard({
             className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${tier.bgColor} ${tier.color} border ${tier.borderColor}`}
-            >
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center
+              font-bold text-[10px] ${tier.bgColor} ${tier.color} border ${tier.borderColor}`}>
               {author.name?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div>
@@ -181,9 +181,7 @@ export default function IdeaCard({
               <p className="text-[10px] text-slate-500">
                 @{author.handle ?? "unknown"}
                 {author.xp !== undefined && (
-                  <span className={`ml-1 font-bold ${tier.color}`}>
-                    · {author.xp} XP
-                  </span>
+                  <span className={`ml-1 font-bold ${tier.color}`}>· {author.xp} XP</span>
                 )}
               </p>
             </div>
@@ -194,7 +192,8 @@ export default function IdeaCard({
         <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
           <Link
             href={`/idea/${idea.id}`}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-500 transition"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold
+              text-white bg-teal-600 rounded-lg hover:bg-teal-500 transition"
           >
             <Eye size={12} /> View
           </Link>
@@ -203,7 +202,9 @@ export default function IdeaCard({
             <button
               onClick={() => handleAccessRequest("viewer")}
               disabled={loading === "access-viewer"}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-slate-600 rounded-lg hover:bg-slate-500 disabled:opacity-50 transition"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold
+                text-white bg-slate-600 rounded-lg hover:bg-slate-500
+                disabled:opacity-50 transition"
             >
               {loading === "access-viewer"
                 ? <Loader2 size={12} className="animate-spin" />
@@ -216,7 +217,8 @@ export default function IdeaCard({
             <>
               <Link
                 href={`/idea/${idea.id}/edit`}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 transition"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium
+                  text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 transition"
               >
                 <Edit3 size={12} /> Edit
               </Link>
@@ -225,7 +227,9 @@ export default function IdeaCard({
                 <button
                   onClick={() => run("launch", launchIdea)}
                   disabled={!!loading}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-teal-600 rounded-lg hover:bg-teal-500 disabled:opacity-50 transition"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold
+                    text-white bg-teal-600 rounded-lg hover:bg-teal-500
+                    disabled:opacity-50 transition"
                 >
                   {loading === "launch"
                     ? <Loader2 size={12} className="animate-spin" />
@@ -236,7 +240,9 @@ export default function IdeaCard({
                 <button
                   onClick={() => run("recall", recallIdea)}
                   disabled={!!loading}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 disabled:opacity-50 transition"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium
+                    text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700
+                    disabled:opacity-50 transition"
                 >
                   {loading === "recall"
                     ? <Loader2 size={12} className="animate-spin" />
@@ -248,9 +254,10 @@ export default function IdeaCard({
               <button
                 onClick={handleDeleteClick}
                 disabled={loading === "delete"}
-                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${confirmDelete
-                  ? "bg-red-600 text-white animate-pulse"
-                  : "text-red-400 bg-slate-800 hover:bg-red-900/30"
+                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium
+                  rounded-lg disabled:opacity-50 transition-all ${confirmDelete
+                    ? "bg-red-600 text-white animate-pulse"
+                    : "text-red-400 bg-slate-800 hover:bg-red-900/30"
                   }`}
               >
                 {loading === "delete"

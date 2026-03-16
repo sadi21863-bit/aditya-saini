@@ -5,11 +5,18 @@ import { useRef, useState } from "react";
 import { Lightbulb, Save } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
+import FlairPicker from "@/components/FlairPicker";
+import type { FlairValue } from "@/lib/flair";
 
-export default function IdeaForm({ existingCategories = [] }: { existingCategories?: string[] }) {
+export default function IdeaForm({
+  existingCategories = [],
+}: {
+  existingCategories?: string[];
+}) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [content, setContent] = useState("");
+  const [flair, setFlair] = useState<FlairValue | null>(null);
 
   const allCategories = Array.from(new Set([...CATEGORIES, ...existingCategories]));
 
@@ -18,9 +25,12 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
       ref={formRef}
       action={async (formData) => {
         setIsPending(true);
+        // Inject flair manually since it's not a native input
+        if (flair) formData.set("flair", flair);
         await addIdea(formData);
         formRef.current?.reset();
         setContent("");
+        setFlair(null);
         setIsPending(false);
       }}
       className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8"
@@ -29,7 +39,10 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
         <div className="p-2 bg-[#0d9488]/10 rounded-xl">
           <Lightbulb className="text-[#0d9488]" size={20} />
         </div>
-        <h3 className="text-xl font-bold text-slate-900" style={{ fontFamily: "var(--font-playfair)" }}>
+        <h3
+          className="text-xl font-bold text-slate-900"
+          style={{ fontFamily: "var(--font-playfair)" }}
+        >
           Idea Details
         </h3>
       </div>
@@ -45,8 +58,8 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
             name="title"
             placeholder="e.g. Solar Powered Desalination"
             className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
-              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20
-              outline-none transition-all"
+              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2
+              focus:ring-[#0d9488]/20 outline-none transition-all"
             required
           />
         </div>
@@ -61,20 +74,35 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
             list="category-list"
             placeholder="e.g. Energy, Tech, Social"
             className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
-              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20
-              outline-none transition-all"
+              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2
+              focus:ring-[#0d9488]/20 outline-none transition-all"
             required
           />
           <datalist id="category-list">
-            {allCategories.map((cat) => <option key={cat} value={cat} />)}
+            {allCategories.map((cat) => (
+              <option key={cat} value={cat} />
+            ))}
           </datalist>
         </div>
 
-        {/* Context — public pitch */}
+        {/* Flair */}
+        <div>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+            Status Flair{" "}
+            <span className="normal-case text-slate-400 font-normal">
+              (optional — what stage is this idea?)
+            </span>
+          </label>
+          <FlairPicker value={flair} onChange={setFlair} />
+        </div>
+
+        {/* Public Pitch */}
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
             Public Pitch{" "}
-            <span className="normal-case text-slate-400 font-normal">(always visible — your hook)</span>
+            <span className="normal-case text-slate-400 font-normal">
+              (always visible — your hook)
+            </span>
           </label>
           <input
             name="context"
@@ -109,7 +137,13 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
               : "bg-[#0d9488] text-white hover:bg-teal-700 active:scale-[0.98] shadow-md"
             }`}
         >
-          {isPending ? "Saving to Dashboard..." : <><Save size={16} /> Save to Dashboard</>}
+          {isPending ? (
+            "Saving to Dashboard..."
+          ) : (
+            <>
+              <Save size={16} /> Save to Dashboard
+            </>
+          )}
         </button>
       </div>
     </form>

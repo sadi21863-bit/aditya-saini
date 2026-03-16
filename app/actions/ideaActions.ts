@@ -22,6 +22,10 @@ const IdeaWriteSchema = z.object({
     .enum(["open", "guarded", "shielded", "vault"])
     .optional()
     .default("open"),
+  flair: z
+    .enum(["research", "concept", "ready", "cofound", "built"])
+    .nullable()
+    .optional(),
 });
 
 const AccessRequestSchema = z.object({
@@ -71,13 +75,14 @@ export async function addIdea(formData: FormData) {
     context: formData.get("context"),
     content: formData.get("content"),
     protectionLevel: formData.get("protectionLevel") ?? "open",
+    flair: formData.get("flair") || null,           // ✅ flair
   });
 
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { title, category, context, content, protectionLevel } = parsed.data;
+  const { title, category, context, content, protectionLevel, flair } = parsed.data;
 
   await db.insert(ideas).values({
     title,
@@ -85,6 +90,7 @@ export async function addIdea(formData: FormData) {
     context,
     content,
     protectionLevel,
+    flair: flair ?? null,                            // ✅ flair
     status: "draft",
     totalLikes: 0,
     views: 0,
@@ -108,17 +114,26 @@ export async function updateIdea(id: string, formData: FormData) {
     context: formData.get("context"),
     content: formData.get("content"),
     protectionLevel: formData.get("protectionLevel") ?? "open",
+    flair: formData.get("flair") || null,           // ✅ flair
   });
 
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { title, category, context, content, protectionLevel } = parsed.data;
+  const { title, category, context, content, protectionLevel, flair } = parsed.data;
 
   await db
     .update(ideas)
-    .set({ title, category, context, content, protectionLevel, updatedAt: new Date() })
+    .set({
+      title,
+      category,
+      context,
+      content,
+      protectionLevel,
+      flair: flair ?? null,                          // ✅ flair
+      updatedAt: new Date(),
+    })
     .where(eq(ideas.id, id));
 
   revalidatePath("/dashboard");
