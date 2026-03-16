@@ -2,16 +2,9 @@
 
 import { addIdea } from "@/app/actions/ideaActions";
 import { useRef, useState } from "react";
-import { Lightbulb, Save, Shield, ShieldCheck, ShieldOff, Lock } from "lucide-react";
+import { Lightbulb, Save } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
-
-const PROTECTION_OPTIONS = [
-  { value: "open", label: "Open", Icon: ShieldOff, description: "Fully public" },
-  { value: "guarded", label: "Guarded", Icon: Shield, description: "No text select" },
-  { value: "shielded", label: "Shielded", Icon: ShieldCheck, description: "Copy blocked" },
-  { value: "vault", label: "Vault", Icon: Lock, description: "Like to reveal" },
-] as const;
 
 export default function IdeaForm({ existingCategories = [] }: { existingCategories?: string[] }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -105,41 +98,6 @@ export default function IdeaForm({ existingCategories = [] }: { existingCategori
             rows={7}
             required
           />
-        </div>
-
-        {/* IP Protection Level */}
-        <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
-            IP Protection Level
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {PROTECTION_OPTIONS.map(({ value, label, Icon, description }) => (
-              <label
-                key={value}
-                className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200
-                  bg-slate-50 cursor-pointer hover:border-[#0d9488]/40
-                  has-[:checked]:border-[#0d9488] has-[:checked]:bg-teal-50 transition-all"
-              >
-                <input
-                  type="radio"
-                  name="protectionLevel"
-                  value={value}
-                  defaultChecked={value === "open"}
-                  className="accent-[#0d9488]"
-                />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <Icon size={12} className="text-slate-500" />
-                    <span className="text-sm font-bold text-slate-800">{label}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400">{description}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 italic">
-            You can change this later from the Edit page.
-          </p>
         </div>
 
         <button

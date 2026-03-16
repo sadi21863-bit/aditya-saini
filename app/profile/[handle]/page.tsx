@@ -6,6 +6,7 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import { getTierFromXp, tierProgress, xpToNextTier } from "@/lib/tier-engine";
 import FollowButton from "@/components/FollowButton";
 import IdeaCard from "@/components/IdeaCard";
+import Link from "next/link";
 
 export default async function ProfilePage({
   params,
@@ -13,9 +14,15 @@ export default async function ProfilePage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  const currentUserId = await getAuthenticatedUserId();
 
-  // Resolve handle → user
+  // ✅ Safe auth — null for guests
+  let currentUserId: string | null = null;
+  try {
+    currentUserId = await getAuthenticatedUserId();
+  } catch {
+    // guest
+  }
+
   const profileUser = await db.query.users.findFirst({
     where: eq(users.handle, handle),
   });
@@ -60,8 +67,9 @@ export default async function ProfilePage({
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white">
             {profileUser.name ?? `@${profileUser.handle}`}
@@ -83,17 +91,32 @@ export default async function ProfilePage({
           </div>
         </div>
 
-        {!isOwnProfile && currentUserId && (
-          <FollowButton
-            followerId={currentUserId}
-            targetId={profileUser.id}
-            initialFollowing={isFollowing}
-          />
-        )}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {/* ✅ Fixed prop names */}
+          {!isOwnProfile && currentUserId && (
+            <FollowButton
+              currentUserId={currentUserId}
+              targetUserId={profileUser.id}
+              targetHandle={profileUser.handle ?? ""}
+              initialIsFollowing={isFollowing}
+            />
+          )}
+
+          {/* Edit button if own profile */}
+          {isOwnProfile && (
+            <Link
+              href={`/profile/${handle}/edit`}
+              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700
+                text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+            >
+              Edit Profile
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tier Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold mb-6 ${tier.bg} ${tier.color}`}>
+      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold mb-4 ${tier.bg} ${tier.color}`}>
         {tier.label} · {profileUser.xp} XP
         {xpLeft !== null && (
           <span className="text-xs font-normal opacity-70">

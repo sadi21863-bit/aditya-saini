@@ -3,7 +3,7 @@ import { users, ideas } from "@/db/schema";
 import { desc, eq, sql, and, gte } from "drizzle-orm";
 import { Trophy, TrendingUp, Zap, Clock, Calendar, Infinity } from "lucide-react";
 import Link from "next/link";
-import { getTier } from "@/lib/tier-engine";
+import { getTierFromXp } from "@/lib/tier-engine";
 
 type Range = "alltime" | "daily" | "weekly";
 
@@ -96,8 +96,8 @@ export default async function LeaderboardPage({
               key={t.key}
               href={`/leaderboard?range=${t.key}`}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${range === t.key
-                  ? "bg-[#0d9488] text-white shadow-md"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-[#0d9488] text-white shadow-md"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
             >
               {t.icon}
@@ -124,7 +124,7 @@ export default async function LeaderboardPage({
             <tbody>
               {topUsers.map((user, index) => {
                 // Derive tier from live XP — never trust cached string alone
-                const tierConfig = getTier(user.xp ?? 0);
+                const tierConfig = getTierFromXp(user.xp ?? 0);
 
                 return (
                   <tr
@@ -135,12 +135,12 @@ export default async function LeaderboardPage({
                     <td className="p-5">
                       <span
                         className={`text-xl font-bold font-mono ${index === 0
-                            ? "text-amber-500"
-                            : index === 1
-                              ? "text-slate-400"
-                              : index === 2
-                                ? "text-orange-400"
-                                : "text-slate-300"
+                          ? "text-amber-500"
+                          : index === 1
+                            ? "text-slate-400"
+                            : index === 2
+                              ? "text-orange-400"
+                              : "text-slate-300"
                           }`}
                       >
                         {index + 1}

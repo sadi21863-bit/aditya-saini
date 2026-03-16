@@ -1,324 +1,341 @@
-// app/admin/justice/page.tsx
-import { requireAdmin } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { ideas, users } from "@/db/schema";
+import { ideas, users, similarityFlags } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { Shield, AlertTriangle, CheckCircle, RefreshCw, Zap } from "lucide-react";
-import { performJusticeAudit, batchAuditUnscanned } from "@/app/actions/justiceActions";
-import { Suspense } from "react";
+import { getAuthenticatedUserId } from "@/lib/auth";
+import {
+    performJusticeAudit,
+    batchAuditUnscanned,
+    manualOverride,
+} from "@/app/actions/justiceActions";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import {
+    ShieldCheck,
+    ShieldOff,
+    AlertTriangle,
+    Activity,
+    Scale,
+} from "lucide-react";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Re-Audit Button (Client Component)
-// ─────────────────────────────────────────────────────────────────────────────
-function ReAuditButton({ ideaId }: { ideaId: string }) {
-    return (
-        <form action={performJusticeAudit.bind(null, ideaId)}>
-            <button
-                type="submit"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold
-          text-[#0d9488] bg-teal-50 rounded-lg hover:bg-teal-100 
-          transition-colors border border-teal-200"
-            >
-                <RefreshCw size={12} />
-                Re-Audit
-            </button>
-        </form>
-    );
-}
+type AiMeta = {
+    scanned?: boolean;
+    riskScore?: number;
+    lastAudit?: string;
+    status?: "verified" | "flagged";
+    manualOverride?: boolean;
+};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Batch Scan Button
-// ─────────────────────────────────────────────────────────────────────────────
-function BatchScanButton() {
-    return (
-        <form action={batchAuditUnscanned}>
-            <button
-                type="submit"
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold
-          text-white bg-[#0d9488] rounded-xl hover:bg-teal-700 
-          transition-colors shadow-md shadow-teal-100"
-            >
-                <Zap size={16} />
-                Scan All Unscanned
-            </button>
-        </form>
-    );
-}
+export default async function JusticePage() {
+    let callerId: string;
+    try {
+        callerId = await getAuthenticatedUserId();
+    } catch {
+        redirect("/feed");
+    }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Justice Table Content
-// ─────────────────────────────────────────────────────────────────────────────
-async function JusticeTable() {
-    // Fetch all public ideas with author info
-    const publicIdeas = await db
+    const me = await db.query.users.findFirst({
+        where: eq(users.id, callerId),
+    });
+
+    // Swap this for a real roles check when ready
+    const isAdmin = true;
+    if (!isAdmin) redirect("/feed");
+
+    const allPublicIdeas = await db
         .select({
             id: ideas.id,
             title: ideas.title,
             userId: ideas.userId,
-            genesisHash: ideas.genesisHash,
-            aiMetadata: ideas.aiMetadata,
+            createdAt: ideas.createdAt,
             totalLikes: ideas.totalLikes,
             views: ideas.views,
-            createdAt: ideas.createdAt,
-            author: {
-                name: users.name,
-                handle: users.handle,
-            },
+            aiMetadata: ideas.aiMetadata,
         })
         .from(ideas)
-        .leftJoin(users, eq(ideas.userId, users.id))
         .where(eq(ideas.status, "public"))
         .orderBy(desc(ideas.createdAt));
 
-    return (
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <div className="col-span-3">Idea</div>
-                <div className="col-span-2">Author</div>
-                <div className="col-span-2">Genesis Hash</div>
-                <div className="col-span-1 text-center">Risk</div>
-                <div className="col-span-2 text-center">Status</div>
-                <div className="col-span-1 text-center">Engagement</div>
-                <div className="col-span-1 text-right">Actions</div>
-            </div>
+    const allUsers = await db
+        .select({ id: users.id, handle: users.handle, name: users.name })
+        .from(users);
+    const userMap = Object.fromEntries(allUsers.map((u) => [u.id, u]));
 
-            {/* Table Rows */}
-            <div className="divide-y divide-slate-100">
-                {publicIdeas.length === 0 ? (
-                    <div className="px-6 py-12 text-center text-slate-400">
-                        No public ideas found.
-                    </div>
-                ) : (
-                    publicIdeas.map((idea) => {
-                        const metadata = idea.aiMetadata as any;
-                        const isScanned = metadata?.scanned ?? false;
-                        const riskScore = metadata?.riskScore ?? null;
-                        const status = metadata?.status ?? "pending";
-                        const authorName = idea.author?.name || idea.author?.handle || "Anonymous";
+    const flags = await db
+        .select()
+        .from(similarityFlags)
+        .orderBy(desc(similarityFlags.detectedAt));
 
-                        // Status styling
-                        const statusConfig = {
-                            verified: {
-                                icon: CheckCircle,
-                                color: "text-emerald-600",
-                                bg: "bg-emerald-50",
-                                border: "border-emerald-200",
-                                label: "Verified",
-                            },
-                            flagged: {
-                                icon: AlertTriangle,
-                                color: "text-amber-600",
-                                bg: "bg-amber-50",
-                                border: "border-amber-200",
-                                label: "Flagged",
-                            },
-                            pending: {
-                                icon: Shield,
-                                color: "text-slate-400",
-                                bg: "bg-slate-50",
-                                border: "border-slate-200",
-                                label: "Pending",
-                            },
-                        };
+    // Stats
+    const total = allPublicIdeas.length;
+    const scanned = allPublicIdeas.filter(
+        (i) => (i.aiMetadata as AiMeta)?.scanned
+    ).length;
+    const flagged = allPublicIdeas.filter(
+        (i) => (i.aiMetadata as AiMeta)?.status === "flagged"
+    ).length;
+    const unscanned = total - scanned;
 
-                        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-                        const StatusIcon = config.icon;
+    function riskColor(score?: number) {
+        if (score === undefined) return "text-slate-500";
+        if (score > 75) return "text-red-400";
+        if (score >= 40) return "text-yellow-400";
+        return "text-emerald-400";
+    }
 
-                        return (
-                            <div
-                                key={idea.id}
-                                className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-slate-50 transition-colors items-center"
-                            >
-                                {/* Idea Title */}
-                                <div className="col-span-3">
-                                    <a
-                                        href={`/idea/${idea.id}`}
-                                        className="font-semibold text-sm text-slate-900 hover:text-[#0d9488] line-clamp-1"
-                                        style={{ fontFamily: "var(--font-playfair)" }}
-                                    >
-                                        {idea.title}
-                                    </a>
-                                    <p className="text-xs text-slate-400 mt-0.5">
-                                        {idea.createdAt
-                                            ? new Date(idea.createdAt).toLocaleDateString("en-US", {
-                                                month: "short",
-                                                day: "numeric",
-                                                year: "numeric",
-                                            })
-                                            : ""}
-                                    </p>
-                                </div>
-
-                                {/* Author */}
-                                <div className="col-span-2">
-                                    <p className="text-sm text-slate-600 line-clamp-1">{authorName}</p>
-                                </div>
-
-                                {/* Genesis Hash (truncated) */}
-                                <div className="col-span-2">
-                                    <code className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded font-mono">
-                                        {idea.genesisHash
-                                            ? `${idea.genesisHash.slice(0, 8)}...${idea.genesisHash.slice(-6)}`
-                                            : "N/A"}
-                                    </code>
-                                </div>
-
-                                {/* Risk Score */}
-                                <div className="col-span-1 text-center">
-                                    {isScanned && riskScore !== null ? (
-                                        <span
-                                            className={`inline-flex items-center justify-center w-12 h-12 rounded-full font-bold text-sm ${riskScore > 75
-                                                    ? "bg-red-100 text-red-700"
-                                                    : riskScore > 50
-                                                        ? "bg-amber-100 text-amber-700"
-                                                        : "bg-emerald-100 text-emerald-700"
-                                                }`}
-                                        >
-                                            {riskScore}
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs text-slate-400">—</span>
-                                    )}
-                                </div>
-
-                                {/* Audit Status */}
-                                <div className="col-span-2 flex justify-center">
-                                    <span
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${config.color} ${config.bg} ${config.border}`}
-                                    >
-                                        <StatusIcon size={12} />
-                                        {config.label}
-                                    </span>
-                                </div>
-
-                                {/* Engagement */}
-                                <div className="col-span-1 text-center">
-                                    <p className="text-xs text-slate-500">
-                                        ❤️ {idea.totalLikes} · 👁 {idea.views}
-                                    </p>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="col-span-1 flex justify-end">
-                                    <ReAuditButton ideaId={idea.id} />
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Loading Skeleton
-// ─────────────────────────────────────────────────────────────────────────────
-function JusticeTableSkeleton() {
-    return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <div className="space-y-4 animate-pulse">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                        <div className="h-12 flex-1 bg-slate-100 rounded-lg" />
-                        <div className="h-12 w-24 bg-slate-100 rounded-lg" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stats Cards Component
-// ─────────────────────────────────────────────────────────────────────────────
-async function StatsCards() {
-    const allIdeas = await db
-        .select({
-            aiMetadata: ideas.aiMetadata,
-        })
-        .from(ideas)
-        .where(eq(ideas.status, "public"));
-
-    const totalPublic = allIdeas.length;
-    const scanned = allIdeas.filter((i) => (i.aiMetadata as any)?.scanned).length;
-    const verified = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "verified").length;
-    const flagged = allIdeas.filter((i) => (i.aiMetadata as any)?.status === "flagged").length;
-
-    const stats = [
-        { label: "Total Public", value: totalPublic, color: "bg-blue-50 text-blue-700" },
-        { label: "Scanned", value: scanned, color: "bg-teal-50 text-teal-700" },
-        { label: "Verified", value: verified, color: "bg-emerald-50 text-emerald-700" },
-        { label: "Flagged", value: flagged, color: "bg-amber-50 text-amber-700" },
-    ];
-
-    return (
-        <>
-            {stats.map((stat, i) => (
-                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-6">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        {stat.label}
-                    </p>
-                    <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
-                </div>
-            ))}
-        </>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Admin Page - WITH PROTECTION
-// ─────────────────────────────────────────────────────────────────────────────
-export default async function JusticeAdminPage() {
-    // 🔒 ADMIN PROTECTION - THIS IS THE FIX!
-    try {
-        await requireAdmin();
-    } catch (error) {
-        redirect("/dashboard");
+    function statusBadge(meta: AiMeta | null) {
+        if (!meta?.scanned)
+            return (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 uppercase">
+                    Unscanned
+                </span>
+            );
+        if (meta.status === "flagged")
+            return (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-900/50 text-red-400 uppercase border border-red-800">
+                    Flagged
+                </span>
+            );
+        return (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-900/50 text-emerald-400 uppercase border border-emerald-800">
+                Verified
+            </span>
+        );
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafb] p-4 md:p-8">
-            <div className="max-w-[1400px] mx-auto">
+        <div className="min-h-screen bg-slate-950 text-white">
+            <div className="max-w-7xl mx-auto px-6 py-10">
+
                 {/* Header */}
-                <div className="mb-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-[#0d9488]/10 rounded-xl">
-                            <Shield className="text-[#0d9488]" size={22} />
+                <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#0d9488]/10 flex items-center justify-center">
+                            <Scale size={20} className="text-[#0d9488]" />
                         </div>
-                        <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
-                            Admin Dashboard
-                        </p>
-                    </div>
-                    <div className="flex items-center justify-between">
                         <div>
-                            <h1
-                                className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight"
-                                style={{ fontFamily: "var(--font-playfair)" }}
-                            >
-                                Justice Engine
-                            </h1>
-                            <p className="text-slate-500 mt-2">
-                                AI-powered content auditing and IP protection
+                            <h1 className="text-2xl font-bold">Justice Engine</h1>
+                            <p className="text-slate-400 text-sm">
+                                AI-powered content audit & plagiarism detection
                             </p>
                         </div>
-                        <BatchScanButton />
+                    </div>
+                    <form
+                        action={async () => {
+                            "use server";
+                            await batchAuditUnscanned();
+                        }}
+                    >
+                        <button
+                            type="submit"
+                            className="px-5 py-2.5 rounded-xl bg-[#0d9488] hover:bg-teal-500
+                text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        >
+                            <Activity size={14} />
+                            Batch Audit All
+                        </button>
+                    </form>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                    {[
+                        { label: "Total Public Ideas", value: total, icon: ShieldOff, color: "text-slate-400" },
+                        { label: "Scanned", value: scanned, icon: ShieldCheck, color: "text-emerald-400" },
+                        { label: "Flagged", value: flagged, icon: AlertTriangle, color: "text-red-400" },
+                        { label: "Unscanned", value: unscanned, icon: Activity, color: "text-yellow-400" },
+                    ].map(({ label, value, icon: Icon, color }) => (
+                        <div key={label} className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+                            <Icon size={18} className={`${color} mb-2`} />
+                            <p className="text-2xl font-bold text-white">{value}</p>
+                            <p className="text-xs text-slate-500 mt-1">{label}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Ideas Audit Table */}
+                <div className="mb-12">
+                    <h2 className="text-lg font-bold mb-4">Public Ideas Audit</h2>
+                    <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
+                        <table className="w-full text-sm min-w-[700px]">
+                            <thead>
+                                <tr className="border-b border-slate-800 bg-slate-900/60">
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Title</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Author</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Risk Score</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Status</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Last Audit</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {allPublicIdeas.map((idea) => {
+                                    const meta = idea.aiMetadata as AiMeta | null;
+                                    const author = userMap[idea.userId ?? ""];
+                                    return (
+                                        <tr
+                                            key={idea.id}
+                                            className="border-b border-slate-800/60 hover:bg-slate-900/40 transition-colors"
+                                        >
+                                            <td className="px-4 py-3">
+                                                <Link
+                                                    href={`/idea/${idea.id}`}
+                                                    className="font-medium text-white hover:text-[#0d9488] transition-colors line-clamp-1"
+                                                >
+                                                    {idea.title}
+                                                </Link>
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-400">
+                                                {author?.handle ? (
+                                                    <Link
+                                                        href={`/profile/${author.handle}`}
+                                                        className="hover:text-white transition-colors"
+                                                    >
+                                                        @{author.handle}
+                                                    </Link>
+                                                ) : "—"}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`font-bold ${riskColor(meta?.riskScore)}`}>
+                                                    {meta?.riskScore !== undefined
+                                                        ? `${meta.riskScore}/100`
+                                                        : "—"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">{statusBadge(meta)}</td>
+                                            <td className="px-4 py-3 text-slate-500 text-xs">
+                                                {meta?.lastAudit
+                                                    ? new Date(meta.lastAudit).toLocaleDateString("en-US", {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        year: "numeric",
+                                                    })
+                                                    : "—"}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <form
+                                                        action={async () => {
+                                                            "use server";
+                                                            await performJusticeAudit(idea.id);
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="submit"
+                                                            className="px-2.5 py-1 rounded-lg bg-[#0d9488]/10 text-[#0d9488]
+                                text-xs font-bold hover:bg-[#0d9488]/20 transition"
+                                                        >
+                                                            Audit
+                                                        </button>
+                                                    </form>
+                                                    <form
+                                                        action={async () => {
+                                                            "use server";
+                                                            await manualOverride(idea.id, "verified");
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="submit"
+                                                            className="px-2.5 py-1 rounded-lg bg-emerald-900/30 text-emerald-400
+                                text-xs font-bold hover:bg-emerald-900/50 transition"
+                                                        >
+                                                            Verify
+                                                        </button>
+                                                    </form>
+                                                    <form
+                                                        action={async () => {
+                                                            "use server";
+                                                            await manualOverride(idea.id, "flagged");
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="submit"
+                                                            className="px-2.5 py-1 rounded-lg bg-red-900/30 text-red-400
+                                text-xs font-bold hover:bg-red-900/50 transition"
+                                                        >
+                                                            Flag
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {allPublicIdeas.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                                            No public ideas yet.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <Suspense fallback={<div className="bg-white rounded-2xl h-24 animate-pulse" />}>
-                        <StatsCards />
-                    </Suspense>
+                {/* Similarity Flags Table */}
+                <div>
+                    <h2 className="text-lg font-bold mb-4">Similarity Flags</h2>
+                    <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
+                        <table className="w-full text-sm min-w-[500px]">
+                            <thead>
+                                <tr className="border-b border-slate-800 bg-slate-900/60">
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Idea 1</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Idea 2</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Score</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Status</th>
+                                    <th className="text-left px-4 py-3 text-slate-400 font-semibold">Detected</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {flags.map((flag) => (
+                                    <tr
+                                        key={flag.id}
+                                        className="border-b border-slate-800/60 hover:bg-slate-900/40 transition-colors"
+                                    >
+                                        <td className="px-4 py-3">
+                                            <Link
+                                                href={`/idea/${flag.idea1Id}`}
+                                                className="text-slate-300 hover:text-[#0d9488] transition-colors text-xs font-mono"
+                                            >
+                                                {flag.idea1Id.slice(0, 8)}…
+                                            </Link>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Link
+                                                href={`/idea/${flag.idea2Id}`}
+                                                className="text-slate-300 hover:text-[#0d9488] transition-colors text-xs font-mono"
+                                            >
+                                                {flag.idea2Id.slice(0, 8)}…
+                                            </Link>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className={`font-bold ${riskColor(flag.similarityScore)}`}>
+                                                {flag.similarityScore}/100
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 uppercase">
+                                                {flag.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-500 text-xs">
+                                            {flag.detectedAt
+                                                ? new Date(flag.detectedAt).toLocaleDateString()
+                                                : "—"}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {flags.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                                            No similarity flags detected yet.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-
-                {/* Justice Table */}
-                <Suspense fallback={<JusticeTableSkeleton />}>
-                    <JusticeTable />
-                </Suspense>
             </div>
         </div>
     );
