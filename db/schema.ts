@@ -6,6 +6,7 @@ import {
   uuid,
   uniqueIndex,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -21,17 +22,22 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
 
-  // Tier is derived from XP at runtime (lib/tier-engine.ts).
-  // Values: "dreamer" | "visionary" | "architect" | "oracle"
   tier: text("tier").default("dreamer").notNull(),
-
-  // Lifetime accumulated XP.
-  // +10 on launch, +5 per like received, +1 per follower gained
-  // 0 on recall to draft, -10 on permanent delete
   xp: integer("xp").default(0).notNull(),
-
-  // Score = total XP from likes only. Used for leaderboard ORDER BY score DESC.
   score: integer("score").default(0).notNull(),
+
+  // ── v10 additions ──────────────────────────────────────────────
+  // Up to 3 pinned idea UUIDs shown at top of profile
+  pinnedIdeaIds: text("pinned_idea_ids")
+    .array()
+    .notNull()
+    .default(sql`ARRAY[]::text[]`),
+
+  // Auto-awarded badge keys e.g. ["first_idea", "100_sparks", "architect"]
+  badges: text("badges")
+    .array()
+    .notNull()
+    .default(sql`ARRAY[]::text[]`),
 
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -44,38 +50,38 @@ export const ideas = pgTable("ideas", {
   userId: text("user_id"),
 
   title: text("title").notNull(),
-
-  // Public pitch written by the creator — always visible regardless of protection
   context: text("context"),
-
   content: text("content"),
   category: text("category"),
-  status: text("status").default("draft").notNull(), // "draft" | "public"
+  status: text("status").default("draft").notNull(),
 
-  // Collaboration mode — "open" (anyone reads) | "closed" (access required)
   collaborationMode: text("collaboration_mode").default("open").notNull(),
 
   totalLikes: integer("total_likes").default(0).notNull(),
   views: integer("views").default(0).notNull(),
 
-  // Protection level — unlocked by tier
-  // "open" | "guarded" | "shielded" | "vault"
   protectionLevel: text("protection_level").default("open").notNull(),
 
-  // Populated ONLY on first draft → public transition. Never updated after.
   genesisHash: text("genesis_hash"),
-
-  // Fuzzy content fingerprint for silent plagiarism detection.
   simHash: text("sim_hash"),
 
-  // Users granted read access to protected ideas
   viewerIds: text("viewer_ids")
     .array()
     .notNull()
     .default(sql`ARRAY[]::text[]`),
 
-  // AI Metadata (Justice Engine)
   aiMetadata: jsonb("ai_metadata"),
+
+  // ── v10 additions ──────────────────────────────────────────────
+  // Creator-set status flair
+  // "research" | "concept" | "ready" | "cofound" | "built"
+  flair: text("flair"),
+
+  // v11 prep — remix origin
+  remixedFromId: uuid("remixed_from_id"),
+
+  // Admin-curated highlight
+  editorsPick: boolean("editors_pick").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -131,7 +137,7 @@ export const comments = pgTable("comments", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. SIMILARITY FLAGS (Justice Engine — silent, admin-only)
+// 6. SIMILARITY FLAGS
 // ─────────────────────────────────────────────────────────────────────────────
 export const similarityFlags = pgTable("similarity_flags", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -139,9 +145,6 @@ export const similarityFlags = pgTable("similarity_flags", {
   idea2Id: uuid("idea2_id").notNull().references(() => ideas.id),
   similarityScore: integer("similarity_score").notNull(),
   detectedAt: timestamp("detected_at").defaultNow(),
-  // "silent" = detected, no report yet
-  // "under_review" = formal report filed
-  // "resolved" = admin has ruled
   status: text("status").default("silent").notNull(),
   adminNotes: text("admin_notes"),
 });
@@ -160,6 +163,40 @@ export const ideaRevisions = pgTable("idea_revisions", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 8. BOOKMARKS  [v10]
+// ─────────────────────────────────────────────────────────────────────────────
+export const bookmarks = pgTable(
+  "bookmarks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").notNull(),
+    ideaId: uuid("idea_id")
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueBookmark: uniqueIndex("unique_user_bookmark").on(
+      table.userId,
+      table.ideaId
+    ),
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. NOTIFICATIONS  [v10]
+// ─────────────────────────────────────────────────────────────────────────────
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),      // recipient
+  type: text("type").notNull(),           // "spark" | "follow" | "comment" | "milestone" | "access_request"
+  body: text("body").notNull(),           // human-readable message
+  link: text("link"),                     // e.g. /idea/abc123
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INFERRED TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
@@ -169,8 +206,12 @@ export type Follow = typeof follows.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type SimilarityFlag = typeof similarityFlags.$inferSelect;
 export type IdeaRevision = typeof ideaRevisions.$inferSelect;
+export type Bookmark = typeof bookmarks.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
 export type NewComment = typeof comments.$inferInsert;
 export type NewFollow = typeof follows.$inferInsert;
+export type NewBookmark = typeof bookmarks.$inferInsert;
+export type NewNotification = typeof notifications.$inferInsert;

@@ -22,6 +22,13 @@
       "when": 1773501777582,
       "tag": "0002_gifted_tana_nile",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773672615389,
+      "tag": "0003_wide_firelord",
+      "breakpoints": true
     }
   ]
 }
