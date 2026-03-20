@@ -1,75 +1,70 @@
 "use server";
 
 import { db } from "@/db";
-import { ideas } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { ideas, communityNotes, users } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { jsonbMerge } from "@/lib/jsonb";
+import { requireAdmin, getAuthenticatedUserId } from "@/lib/auth";
+import { getTierFromXp } from "@/lib/tier-engine";
+import { createNotification } from "./notificationActions";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JUSTICE AUDIT TYPES
+// TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-
 export type AuditStatus = "verified" | "flagged";
 
 export interface AuditMetadata {
     scanned: boolean;
     riskScore: number;
-    lastAudit: string; // ISO timestamp
+    lastAudit: string;
     status: AuditStatus;
-    scanVersion?: string; // For future ML model versioning
+    scanVersion: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ── PERFORM JUSTICE AUDIT ─────────────────────────────────────────────────────
-// Simulates AI content scanning and assigns risk score.
-// Phase 3: Uses random score. Phase 4+ will integrate real ML models.
-// ─────────────────────────────────────────────────────────────────────────────
+// Tier gate: only Architect (500 XP) and above can submit notes
+const NOTE_MIN_XP = 500;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PERFORM JUSTICE AUDIT  (Admin or internal)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function performJusticeAudit(ideaId: string) {
     try {
-        // 1. Fetch the idea
         const [idea] = await db
             .select({
-                id: ideas.id,
-                title: ideas.title,
-                content: ideas.content,
-                genesisHash: ideas.genesisHash,
-                aiMetadata: ideas.aiMetadata,
+                id: ideas.id, title: ideas.title, content: ideas.content,
+                genesisHash: ideas.genesisHash, aiMetadata: ideas.aiMetadata,
+                userId: ideas.userId
             })
             .from(ideas)
             .where(eq(ideas.id, ideaId));
 
-        if (!idea) {
-            return { success: false, error: "Idea not found" };
-        }
+        if (!idea) return { success: false, error: "Idea not found" };
 
-        // 2. Simulate AI Risk Scoring (0-100)
-        // Future: Replace with actual ML model inference
-        const riskScore = Math.floor(Math.random() * 100);
-
-        // 3. Determine audit status based on threshold
+        const riskScore = Math.floor(Math.random() * 100); // Phase 5+: real ML
         const status: AuditStatus = riskScore > 75 ? "flagged" : "verified";
 
-        // 4. Build audit metadata
         const auditMetadata: AuditMetadata = {
-            scanned: true,
-            riskScore,
+            scanned: true, riskScore,
             lastAudit: new Date().toISOString(),
-            status,
-            scanVersion: "v1.0-dev", // Track which model version performed scan
+            status, scanVersion: "v2.0-justice",
         };
 
-        // 5. Update idea with merged metadata (preserves other fields)
-        await db
-            .update(ideas)
-            .set({
-                aiMetadata: jsonbMerge(ideas.aiMetadata, auditMetadata),
-                updatedAt: new Date(),
-            })
-            .where(eq(ideas.id, ideaId));
+        await db.update(ideas).set({
+            aiMetadata: jsonbMerge(ideas.aiMetadata, auditMetadata),
+            updatedAt: new Date(),
+        }).where(eq(ideas.id, ideaId));
 
-        // 6. Revalidate paths
+        // Notify creator if flagged
+        if (status === "flagged" && idea.userId) {
+            await createNotification({
+                userId: idea.userId,
+                type: "milestone",
+                body: `⚠️ Your idea "${idea.title}" has been flagged by the Justice Engine (risk score: ${riskScore}/100).`,
+                link: `/idea/${ideaId}`,
+            });
+        }
+
         revalidatePath("/admin/justice");
         revalidatePath("/feed");
         revalidatePath(`/idea/${ideaId}`);
@@ -77,13 +72,10 @@ export async function performJusticeAudit(ideaId: string) {
         return {
             success: true,
             data: {
-                ideaId,
-                riskScore,
-                status,
-                message:
-                    status === "flagged"
-                        ? `⚠️ Flagged: Risk score ${riskScore}/100`
-                        : `✅ Verified: Risk score ${riskScore}/100`,
+                ideaId, riskScore, status,
+                message: status === "flagged"
+                    ? `⚠️ Flagged: Risk score ${riskScore}/100`
+                    : `✅ Verified: Risk score ${riskScore}/100`,
             },
         };
     } catch (error) {
@@ -93,14 +85,11 @@ export async function performJusticeAudit(ideaId: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── BATCH AUDIT ───────────────────────────────────────────────────────────────
-// Audits all public ideas that haven't been scanned yet
+// BATCH AUDIT UNSCANNED
 // ─────────────────────────────────────────────────────────────────────────────
-
 export async function batchAuditUnscanned() {
     try {
-        // Fetch all public ideas without scanned flag
-        const unscannedIdeas = await db
+        const unscanned = await db
             .select({ id: ideas.id })
             .from(ideas)
             .where(eq(ideas.status, "public"));
@@ -108,25 +97,20 @@ export async function batchAuditUnscanned() {
         let scannedCount = 0;
         let flaggedCount = 0;
 
-        // Audit each idea
-        for (const idea of unscannedIdeas) {
+        for (const idea of unscanned) {
             const result = await performJusticeAudit(idea.id);
             if (result.success) {
                 scannedCount++;
-                if (result.data?.status === "flagged") {
-                    flaggedCount++;
-                }
+                if (result.data?.status === "flagged") flaggedCount++;
             }
         }
 
         revalidatePath("/admin/justice");
-
         return {
             success: true,
             data: {
-                scannedCount,
-                flaggedCount,
-                message: `Scanned ${scannedCount} ideas. Flagged ${flaggedCount}.`,
+                scannedCount, flaggedCount,
+                message: `Scanned ${scannedCount} ideas. Flagged ${flaggedCount}.`
             },
         };
     } catch (error) {
@@ -136,30 +120,24 @@ export async function batchAuditUnscanned() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── MANUAL OVERRIDE (Admin only) ──────────────────────────────────────────────
-// Allows admin to manually verify or flag an idea
+// MANUAL OVERRIDE  (Admin only)
 // ─────────────────────────────────────────────────────────────────────────────
-
 export async function manualOverride(
     ideaId: string,
     status: AuditStatus,
     adminNote?: string
 ) {
     try {
-        const overrideMetadata = {
-            status,
-            manualOverride: true,
-            overrideTimestamp: new Date().toISOString(),
-            adminNote: adminNote ?? "Manual review",
-        };
+        await requireAdmin();
 
-        await db
-            .update(ideas)
-            .set({
-                aiMetadata: jsonbMerge(ideas.aiMetadata, overrideMetadata),
-                updatedAt: new Date(),
-            })
-            .where(eq(ideas.id, ideaId));
+        await db.update(ideas).set({
+            aiMetadata: jsonbMerge(ideas.aiMetadata, {
+                status, manualOverride: true,
+                overrideTimestamp: new Date().toISOString(),
+                adminNote: adminNote ?? "Manual review",
+            }),
+            updatedAt: new Date(),
+        }).where(eq(ideas.id, ideaId));
 
         revalidatePath("/admin/justice");
         revalidatePath("/feed");
@@ -167,10 +145,162 @@ export async function manualOverride(
 
         return {
             success: true,
-            message: `Idea ${status === "verified" ? "verified" : "flagged"} by admin`,
+            message: `Idea ${status === "verified" ? "verified ✅" : "flagged ⚠️"} by admin`,
         };
     } catch (error) {
         console.error("Manual override failed:", error);
         return { success: false, error: "Override failed" };
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBMIT COMMUNITY NOTE  (Architect+ only)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function submitCommunityNote(
+    ideaId: string,
+    note: string,
+    severity: "informational" | "factually_critical",
+    supportingEvidence?: { url: string; description: string }[]
+) {
+    const callerId = await getAuthenticatedUserId();
+    if (!callerId) return { success: false, error: "Not authenticated" };
+
+    if (!note?.trim() || note.trim().length < 20)
+        return { success: false, error: "Note must be at least 20 characters" };
+    if (note.length > 2000)
+        return { success: false, error: "Note too long (max 2000 chars)" };
+
+    // Tier gate
+    const [caller] = await db
+        .select({ xp: users.xp })
+        .from(users)
+        .where(eq(users.id, callerId));
+
+    const tier = getTierFromXp(caller?.xp ?? 0);
+    if ((caller?.xp ?? 0) < NOTE_MIN_XP)
+        return {
+            success: false,
+            error: `Community notes require Architect tier (500 XP). You are ${tier.displayName} (${caller?.xp ?? 0} XP).`,
+        };
+
+    // Block noting your own idea
+    const [idea] = await db
+        .select({ userId: ideas.userId, title: ideas.title })
+        .from(ideas)
+        .where(eq(ideas.id, ideaId));
+    if (!idea) return { success: false, error: "Idea not found" };
+    if (idea.userId === callerId)
+        return { success: false, error: "Cannot submit a note on your own idea" };
+
+    const [inserted] = await db.insert(communityNotes).values({
+        ideaId,
+        authorId: callerId,
+        note: note.trim(),
+        severity,
+        supportingEvidence: supportingEvidence ?? [],
+        threshold: 5,
+    }).returning({ id: communityNotes.id });
+
+    // Notify idea creator
+    if (idea.userId) {
+        await createNotification({
+            userId: idea.userId,
+            type: "critical_note",
+            body: `A community note was submitted on your idea "${idea.title}" (${severity === "factually_critical" ? "⚠️ Factually Critical" : "ℹ️ Informational"})`,
+            link: `/idea/${ideaId}`,
+        });
+    }
+
+    revalidatePath(`/idea/${ideaId}`);
+    return { success: true, noteId: inserted.id };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOTE ON COMMUNITY NOTE
+// ─────────────────────────────────────────────────────────────────────────────
+export async function voteCommunityNote(noteId: string) {
+    const callerId = await getAuthenticatedUserId();
+    if (!callerId) return { success: false, error: "Not authenticated" };
+
+    // Increment vote
+    const [updated] = await db
+        .update(communityNotes)
+        .set({ voteCount: sql`${communityNotes.voteCount} + 1`, updatedAt: new Date() })
+        .where(eq(communityNotes.id, noteId))
+        .returning({
+            id: communityNotes.id,
+            voteCount: communityNotes.voteCount,
+            threshold: communityNotes.threshold,
+            severity: communityNotes.severity,
+            ideaId: communityNotes.ideaId,
+            status: communityNotes.status,
+        });
+
+    if (!updated) return { success: false, error: "Note not found" };
+
+    // Auto-verify when threshold reached
+    if (updated.voteCount >= updated.threshold && updated.status === "pending") {
+        await db.update(communityNotes)
+            .set({ status: "verified", updatedAt: new Date() })
+            .where(eq(communityNotes.id, noteId));
+
+        // If factually critical → set hasCriticalNote flag on idea
+        if (updated.severity === "factually_critical") {
+            await db.update(ideas)
+                .set({ hasCriticalNote: true, updatedAt: new Date() })
+                .where(eq(ideas.id, updated.ideaId));
+        }
+
+        revalidatePath(`/idea/${updated.ideaId}`);
+        revalidatePath("/admin/justice");
+    }
+
+    return { success: true, voteCount: updated.voteCount };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISMISS NOTE  (Admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function dismissCommunityNote(noteId: string) {
+    await requireAdmin();
+
+    const [note] = await db
+        .update(communityNotes)
+        .set({ status: "dismissed", updatedAt: new Date() })
+        .where(eq(communityNotes.id, noteId))
+        .returning({ ideaId: communityNotes.ideaId });
+
+    if (note) revalidatePath(`/idea/${note.ideaId}`);
+    revalidatePath("/admin/justice");
+    return { success: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET NOTES FOR AN IDEA
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getCommunityNotes(ideaId: string) {
+    return db
+        .select({
+            id: communityNotes.id,
+            note: communityNotes.note,
+            severity: communityNotes.severity,
+            status: communityNotes.status,
+            voteCount: communityNotes.voteCount,
+            threshold: communityNotes.threshold,
+            createdAt: communityNotes.createdAt,
+            authorId: communityNotes.authorId,
+            authorName: users.name,
+            authorHandle: users.handle,
+            authorXp: users.xp,
+        })
+        .from(communityNotes)
+        .leftJoin(users, eq(communityNotes.authorId, users.id))
+        .where(
+            and(
+                eq(communityNotes.ideaId, ideaId),
+                // Only show verified or pending — not dismissed
+                sql`${communityNotes.status} != 'dismissed'`
+            )
+        )
+        .orderBy(communityNotes.createdAt);
 }
