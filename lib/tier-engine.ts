@@ -40,6 +40,8 @@ export const XP_EVENTS = {
   LAUNCH_IDEA: 10,
   RECEIVE_LIKE: 5,
   GAIN_FOLLOWER: 1,
+  PEER_REVIEW_GIVEN: 3,  // ← NEW Phase 6
+  SUBMIT_COMMUNITY_NOTE: 2, // ← NEW Phase 6
   RECALL_TO_DRAFT: 0,
   DELETE_IDEA: -10,
 } as const;
