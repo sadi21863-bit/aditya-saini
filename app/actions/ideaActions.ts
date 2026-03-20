@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { ideas, likes, users } from "@/db/schema";
+import { ideas, likes, users, similarityFlags, ideaRevisions } from "@/db/schema";
 import { eq, sql, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -142,14 +142,28 @@ export async function updateIdea(id: string, formData: FormData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE
+// DELETE  (v11: Tombstone — scrubs content, preserves genesisHash + timestamp)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   await assertOwnership(id, callerId);
 
-  await db.delete(ideas).where(eq(ideas.id, id));
-  await awardXp(callerId, -10);
+  // TOMBSTONE: do NOT hard-delete. Scrub content for privacy
+  // but keep genesisHash + createdAt as permanent proof of authorship.
+  await db
+    .update(ideas)
+    .set({
+      status: "deleted",
+      title: "[deleted]",
+      content: null,
+      context: null,
+      simHash: null,           // simHash cleared so it no longer blocks new ideas
+      updatedAt: new Date(),
+      // genesisHash intentionally NOT touched — immutable ledger preserved
+    })
+    .where(eq(ideas.id, id));
+
+  await awardXp(callerId, -10); // -10 XP penalty still applies
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");

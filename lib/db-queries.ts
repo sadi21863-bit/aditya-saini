@@ -1,35 +1,36 @@
+// lib/db-queries.ts
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 /**
- * lib/db-queries.ts
- *
+ * lib/db-queries.ts  — v11-justice
  * Shared read-only query helpers.
- * Column names reflect the Phase 2 schema:
- *   genesisHash (was genesisCode), blurLevel, views, contributorIds
+ * Fixed: removed stale contributorIds + blurLevel refs (schema v10+)
  */
 export async function getFeedData() {
   try {
     return await db
       .select({
-        id:           ideas.id,
-        title:        ideas.title,
-        hook:         ideas.hook,
-        content:      ideas.content,
-        category:     ideas.category,
-        status:       ideas.status,
-        totalLikes:   ideas.totalLikes,
-        views:        ideas.views,
-        blurLevel:    ideas.blurLevel,
-        genesisHash:  ideas.genesisHash,
-        contributorIds: ideas.contributorIds,
-        createdAt:    ideas.createdAt,
+        id: ideas.id,
+        title: ideas.title,
+        context: ideas.context,
+        content: ideas.content,
+        category: ideas.category,
+        status: ideas.status,
+        totalLikes: ideas.totalLikes,
+        views: ideas.views,
+        protectionLevel: ideas.protectionLevel,
+        genesisHash: ideas.genesisHash,
+        flair: ideas.flair,
+        editorsPick: ideas.editorsPick,
+        viewerIds: ideas.viewerIds,
+        createdAt: ideas.createdAt,
         user: {
-          id:   users.id,
+          id: users.id,
           name: users.name,
           tier: users.tier,
-          xp:   users.xp,
+          xp: users.xp,
         },
       })
       .from(ideas)
