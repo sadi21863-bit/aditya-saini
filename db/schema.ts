@@ -7,6 +7,7 @@ import {
   uniqueIndex,
   jsonb,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -26,14 +27,11 @@ export const users = pgTable("users", {
   xp: integer("xp").default(0).notNull(),
   score: integer("score").default(0).notNull(),
 
-  // ── v10 additions ──────────────────────────────────────────────
-  // Up to 3 pinned idea UUIDs shown at top of profile
   pinnedIdeaIds: text("pinned_idea_ids")
     .array()
     .notNull()
     .default(sql`ARRAY[]::text[]`),
 
-  // Auto-awarded badge keys e.g. ["first_idea", "100_sparks", "architect"]
   badges: text("badges")
     .array()
     .notNull()
@@ -72,9 +70,6 @@ export const ideas = pgTable("ideas", {
 
   aiMetadata: jsonb("ai_metadata"),
 
-  // ── v10 additions ──────────────────────────────────────────────
-  // Creator-set status flair
-  // "research" | "concept" | "ready" | "cofound" | "built"
   flair: text("flair"),
 
   // v11 prep — remix origin
@@ -82,6 +77,11 @@ export const ideas = pgTable("ideas", {
 
   // Admin-curated highlight
   editorsPick: boolean("editors_pick").default(false).notNull(),
+
+  // ── v11 Truth Layer ────────────────────────────────────────────
+  // Set true when a verified "Factually Critical" community note exists.
+  // Blocks project level-up until creator acknowledges it.
+  hasCriticalNote: boolean("has_critical_note").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -123,7 +123,7 @@ export const follows = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. COMMENTS
+// 5. COMMENTS  (kept for backwards compat — upgraded in Phase 3)
 // ─────────────────────────────────────────────────────────────────────────────
 export const comments = pgTable("comments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -188,13 +188,90 @@ export const bookmarks = pgTable(
 // ─────────────────────────────────────────────────────────────────────────────
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id").notNull(),      // recipient
-  type: text("type").notNull(),           // "spark" | "follow" | "comment" | "milestone" | "access_request"
-  body: text("body").notNull(),           // human-readable message
-  link: text("link"),                     // e.g. /idea/abc123
+  userId: text("user_id").notNull(),
+  type: text("type").notNull(), // "spark" | "follow" | "comment" | "milestone" | "access_request" | "critical_note"
+  body: text("body").notNull(),
+  link: text("link"),
   read: boolean("read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. COMMUNITY NOTES  [v11 — Truth Layer]
+// ─────────────────────────────────────────────────────────────────────────────
+// Only Master+ tier users can submit notes.
+// Justice Engine validates: voteCount >= threshold → status = "verified"
+// Verified "factually_critical" notes set ideas.hasCriticalNote = true
+// ─────────────────────────────────────────────────────────────────────────────
+export const communityNotes = pgTable("community_notes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id),
+
+  note: text("note").notNull(),                        // max enforced in Zod
+  supportingEvidence: jsonb("supporting_evidence"),    // { url, description }[]
+
+  voteCount: integer("vote_count").default(0).notNull(),
+  threshold: integer("threshold").default(5).notNull(), // votes needed to verify
+
+  // "pending" → "verified" | "dismissed"
+  status: text("status").default("pending").notNull(),
+
+  // "informational" | "factually_critical"
+  // factually_critical → triggers ideas.hasCriticalNote = true
+  severity: text("severity").default("informational").notNull(),
+
+  // true once the idea creator has acknowledged this note
+  acknowledgedByCreator: boolean("acknowledged_by_creator")
+    .default(false)
+    .notNull(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. PEER REVIEWS  [v11 — 3-Axis Rating System]
+// ─────────────────────────────────────────────────────────────────────────────
+// Replaces flat comments with weighted authority scoring.
+// ratings: { feasibility: 1-5, originality: 1-5, impact: 1-5 }
+// tierWeight: Dreamer=1 | Visionary=1.5 | Architect=2 | Oracle=5
+// avgScore: pre-computed weighted average stored for fast leaderboard queries
+// ─────────────────────────────────────────────────────────────────────────────
+export const peerReviews = pgTable(
+  "peer_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ideaId: uuid("idea_id")
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => users.id),
+
+    ratings: jsonb("ratings")
+      .$type<{ feasibility: number; originality: number; impact: number }>()
+      .notNull(),
+
+    comment: text("comment"),                          // optional written review
+
+    tierWeight: real("tier_weight").notNull(),         // snapshot of tier at review time
+    avgScore: real("avg_score").notNull(),             // (feasibility+originality+impact)/3 * tierWeight
+
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueReview: uniqueIndex("unique_peer_review").on(
+      table.ideaId,
+      table.reviewerId
+    ), // one review per user per idea
+  })
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INFERRED TYPES
@@ -208,6 +285,8 @@ export type SimilarityFlag = typeof similarityFlags.$inferSelect;
 export type IdeaRevision = typeof ideaRevisions.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type CommunityNote = typeof communityNotes.$inferSelect;
+export type PeerReview = typeof peerReviews.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
@@ -215,3 +294,5 @@ export type NewComment = typeof comments.$inferInsert;
 export type NewFollow = typeof follows.$inferInsert;
 export type NewBookmark = typeof bookmarks.$inferInsert;
 export type NewNotification = typeof notifications.$inferInsert;
+export type NewCommunityNote = typeof communityNotes.$inferInsert;
+export type NewPeerReview = typeof peerReviews.$inferInsert;
