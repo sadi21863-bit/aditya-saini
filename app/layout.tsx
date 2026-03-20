@@ -1,3 +1,4 @@
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -39,9 +40,11 @@ export default async function RootLayout({
     <ClerkProvider>
       <html lang="en" className={playfair.variable}>
         <body className="bg-slate-950 text-white min-h-screen">
-          <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
-          <main className="ml-64 min-h-screen">{children}</main>
-          <Toaster position="bottom-right" />
+          <GlobalErrorBoundary>
+            <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
+            <main className="ml-64 min-h-screen">{children}</main>
+            <Toaster position="bottom-right" />
+          </GlobalErrorBoundary>
         </body>
       </html>
     </ClerkProvider>
