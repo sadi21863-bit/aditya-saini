@@ -1,69 +1,101 @@
 import { db } from "@/db";
 import { users, ideas } from "@/db/schema";
-import { desc, eq, sql, and, gte } from "drizzle-orm";
-import { Trophy, TrendingUp, Zap, Clock, Calendar, Infinity } from "lucide-react";
+import { desc, eq, sql, and } from "drizzle-orm";
+import {
+  Trophy, Zap, Clock, Calendar, Infinity,
+  Lightbulb, Users, TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { getTierFromXp } from "@/lib/tier-engine";
 
-type Range = "alltime" | "daily" | "weekly";
+type Tab = "creators" | "ideas";
+type Range = "alltime" | "monthly" | "weekly" | "daily";
 
-/**
- * Leaderboard — Daily / Weekly / All-Time
- *
- * Sorting: pure SQL ORDER BY total_likes DESC per your spec.
- * Daily:   WHERE ideas.created_at > NOW() - INTERVAL '1 day'
- * Weekly:  WHERE ideas.created_at > NOW() - INTERVAL '7 days'
- * All-Time: no date filter
- *
- * Users ranked by the SUM of likes on their ideas in the selected window.
- */
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ tab?: string; range?: string }>;
 }) {
-  const resolvedParams = await searchParams;
-  const range = (resolvedParams.range ?? "alltime") as Range;
+  const p = await searchParams;
+  const tab = (p.tab ?? "creators") as Tab;
+  const range = (p.range ?? "alltime") as Range;
 
-  // ── Build date filter ─────────────────────────────────────────────────────
   const intervalMap: Record<Range, string | null> = {
     daily: "1 day",
     weekly: "7 days",
+    monthly: "30 days",
     alltime: null,
   };
   const interval = intervalMap[range] ?? null;
 
-  // ── Query: join ideas → users, sum likes, filter by date if needed ─────────
-  // Using raw SQL for the interval condition so Drizzle doesn't choke on it.
-  const topUsers = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      handle: users.handle,
-      xp: users.xp,
-      tier: users.tier,
-      score: users.score,
-      ideaCount: sql<number>`cast(count(${ideas.id}) as int)`,
-      totalLikes: sql<number>`cast(coalesce(sum(${ideas.totalLikes}), 0) as int)`,
-    })
-    .from(users)
-    .leftJoin(
-      ideas,
-      and(
-        eq(ideas.userId, users.id),
-        eq(ideas.status, "public"),
-        interval
-          ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
-          : undefined,
-      ),
-    )
-    .groupBy(users.id)
-    .orderBy(desc(sql`coalesce(sum(${ideas.totalLikes}), 0)`))
-    .limit(20);
+  // ── CREATORS query ────────────────────────────────────────────────────────
+  const topCreators = tab === "creators"
+    ? await db
+      .select({
+        id: users.id,
+        name: users.name,
+        handle: users.handle,
+        xp: users.xp,
+        tier: users.tier,
+        ideaCount: sql<number>`cast(count(${ideas.id}) as int)`,
+        totalLikes: sql<number>`cast(coalesce(sum(${ideas.totalLikes}), 0) as int)`,
+      })
+      .from(users)
+      .leftJoin(
+        ideas,
+        and(
+          eq(ideas.userId, users.id),
+          eq(ideas.status, "public"),
+          interval
+            ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
+            : undefined,
+        ),
+      )
+      .groupBy(users.id)
+      .orderBy(desc(sql`coalesce(sum(${ideas.totalLikes}), 0)`))
+      .limit(20)
+    : [];
 
-  // ── Tab config ───────────────────────────────────────────────────────────
-  const tabs: { key: Range; label: string; icon: React.ReactNode }[] = [
+  // ── IDEAS query ───────────────────────────────────────────────────────────
+  const topIdeas = tab === "ideas"
+    ? await db
+      .select({
+        id: ideas.id,
+        title: ideas.title,
+        category: ideas.category,
+        flair: ideas.flair,
+        totalLikes: ideas.totalLikes,
+        views: ideas.views,
+        createdAt: ideas.createdAt,
+        editorsPick: ideas.editorsPick,
+        userId: ideas.userId,
+        userName: users.name,
+        userHandle: users.handle,
+        userXp: users.xp,
+      })
+      .from(ideas)
+      .leftJoin(users, eq(ideas.userId, users.id))
+      .where(
+        and(
+          eq(ideas.status, "public"),
+          interval
+            ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
+            : undefined,
+        ),
+      )
+      .orderBy(desc(ideas.totalLikes))
+      .limit(20)
+    : [];
+
+  // ── Tab configs ───────────────────────────────────────────────────────────
+  const mainTabs = [
+    { key: "creators", label: "Creators", icon: <Users size={13} /> },
+    { key: "ideas", label: "Ideas", icon: <Lightbulb size={13} /> },
+  ];
+
+  const rangeTabs: { key: Range; label: string; icon: React.ReactNode }[] = [
     { key: "alltime", label: "All-Time", icon: <Infinity size={13} /> },
+    { key: "monthly", label: "Monthly", icon: <TrendingUp size={13} /> },
     { key: "weekly", label: "Weekly", icon: <Calendar size={13} /> },
     { key: "daily", label: "Daily", icon: <Clock size={13} /> },
   ];
@@ -72,13 +104,15 @@ export default async function LeaderboardPage({
     <div className="min-h-screen bg-[#f8fafb] p-8">
       <div className="max-w-4xl mx-auto">
 
-        {/* ── HEADER ──────────────────────────────────────────────────────── */}
+        {/* HEADER */}
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-[#0d9488]/10 rounded-xl">
               <Trophy className="text-[#0d9488]" size={22} />
             </div>
-            <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">Rankings</p>
+            <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
+              Rankings
+            </p>
           </div>
           <h1
             className="text-4xl font-bold text-slate-900 tracking-tight"
@@ -86,16 +120,18 @@ export default async function LeaderboardPage({
           >
             Leaderboard
           </h1>
-          <p className="text-slate-500 mt-1">Ranked by total likes in the selected window.</p>
+          <p className="text-slate-500 mt-1">
+            The Genesis Registry's most impactful creators and ideas.
+          </p>
         </header>
 
-        {/* ── RANGE TABS ──────────────────────────────────────────────────── */}
-        <div className="flex gap-2 mb-8 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-sm">
-          {tabs.map((t) => (
+        {/* MAIN TABS — Creators / Ideas */}
+        <div className="flex gap-2 mb-4 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-sm">
+          {mainTabs.map((t) => (
             <Link
               key={t.key}
-              href={`/leaderboard?range=${t.key}`}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${range === t.key
+              href={`/leaderboard?tab=${t.key}&range=${range}`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tab === t.key
                 ? "bg-[#0d9488] text-white shadow-md"
                 : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
@@ -106,121 +142,180 @@ export default async function LeaderboardPage({
           ))}
         </div>
 
-        {/* ── TABLE ───────────────────────────────────────────────────────── */}
-        <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
-                <th className="p-5 font-semibold w-14">Rank</th>
-                <th className="p-5 font-semibold">Creator</th>
-                <th className="p-5 font-semibold">Tier</th>
-                <th className="p-5 font-semibold text-center">XP</th>
-                <th className="p-5 font-semibold text-center">Ideas</th>
-                <th className="p-5 font-semibold text-right text-[#0d9488]">
-                  Likes {range !== "alltime" && `(${range})`}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {topUsers.map((user, index) => {
-                // Derive tier from live XP — never trust cached string alone
-                const tierConfig = getTierFromXp(user.xp ?? 0);
-
-                return (
-                  <tr
-                    key={user.id}
-                    className="group hover:bg-teal-50/50 transition-colors border-b border-slate-50 last:border-0"
-                  >
-                    {/* Rank */}
-                    <td className="p-5">
-                      <span
-                        className={`text-xl font-bold font-mono ${index === 0
-                          ? "text-amber-500"
-                          : index === 1
-                            ? "text-slate-400"
-                            : index === 2
-                              ? "text-orange-400"
-                              : "text-slate-300"
-                          }`}
-                      >
-                        {index + 1}
-                      </span>
-                    </td>
-
-                    {/* Creator */}
-                    <td className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-full flex items-center justify-center
-                          font-bold text-sm border ${tierConfig.bgColor} ${tierConfig.color} border-current/20`}
-                        >
-                          {(user.name ?? user.id)[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <Link
-                            href={`/profile/${user.handle ?? user.id}`}
-                            className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors"
-                          >
-                            {user.handle ? `@${user.handle}` : user.name ?? user.id}
-                          </Link>
-                          {index === 0 && (
-                            <span
-                              className="block text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5
-                              rounded-full font-bold uppercase border border-amber-200 w-fit mt-0.5"
-                            >
-                              Top Creator
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Tier — derived from XP */}
-                    <td className="p-5">
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1
-                        rounded-full border ${tierConfig.color} ${tierConfig.bgColor}`}
-                      >
-                        {tierConfig.displayName}
-                      </span>
-                    </td>
-
-                    {/* XP */}
-                    <td className="p-5 text-center">
-                      <span className="flex items-center justify-center gap-1 text-sm font-bold text-violet-600">
-                        <Zap size={12} className="fill-violet-400" />
-                        {(user.xp ?? 0).toLocaleString()}
-                      </span>
-                    </td>
-
-                    {/* Idea count */}
-                    <td className="p-5 text-center text-slate-500 font-medium">
-                      {user.ideaCount}
-                    </td>
-
-                    {/* Total likes */}
-                    <td className="p-5 text-right">
-                      <span className="text-xl font-bold text-[#0d9488]">
-                        {user.totalLikes.toLocaleString()}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {topUsers.length === 0 && (
-            <div
-              className="p-16 text-center text-slate-400 italic"
-              style={{ fontFamily: "var(--font-playfair)" }}
+        {/* RANGE TABS — All-Time / Monthly / Weekly / Daily */}
+        <div className="flex gap-2 mb-8 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-sm">
+          {rangeTabs.map((t) => (
+            <Link
+              key={t.key}
+              href={`/leaderboard?tab=${tab}&range=${t.key}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${range === t.key
+                ? "bg-slate-800 text-white shadow-md"
+                : "text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+                }`}
             >
-              No data for this period yet. Be the first to launch an idea!
-            </div>
-          )}
+              {t.icon}
+              {t.label}
+            </Link>
+          ))}
         </div>
 
-        {/* ── XP GUIDE ────────────────────────────────────────────────────── */}
+        {/* ── CREATORS TABLE ─────────────────────────────────────────────── */}
+        {tab === "creators" && (
+          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
+                  <th className="p-5 font-semibold w-14">Rank</th>
+                  <th className="p-5 font-semibold">Creator</th>
+                  <th className="p-5 font-semibold">Tier</th>
+                  <th className="p-5 font-semibold text-center">XP</th>
+                  <th className="p-5 font-semibold text-center">Ideas</th>
+                  <th className="p-5 font-semibold text-right text-[#0d9488]">Sparks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topCreators.map((user, i) => {
+                  const tier = getTierFromXp(user.xp ?? 0);
+                  return (
+                    <tr
+                      key={user.id}
+                      className="group hover:bg-teal-50/50 transition-colors border-b border-slate-50 last:border-0"
+                    >
+                      <td className="p-5">
+                        <span className={`text-xl font-bold font-mono ${i === 0 ? "text-amber-500" :
+                          i === 1 ? "text-slate-400" :
+                            i === 2 ? "text-orange-400" : "text-slate-300"
+                          }`}>{i + 1}</span>
+                      </td>
+                      <td className="p-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${tier.bgColor} ${tier.color}`}>
+                            {(user.name ?? user.id)[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <Link
+                              href={`/profile/${user.handle ?? user.id}`}
+                              className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors"
+                            >
+                              {user.handle ? `@${user.handle}` : user.name ?? user.id}
+                            </Link>
+                            {i === 0 && (
+                              <span className="block text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-200 w-fit mt-0.5">
+                                Top Creator
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-5">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${tier.color} ${tier.bgColor}`}>
+                          {tier.displayName}
+                        </span>
+                      </td>
+                      <td className="p-5 text-center">
+                        <span className="flex items-center justify-center gap-1 text-sm font-bold text-violet-600">
+                          <Zap size={12} className="fill-violet-400" />
+                          {(user.xp ?? 0).toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-5 text-center text-slate-500 font-medium">{user.ideaCount}</td>
+                      <td className="p-5 text-right">
+                        <span className="text-xl font-bold text-[#0d9488]">
+                          {user.totalLikes.toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {topCreators.length === 0 && <EmptyState />}
+          </div>
+        )}
+
+        {/* ── IDEAS TABLE ────────────────────────────────────────────────── */}
+        {tab === "ideas" && (
+          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
+                  <th className="p-5 font-semibold w-14">Rank</th>
+                  <th className="p-5 font-semibold">Idea</th>
+                  <th className="p-5 font-semibold">Creator</th>
+                  <th className="p-5 font-semibold text-center">Views</th>
+                  <th className="p-5 font-semibold text-right text-[#0d9488]">Sparks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topIdeas.map((idea, i) => {
+                  const tier = getTierFromXp(idea.userXp ?? 0);
+                  return (
+                    <tr
+                      key={idea.id}
+                      className="group hover:bg-teal-50/50 transition-colors border-b border-slate-50 last:border-0"
+                    >
+                      <td className="p-5">
+                        <span className={`text-xl font-bold font-mono ${i === 0 ? "text-amber-500" :
+                          i === 1 ? "text-slate-400" :
+                            i === 2 ? "text-orange-400" : "text-slate-300"
+                          }`}>{i + 1}</span>
+                      </td>
+                      <td className="p-5">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            {idea.editorsPick && (
+                              <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-200">
+                                Editor's Pick
+                              </span>
+                            )}
+                            {idea.flair && (
+                              <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-bold uppercase border border-teal-200">
+                                {idea.flair}
+                              </span>
+                            )}
+                          </div>
+                          <Link
+                            href={`/idea/${idea.id}`}
+                            className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors line-clamp-1"
+                          >
+                            {idea.title}
+                          </Link>
+                          {idea.category && (
+                            <span className="text-xs text-slate-400">{idea.category}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-5">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${tier.bgColor} ${tier.color}`}>
+                            {(idea.userName ?? idea.userId ?? "?")[0].toUpperCase()}
+                          </div>
+                          <Link
+                            href={`/profile/${idea.userHandle ?? idea.userId}`}
+                            className="text-sm text-slate-600 hover:text-[#0d9488] transition-colors"
+                          >
+                            {idea.userHandle ? `@${idea.userHandle}` : idea.userName ?? "Unknown"}
+                          </Link>
+                        </div>
+                      </td>
+                      <td className="p-5 text-center text-slate-500 font-medium">
+                        {(idea.views ?? 0).toLocaleString()}
+                      </td>
+                      <td className="p-5 text-right">
+                        <span className="text-xl font-bold text-[#0d9488]">
+                          {(idea.totalLikes ?? 0).toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {topIdeas.length === 0 && <EmptyState />}
+          </div>
+        )}
+
+        {/* XP GUIDE */}
         <div className="mt-8 p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={16} className="text-[#0d9488]" />
@@ -229,7 +324,7 @@ export default async function LeaderboardPage({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-500 mt-3">
             {[
               { action: "Launch idea", xp: "+10 XP" },
-              { action: "Receive a like", xp: "+5 XP" },
+              { action: "Receive a spark", xp: "+5 XP" },
               { action: "Contributor tag", xp: "+25 XP" },
               { action: "Delete idea", xp: "−10 XP" },
             ].map((row) => (
@@ -240,7 +335,8 @@ export default async function LeaderboardPage({
             ))}
           </div>
           <p className="text-xs text-slate-400 mt-4">
-            Tier ladder: <span className="font-semibold text-slate-600">Dreamer (0)</span> →{" "}
+            Tier ladder:{" "}
+            <span className="font-semibold text-slate-600">Dreamer (0)</span> →{" "}
             <span className="font-semibold text-teal-600">Visionary (100)</span> →{" "}
             <span className="font-semibold text-violet-600">Architect (500)</span> →{" "}
             <span className="font-semibold text-amber-600">Oracle (2000)</span>
@@ -248,6 +344,17 @@ export default async function LeaderboardPage({
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div
+      className="p-16 text-center text-slate-400 italic"
+      style={{ fontFamily: "var(--font-playfair)" }}
+    >
+      No data for this period yet. Be the first to launch an idea!
     </div>
   );
 }
