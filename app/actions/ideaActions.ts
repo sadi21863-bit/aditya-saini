@@ -61,6 +61,11 @@ async function awardXp(userId: string, delta: number) {
     .update(users)
     .set({ tier: newTier })
     .where(eq(users.id, userId));
+
+  // ── Phase 6: auto-check + award badges (fire-and-forget, non-blocking) ──
+  import("@/app/actions/badgeActions")
+    .then(({ checkAndAwardBadges }) => checkAndAwardBadges(userId))
+    .catch(() => { });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +80,7 @@ export async function addIdea(formData: FormData) {
     context: formData.get("context"),
     content: formData.get("content"),
     protectionLevel: formData.get("protectionLevel") ?? "open",
-    flair: formData.get("flair") || null,           // ✅ flair
+    flair: formData.get("flair") || null,
   });
 
   if (!parsed.success) {
@@ -90,7 +95,7 @@ export async function addIdea(formData: FormData) {
     context,
     content,
     protectionLevel,
-    flair: flair ?? null,                            // ✅ flair
+    flair: flair ?? null,
     status: "draft",
     totalLikes: 0,
     views: 0,
@@ -114,7 +119,7 @@ export async function updateIdea(id: string, formData: FormData) {
     context: formData.get("context"),
     content: formData.get("content"),
     protectionLevel: formData.get("protectionLevel") ?? "open",
-    flair: formData.get("flair") || null,           // ✅ flair
+    flair: formData.get("flair") || null,
   });
 
   if (!parsed.success) {
@@ -131,7 +136,7 @@ export async function updateIdea(id: string, formData: FormData) {
       context,
       content,
       protectionLevel,
-      flair: flair ?? null,                          // ✅ flair
+      flair: flair ?? null,
       updatedAt: new Date(),
     })
     .where(eq(ideas.id, id));
@@ -148,8 +153,6 @@ export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   await assertOwnership(id, callerId);
 
-  // TOMBSTONE: do NOT hard-delete. Scrub content for privacy
-  // but keep genesisHash + createdAt as permanent proof of authorship.
   await db
     .update(ideas)
     .set({
@@ -157,13 +160,13 @@ export async function deleteIdea(id: string) {
       title: "[deleted]",
       content: null,
       context: null,
-      simHash: null,           // simHash cleared so it no longer blocks new ideas
+      simHash: null,
       updatedAt: new Date(),
       // genesisHash intentionally NOT touched — immutable ledger preserved
     })
     .where(eq(ideas.id, id));
 
-  await awardXp(callerId, -10); // -10 XP penalty still applies
+  await awardXp(callerId, -10);
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");
@@ -226,7 +229,7 @@ export async function launchIdea(id: string) {
     .where(eq(ideas.id, id));
 
   if (!idea.genesisHash) {
-    await awardXp(callerId, 10);
+    await awardXp(callerId, 10); // +10 XP + badge check fires inside awardXp
   }
 
   revalidatePath("/dashboard");
@@ -279,7 +282,7 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       .where(eq(ideas.id, ideaId));
 
     if (idea.userId) {
-      await awardXp(idea.userId, 5);
+      await awardXp(idea.userId, 5); // badge check fires inside awardXp
       await db
         .update(users)
         .set({ score: sql`${users.score} + 5` })
@@ -319,7 +322,7 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
     })
     .where(eq(ideas.id, ideaId));
 
-  await awardXp(callerId, 5);
+  await awardXp(callerId, 5); // badge check fires inside awardXp
   revalidatePath("/feed");
   revalidatePath(`/idea/${ideaId}`);
 
