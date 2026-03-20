@@ -7,6 +7,10 @@ import IdeaDetailClient from "@/components/IdeaDetailClient";
 import ViewCounter from "@/components/ViewCounter";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getComments } from "@/app/actions/commentActions";
+import CommunityNotesBanner from "@/components/CommunityNotesBanner";
+import PeerReviewList from "@/components/PeerReviewList";
+import PeerReviewBox from "@/components/PeerReviewBox";
+import GenesisProof from "@/components/GenesisProof";
 import type { Metadata } from "next";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,34 +83,38 @@ export default async function IdeaPage({
   if (!idea) notFound();
 
   let viewerId = "";
+  let viewerXp = 0;
   try {
     viewerId = (await getAuthenticatedUserId()) ?? "";
-  } catch {
-    // guest
-  }
+  } catch { /* guest */ }
 
-  const [authorResult, likedResult, initialComments] = await Promise.all([
-    idea.userId
-      ? db.select().from(users).where(eq(users.id, idea.userId)).limit(1)
-      : Promise.resolve([]),
-    viewerId
-      ? db
-        .select({ id: likes.id })
-        .from(likes)
-        .where(and(eq(likes.userId, viewerId), eq(likes.ideaId, ideaId)))
-        .limit(1)
-      : Promise.resolve([]),
-    getComments(ideaId),
-  ]);
+  const [authorResult, likedResult, initialComments, viewerResult] =
+    await Promise.all([
+      idea.userId
+        ? db.select().from(users).where(eq(users.id, idea.userId)).limit(1)
+        : Promise.resolve([]),
+      viewerId
+        ? db.select({ id: likes.id }).from(likes)
+          .where(and(eq(likes.userId, viewerId), eq(likes.ideaId, ideaId)))
+          .limit(1)
+        : Promise.resolve([]),
+      getComments(ideaId),
+      viewerId
+        ? db.select({ xp: users.xp }).from(users)
+          .where(eq(users.id, viewerId)).limit(1)
+        : Promise.resolve([]),
+    ]);
 
   const author = authorResult[0] ?? null;
   const hasLiked = likedResult.length > 0;
   const isOwner = Boolean(viewerId && idea.userId === viewerId);
   const isViewer = idea.viewerIds?.includes(viewerId) ?? false;
+  viewerXp = viewerResult[0]?.xp ?? 0;
 
   return (
     <main className="min-h-screen bg-slate-950 py-10 px-4">
       <div className="max-w-4xl mx-auto">
+
         <Link
           href="/feed"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488]
@@ -118,6 +126,10 @@ export default async function IdeaPage({
 
         <ViewCounter id={ideaId} />
 
+        {/* ── TRUTH LAYER: Community Notes Banner ─────────────────────── */}
+        <CommunityNotesBanner ideaId={ideaId} />
+
+        {/* ── MAIN IDEA DETAIL ────────────────────────────────────────── */}
         <IdeaDetailClient
           idea={idea}
           author={author}
@@ -127,6 +139,28 @@ export default async function IdeaPage({
           isPartner={isViewer}
           initialComments={initialComments}
         />
+
+        {/* ── GENESIS PROOF ───────────────────────────────────────────── */}
+        {idea.genesisHash && (
+          <div className="mt-8">
+            <GenesisProof
+              genesisHash={idea.genesisHash}
+              simHash={idea.simHash}
+              createdAt={idea.createdAt}
+              ideaId={ideaId}
+            />
+          </div>
+        )}
+
+        {/* ── PEER REVIEW SECTION ─────────────────────────────────────── */}
+        <div className="mt-8 space-y-6">
+          {/* Submit review — only if not owner and logged in */}
+          {viewerId && !isOwner && (
+            <PeerReviewBox ideaId={ideaId} currentUserXp={viewerXp} />
+          )}
+          <PeerReviewList ideaId={ideaId} />
+        </div>
+
       </div>
     </main>
   );

@@ -1,37 +1,33 @@
 /**
  * lib/hash.ts
- * 
+ *
  * Cryptographic hashing utilities using Web Crypto API.
  * Used for Genesis Hash generation and immutable ownership proofs.
+ *
+ * v11-justice Phase 5: SimHash now uses real Charikar algorithm (lib/simhash.ts)
+ * for fuzzy near-duplicate detection. GenesisHash is unchanged (SHA-256).
  */
 
-/**
- * Generate SHA-256 hash of input string
- * @param input - String to hash
- * @returns Hexadecimal hash string
- */
+import {
+    computeSimHash,
+    computeCombinedSimHash as _combinedSimHash,
+    isNearDuplicate,
+} from "@/lib/simhash";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHA-256  (used only for GenesisHash — immutable ownership proof)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function sha256(input: string): Promise<string> {
-    // Convert string to Uint8Array
     const encoder = new TextEncoder();
     const data = encoder.encode(input);
-
-    // Hash using Web Crypto API
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-
-    // Convert ArrayBuffer to hex string
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
-
-    return hashHex;
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Generate Genesis Hash for an idea
- * Seed: title + content + userId + ISO timestamp
- * This creates an immutable proof of original authorship
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// GENESIS HASH  (SHA-256, never changes — immutable authorship anchor)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function generateGenesisHash(
     title: string,
     content: string,
@@ -42,61 +38,33 @@ export async function generateGenesisHash(
     return sha256(seed);
 }
 
-/**
- * Normalize text for similarity comparison
- * Removes spaces, punctuation, and converts to lowercase
- * This creates a "content fingerprint" for plagiarism detection
- */
-function normalizeForSimilarity(text: string): string {
-    return text
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric chars
-        .trim();
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// SIM HASH  (Charikar — fuzzy fingerprint for plagiarism detection)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Generate Similarity Hash (SimHash)
- * A "fuzzy" content fingerprint for detecting near-duplicate ideas
- * 
- * Phase 4: Uses normalized text + SHA-256
- * Future: Can be upgraded to MinHash, LSH, or embedding-based similarity
- * 
- * @param content - The idea content to fingerprint
- * @returns SimHash string
+ * Generate SimHash from content only.
+ * Returns a decimal string (not hex) — Hamming-distance comparable.
  */
 export async function generateSimHash(content: string): Promise<string> {
-    // Normalize: lowercase, remove spaces/punctuation
-    const normalized = normalizeForSimilarity(content);
-
-    // Hash the normalized content
-    return sha256(normalized);
+    return computeSimHash(content);
 }
 
 /**
- * Generate Similarity Hash from Title + Content
- * Combines both fields for more accurate duplicate detection
- * 
- * @param title - Idea title
- * @param content - Idea content
- * @returns Combined SimHash
+ * Generate SimHash from title + content.
+ * Title is weighted 3× for more accurate duplicate detection.
  */
 export async function generateCombinedSimHash(
     title: string,
     content: string
 ): Promise<string> {
-    // Combine title and content for comprehensive similarity check
-    const combined = `${title}${content}`;
-    return generateSimHash(combined);
+    return _combinedSimHash(title, content);
 }
 
 /**
- * Check if two simHashes are similar (potential duplicate)
- * Currently uses exact match, but can be upgraded to fuzzy matching
- * 
- * @param hash1 - First hash to compare
- * @param hash2 - Second hash to compare
- * @returns Boolean indicating if hashes match
+ * Check if two SimHashes represent near-duplicate content.
+ * Uses Hamming distance (≤ 3 = duplicate), NOT exact match.
  */
 export function areSimilar(hash1: string, hash2: string): boolean {
-    return hash1 === hash2;
+    return isNearDuplicate(hash1, hash2);
 }
