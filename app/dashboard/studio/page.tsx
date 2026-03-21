@@ -5,14 +5,13 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import Link from "next/link";
 import { ArrowLeft, Sparkles, FileText, Rocket, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
-// ── Quality scoring (server-side, same logic as DraftingLab) ─────────────────
 function scoreIdea(content: string | null, category: string | null): number {
   if (!content) return 0;
   let score = 0;
   if (content.includes("##")) score += 15;
-  if (content.includes("*"))  score += 15;
+  if (content.includes("*")) score += 15;
   const words = content.trim().split(/\s+/).filter(Boolean).length;
-  if (words >= 250)   score += 40;
+  if (words >= 250) score += 40;
   else if (words > 0) score += Math.round((words / 250) * 40);
   if (category?.trim()) score += 30;
   return Math.min(score, 100);
@@ -21,18 +20,18 @@ function scoreIdea(content: string | null, category: string | null): number {
 function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 80 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
-    score >= 50 ? "text-amber-700  bg-amber-50  border-amber-200"  :
-                  "text-red-600    bg-red-50    border-red-200";
+      score >= 50 ? "text-amber-700  bg-amber-50  border-amber-200" :
+        "text-red-600    bg-red-50    border-red-200";
   const label =
     score >= 80 ? "Strong" :
-    score >= 50 ? "Fair"   : "Weak";
+      score >= 50 ? "Fair" : "Weak";
 
   return (
     <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1
       rounded-full border uppercase tracking-wider ${color}`}>
       {score >= 80 ? <CheckCircle2 size={10} /> :
-       score >= 50 ? <Clock size={10} />         :
-                     <AlertCircle size={10} />}
+        score >= 50 ? <Clock size={10} /> :
+          <AlertCircle size={10} />}
       {label} · {score}%
     </span>
   );
@@ -46,7 +45,6 @@ export default async function StudioPage() {
     .from(ideas)
     .where(and(eq(ideas.userId, userId), eq(ideas.status, "draft")));
 
-  // Score and sort: weakest first so the user works on what needs the most attention
   const scored = drafts
     .map((d) => ({ ...d, qualityScore: scoreIdea(d.content, d.category) }))
     .sort((a, b) => a.qualityScore - b.qualityScore);
@@ -56,13 +54,12 @@ export default async function StudioPage() {
     : 0;
 
   const readyToLaunch = scored.filter((d) => d.qualityScore >= 80).length;
-  const needsWork     = scored.filter((d) => d.qualityScore <  50).length;
+  const needsWork = scored.filter((d) => d.qualityScore < 50).length;
 
   return (
     <div className="min-h-screen bg-[#fafafa] py-12 px-6">
       <div className="max-w-3xl mx-auto">
 
-        {/* BACK */}
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-600
@@ -71,7 +68,6 @@ export default async function StudioPage() {
           <ArrowLeft size={16} /> Back to Dashboard
         </Link>
 
-        {/* HEADER */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-teal-50 rounded-xl">
@@ -92,12 +88,11 @@ export default async function StudioPage() {
           </p>
         </div>
 
-        {/* STAT STRIP */}
         {scored.length > 0 && (
           <div className="grid grid-cols-3 gap-4 mb-8">
             {[
-              { label: "Drafts",          value: scored.length, color: "text-slate-900" },
-              { label: "Avg Quality",     value: `${avgScore}%`, color: avgScore >= 80 ? "text-emerald-600" : avgScore >= 50 ? "text-amber-600" : "text-red-500" },
+              { label: "Drafts", value: scored.length, color: "text-slate-900" },
+              { label: "Avg Quality", value: `${avgScore}%`, color: avgScore >= 80 ? "text-emerald-600" : avgScore >= 50 ? "text-amber-600" : "text-red-500" },
               { label: "Ready to Launch", value: readyToLaunch, color: "text-[#0d9488]" },
             ].map((s) => (
               <div key={s.label} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
@@ -112,7 +107,6 @@ export default async function StudioPage() {
           </div>
         )}
 
-        {/* SCORE GUIDE */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5 mb-6 shadow-sm">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
             Quality Score Breakdown
@@ -132,7 +126,6 @@ export default async function StudioPage() {
           </div>
         </div>
 
-        {/* EMPTY STATE */}
         {scored.length === 0 && (
           <div className="border-2 border-dashed border-slate-200 rounded-3xl p-20
             text-center bg-white">
@@ -154,7 +147,6 @@ export default async function StudioPage() {
           </div>
         )}
 
-        {/* DRAFT LIST */}
         {scored.length > 0 && (
           <div className="space-y-4">
             {needsWork > 0 && (
@@ -166,7 +158,7 @@ export default async function StudioPage() {
             {scored.map((draft) => {
               const words = draft.content?.trim().split(/\s+/).filter(Boolean).length ?? 0;
               const hasHeadings = draft.content?.includes("##") ?? false;
-              const hasBullets  = draft.content?.includes("*")  ?? false;
+              const hasBullets = draft.content?.includes("*") ?? false;
               const hasCategory = Boolean(draft.category?.trim());
 
               return (
@@ -175,7 +167,6 @@ export default async function StudioPage() {
                   className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm
                     hover:border-[#0d9488]/30 transition-all"
                 >
-                  {/* Title row */}
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex-1 min-w-0">
                       <h3
@@ -184,49 +175,45 @@ export default async function StudioPage() {
                       >
                         {draft.title}
                       </h3>
-                      {draft.hook && (
+                      {/* ✅ Fixed: was draft.hook, now draft.context */}
+                      {draft.context && (
                         <p className="text-sm text-slate-500 italic mt-0.5 line-clamp-1">
-                          "{draft.hook}"
+                          "{draft.context}"
                         </p>
                       )}
                     </div>
                     <ScoreBadge score={draft.qualityScore} />
                   </div>
 
-                  {/* Quality checklist */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {[
-                      { label: `${words} words`,   done: words >= 250,    tip: "Need 250+" },
-                      { label: "Headings",          done: hasHeadings,     tip: "Add ## headings" },
-                      { label: "Bullets",           done: hasBullets,      tip: "Add * bullets" },
-                      { label: "Category",          done: hasCategory,     tip: "Set a category" },
+                      { label: `${words} words`, done: words >= 250, tip: "Need 250+" },
+                      { label: "Headings", done: hasHeadings, tip: "Add ## headings" },
+                      { label: "Bullets", done: hasBullets, tip: "Add * bullets" },
+                      { label: "Category", done: hasCategory, tip: "Set a category" },
                     ].map(({ label, done, tip }) => (
                       <span
                         key={label}
                         title={done ? undefined : tip}
-                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
-                          done
+                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${done
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : "bg-slate-50  text-slate-400  border-slate-200"
-                        }`}
+                          }`}
                       >
                         {done ? "✓" : "○"} {label}
                       </span>
                     ))}
                   </div>
 
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        draft.qualityScore >= 80 ? "bg-emerald-500" :
-                        draft.qualityScore >= 50 ? "bg-amber-400"   : "bg-red-400"
-                      }`}
+                      className={`h-full rounded-full transition-all duration-500 ${draft.qualityScore >= 80 ? "bg-emerald-500" :
+                          draft.qualityScore >= 50 ? "bg-amber-400" : "bg-red-400"
+                        }`}
                       style={{ width: `${draft.qualityScore}%` }}
                     />
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-2">
                     <Link
                       href={`/idea/${draft.id}/edit`}

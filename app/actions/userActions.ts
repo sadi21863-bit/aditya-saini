@@ -5,6 +5,37 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 
+export async function createUserProfile(data: {
+    userId: string;
+    handle: string;
+    name: string;
+}) {
+    // Validate handle uniqueness
+    const existing = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.handle, data.handle))
+        .limit(1);
+
+    if (existing.length > 0) {
+        return { success: false, error: "Handle already taken" };
+    }
+
+    await db
+        .insert(users)
+        .values({
+            id: data.userId,
+            handle: data.handle,
+            name: data.name,
+        })
+        .onConflictDoUpdate({
+            target: users.id,
+            set: { handle: data.handle, name: data.name },
+        });
+
+    return { success: true };
+}
+
 export async function updateProfile(data: {
     name: string;
     bio: string;
@@ -25,7 +56,7 @@ export async function pinIdea(ideaId: string) {
     if (!me) return { success: false, error: "User not found" };
 
     const current = me.pinnedIdeaIds ?? [];
-    if (current.includes(ideaId)) return { success: true }; // already pinned
+    if (current.includes(ideaId)) return { success: true };
     if (current.length >= 3) return { success: false, error: "Max 3 pinned ideas" };
 
     await db

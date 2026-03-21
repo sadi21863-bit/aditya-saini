@@ -10,6 +10,5 @@ export {
   recallIdea,
   addLike,
   sparkIdea,
-  addContributor,
   recordView,
 } from "@/app/actions/ideaActions";
