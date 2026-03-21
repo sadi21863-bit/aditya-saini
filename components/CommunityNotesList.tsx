@@ -154,7 +154,12 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
                                                     {n.authorHandle ? `@${n.authorHandle}` : n.authorName ?? "Anonymous"}
                                                 </span>
                                             </p>
-                                            <CommunityNoteVoteButton noteId={n.id} ideaId={ideaId} />
+                                            {/* ✅ Fixed props */}
+                                            <CommunityNoteVoteButton
+                                                noteId={n.id}
+                                                initialVotes={n.voteCount}
+                                                threshold={n.threshold}
+                                            />
                                         </div>
                                     </div>
                                 </div>
