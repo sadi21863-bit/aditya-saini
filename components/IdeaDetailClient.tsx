@@ -6,7 +6,6 @@ import {
   Fingerprint, GitBranch, Eye, Zap, Calendar, PenLine,
 } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
-import CommentsSection from "@/components/CommentsSection";
 import type { Idea, User } from "@/db/schema";
 import { getTierFromXp } from "@/lib/tier-engine";
 import Link from "next/link";
@@ -199,7 +198,6 @@ export default function IdeaDetailClient({
                 <p className="text-xs text-slate-500 mt-0.5">Genesis Creator</p>
               </div>
 
-              {/* Stats inline */}
               <div className="ml-auto flex items-center gap-4 text-xs text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <Eye size={12} />
@@ -232,8 +230,9 @@ export default function IdeaDetailClient({
           {/* Vault blur overlay */}
           {hasBlurPart && blurLevel === 3 && (
             <div className="relative mt-4">
-              <div className={`transition-all duration-700 ease-in-out ${isRevealed ? "blur-none" : "blur-md pointer-events-none select-none"
-                } ${contentWrapperCls}`} aria-hidden={!isRevealed}>
+              <div className={`transition-all duration-700 ease-in-out ${
+                isRevealed ? "blur-none" : "blur-md pointer-events-none select-none"
+              } ${contentWrapperCls}`} aria-hidden={!isRevealed}>
                 <p className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
                   {blurPart}
                 </p>
@@ -270,26 +269,6 @@ export default function IdeaDetailClient({
               <p className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
                 {blurPart}
               </p>
-            </div>
-          )}
-
-          {/* Genesis Certificate */}
-          {idea.genesisHash && (
-            <div className="mt-8 pt-6 border-t border-slate-800">
-              <div className="flex items-start gap-3 p-4 bg-emerald-950/40 rounded-2xl border border-emerald-900">
-                <Fingerprint size={16} className="text-emerald-400 mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
-                    Genesis Certificate
-                  </p>
-                  <p className="text-[11px] font-mono text-emerald-500 break-all leading-relaxed">
-                    {idea.genesisHash}
-                  </p>
-                  <p className="text-[10px] text-emerald-600 mt-1">
-                    SHA-256 · Immutable timestamp proof of first publication
-                  </p>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -333,15 +312,6 @@ export default function IdeaDetailClient({
           </div>
         </div>
       </article>
-
-      {/* ── COMMENTS SECTION ───────────────────────────────────────────── */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl px-8 py-8">
-        <CommentsSection
-          ideaId={idea.id}
-          viewerId={viewerId}
-          initialComments={initialComments}
-        />
-      </div>
 
     </div>
   );

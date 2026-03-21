@@ -8,9 +8,10 @@ import ViewCounter from "@/components/ViewCounter";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getComments } from "@/app/actions/commentActions";
 import CommunityNotesBanner from "@/components/CommunityNotesBanner";
+import CommunityNotesList from "@/components/CommunityNotesList";
 import PeerReviewList from "@/components/PeerReviewList";
 import PeerReviewBox from "@/components/PeerReviewBox";
-import GenesisProof from "@/components/GenesisProof";
+import CommentsSection from "@/components/CommentsSection";
 import type { Metadata } from "next";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,10 +127,10 @@ export default async function IdeaPage({
 
         <ViewCounter id={ideaId} />
 
-        {/* ── TRUTH LAYER: Community Notes Banner ─────────────────────── */}
+        {/* ── TRUTH LAYER: Community Notes Banner (alert strip) ──────── */}
         <CommunityNotesBanner ideaId={ideaId} />
 
-        {/* ── MAIN IDEA DETAIL ────────────────────────────────────────── */}
+        {/* ── MAIN IDEA DETAIL CARD (no GenesisProof inside anymore) ─── */}
         <IdeaDetailClient
           idea={idea}
           author={author}
@@ -140,25 +141,26 @@ export default async function IdeaPage({
           initialComments={initialComments}
         />
 
-        {/* ── GENESIS PROOF ───────────────────────────────────────────── */}
-        {idea.genesisHash && (
-          <div className="mt-8">
-            <GenesisProof
-              genesisHash={idea.genesisHash}
-              simHash={idea.simHash}
-              createdAt={idea.createdAt}
-              ideaId={ideaId}
-            />
-          </div>
-        )}
+        {/* ── COMMUNITY NOTES + AI SUMMARY ────────────────────────────── */}
+        <div className="mt-8">
+          <CommunityNotesList ideaId={ideaId} ideaTitle={idea.title ?? ""} ideaContext={idea.context ?? ""} />
+        </div>
 
         {/* ── PEER REVIEW SECTION ─────────────────────────────────────── */}
         <div className="mt-8 space-y-6">
-          {/* Submit review — only if not owner and logged in */}
           {viewerId && !isOwner && (
             <PeerReviewBox ideaId={ideaId} currentUserXp={viewerXp} />
           )}
           <PeerReviewList ideaId={ideaId} />
+        </div>
+
+        {/* ── COMMENTS (moved to end) ──────────────────────────────────── */}
+        <div className="mt-8 bg-slate-900 border border-slate-800 rounded-3xl px-8 py-8">
+          <CommentsSection
+            ideaId={ideaId}
+            viewerId={viewerId}
+            initialComments={initialComments}
+          />
         </div>
 
       </div>

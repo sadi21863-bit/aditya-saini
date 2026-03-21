@@ -1,11 +1,62 @@
 import { getCommunityNotes } from "@/app/actions/justiceActions";
 import CommunityNoteVoteButton from "@/components/CommunityNoteVoteButton";
-import { AlertTriangle, Info, MessageSquareWarning } from "lucide-react";
+import { AlertTriangle, Info, MessageSquareWarning, Sparkles } from "lucide-react";
 
-interface Props { ideaId: string; }
+interface Props {
+    ideaId: string;
+    ideaTitle: string;
+    ideaContext: string;
+}
 
-export default async function CommunityNotesList({ ideaId }: Props) {
+async function getAiSummary(
+    notes: Awaited<ReturnType<typeof getCommunityNotes>>,
+    ideaTitle: string
+): Promise<string | null> {
+    if (notes.length === 0) return null;
+
+    const apiKey = process.env.HUGGINGFACE_API_KEY;
+    if (!apiKey) return null;
+
+    const notesText = notes
+        .map((n) =>
+            `- [${n.severity === "factually_critical" ? "CRITICAL" : "INFO"}] ${n.note} (${n.status})`
+        )
+        .join("\n");
+
+    const prompt = `You are a fact-checking assistant. Summarize the following community notes about the idea titled "${ideaTitle}" in 2-3 sentences. Be concise and neutral.\n\nNotes:\n${notesText}\n\nSummary:`;
+
+    try {
+        const res = await fetch(
+            "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        max_new_tokens: 120,
+                        temperature: 0.4,
+                        return_full_text: false,
+                    },
+                }),
+                next: { revalidate: 3600 },
+            }
+        );
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.[0]?.generated_text?.trim() ?? null;
+    } catch {
+        return null;
+    }
+}
+
+export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContext }: Props) {
     const notes = await getCommunityNotes(ideaId);
+    const aiSummary = await getAiSummary(notes, ideaTitle);
 
     return (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl px-8 py-7">
@@ -23,6 +74,22 @@ export default async function CommunityNotesList({ ideaId }: Props) {
                     </span>
                 )}
             </div>
+
+            {/* ── AI SUMMARY ─────────────────────────────────────────────────── */}
+            {aiSummary && (
+                <div className="flex items-start gap-3 mb-6 p-4 bg-violet-950/30
+          border border-violet-800/40 rounded-2xl">
+                    <div className="p-1.5 bg-violet-500/10 rounded-lg shrink-0 mt-0.5">
+                        <Sparkles size={13} className="text-violet-400" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider mb-1">
+                            AI Summary · Llama 3.2
+                        </p>
+                        <p className="text-sm text-slate-300 leading-relaxed">{aiSummary}</p>
+                    </div>
+                </div>
+            )}
 
             {notes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
@@ -45,8 +112,8 @@ export default async function CommunityNotesList({ ideaId }: Props) {
                             <div
                                 key={n.id}
                                 className={`rounded-2xl border p-5 ${isCritical
-                                    ? "bg-red-950/30 border-red-900/60"
-                                    : "bg-amber-950/30 border-amber-900/60"
+                                        ? "bg-red-950/30 border-red-900/60"
+                                        : "bg-amber-950/30 border-amber-900/60"
                                     }`}
                             >
                                 <div className="flex items-start gap-3">
@@ -55,7 +122,6 @@ export default async function CommunityNotesList({ ideaId }: Props) {
                                     </div>
 
                                     <div className="flex-1 space-y-2 min-w-0">
-                                        {/* Status badges */}
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-[10px] font-bold uppercase tracking-wider ${isCritical ? "text-red-400" : "text-amber-400"
                                                 }`}>
@@ -76,13 +142,11 @@ export default async function CommunityNotesList({ ideaId }: Props) {
                                             )}
                                         </div>
 
-                                        {/* Note text */}
                                         <p className={`text-sm leading-relaxed ${isCritical ? "text-red-300" : "text-amber-300"
                                             }`}>
                                             {n.note}
                                         </p>
 
-                                        {/* Footer row */}
                                         <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
                                             <p className="text-xs text-slate-500">
                                                 by{" "}
