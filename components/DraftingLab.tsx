@@ -30,7 +30,12 @@ export default function DraftingLab() {
     setIsSaving(true);
     setMessage({ type: "", text: "" });
     try {
-      const result = await saveToHangar({ ...});
+      const result = await saveToHangar({
+        title: form.title,
+        context: form.context,
+        content: form.content,
+        category: form.category || "General",
+      });
       if (result.success) {
         setMessage({ type: "success", text: "Saved to Dashboard!" });
         setForm({ title: "", context: "", content: "", category: "" });
