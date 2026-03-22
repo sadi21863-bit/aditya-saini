@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { users, peerReviews, ideas, follows } from "@/db/schema";
+import { users, peerReviews, ideas, follows, comments } from "@/db/schema";
 import { eq, count, sql } from "drizzle-orm";
 import { computeNewBadges, getBadge, BADGE_REGISTRY, type UserStats } from "@/lib/badge-engine";
 import { createNotification } from "./notificationActions";
@@ -32,13 +32,18 @@ async function buildUserStats(userId: string): Promise<UserStats> {
         .from(peerReviews)
         .where(eq(peerReviews.reviewerId, userId));
 
+    const [commentsRow] = await db
+        .select({ count: count() })
+        .from(comments)
+        .where(eq(comments.userId, userId));
+
     return {
         xp: user?.xp ?? 0,
         ideasLaunched: ideasRow?.count ?? 0,
         totalLikes: Number(likesRow?.total ?? 0),
         followers: followersRow?.count ?? 0,
         peerReviews: reviewsRow?.count ?? 0,
-        commentsGiven: 0,
+        commentsGiven: commentsRow?.count ?? 0,
     };
 }
 
@@ -55,14 +60,14 @@ export async function checkAndAwardBadges(userId: string): Promise<string[]> {
 
     if (newSlugs.length === 0) return [];
 
+    // Fix #43: Use safe parameterised array_cat instead of sql.raw string interpolation
+    // which is a SQL injection risk pattern.
     await db
-        .update(users)
-        .set({
-            badges: sql`array_cat(${users.badges}, ${sql.raw(
-                `ARRAY[${newSlugs.map((s) => `'${s}'`).join(",")}]::text[]`
-            )})`,
-        })
-        .where(eq(users.id, userId));
+      .update(users)
+      .set({
+        badges: sql`array_cat(${users.badges}, ${newSlugs}::text[])`,
+      })
+      .where(eq(users.id, userId));
 
     for (const slug of newSlugs) {
         const badge = getBadge(slug);

@@ -6,6 +6,8 @@ import { follows, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { lightLimiter } from "@/lib/ratelimit";
+import { XP_EVENTS } from "@/lib/tier-engine";
+import { awardXp } from "@/app/actions/ideaActions";
 
 export async function followUser(followerId: string, targetId: string) {
     try {
@@ -31,6 +33,9 @@ export async function followUser(followerId: string, targetId: string) {
         }
 
         await db.insert(follows).values({ followerId, followingId: targetId });
+
+        // Fix #30: Award XP to the user being followed
+        await awardXp(targetId, XP_EVENTS.GAIN_FOLLOWER);
 
         revalidatePath(`/profile/${targetId}`);
         return { success: true };

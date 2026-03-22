@@ -7,20 +7,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { getTierNameFromXp } from "@/lib/tier-engine";
+import { getTierNameFromXp, XP_EVENTS, canUseProtection } from "@/lib/tier-engine";
 import { generateGenesisHash, generateCombinedSimHash } from "@/lib/hash";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
-
-const PROTECTION_XP_REQUIRED: Record<string, number> = {
-  open: 0,
-  guarded: 500,
-  shielded: 2000,
-  vault: 5000,
-};
-
-function canUseProtection(xp: number, level: string): boolean {
-  return xp >= (PROTECTION_XP_REQUIRED[level] ?? 0);
-}
 
 const IdeaWriteSchema = z.object({
   title: z.string().min(1, "Title is required").max(120, "Title too long"),
@@ -49,7 +38,7 @@ async function assertOwnership(ideaId: string, callerId: string) {
   return idea;
 }
 
-async function awardXp(userId: string, delta: number) {
+export async function awardXp(userId: string, delta: number) {
   await db
     .update(users)
     .set({ xp: sql`${users.xp} + ${delta}` })
@@ -191,7 +180,7 @@ export async function deleteIdea(id: string) {
     })
     .where(eq(ideas.id, id));
 
-  await awardXp(callerId, -10);
+  await awardXp(callerId, XP_EVENTS.DELETE_IDEA);
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");
@@ -211,19 +200,19 @@ export async function launchIdea(id: string) {
   const launchedAt = new Date();
   const newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
 
-  const duplicates = await db
-    .select({ id: ideas.id, title: ideas.title, userId: ideas.userId })
+  // Fetch all public ideas' simHashes for fuzzy Hamming distance comparison
+  const publicIdeas = await db
+    .select({ id: ideas.id, title: ideas.title, userId: ideas.userId, simHash: ideas.simHash })
     .from(ideas)
-    .where(
-      and(
-        eq(ideas.status, "public"),
-        eq(ideas.simHash, newSimHash),
-        sql`${ideas.id} != ${id}`
-      )
-    );
+    .where(and(eq(ideas.status, "public"), sql`${ideas.id} != ${id}`));
 
-  if (duplicates.length > 0) {
-    const duplicate = duplicates[0];
+  const { areSimilar } = await import("@/lib/hash");
+  const nearDuplicates = publicIdeas.filter(
+    (i) => i.simHash && newSimHash && areSimilar(i.simHash, newSimHash)
+  );
+
+  if (nearDuplicates.length > 0) {
+    const duplicate = nearDuplicates[0];
     return {
       success: false,
       error: "A similar idea already exists in the Genesis Registry.",
@@ -254,7 +243,7 @@ export async function launchIdea(id: string) {
     .where(eq(ideas.id, id));
 
   if (!idea.genesisHash) {
-    await awardXp(callerId, 10);
+    await awardXp(callerId, XP_EVENTS.LAUNCH_IDEA);
   }
 
   revalidatePath("/dashboard");
@@ -313,11 +302,7 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       .where(eq(ideas.id, ideaId));
 
     if (idea.userId) {
-      await awardXp(idea.userId, 5);
-      await db
-        .update(users)
-        .set({ score: sql`${users.score} + 5` })
-        .where(eq(users.id, idea.userId));
+      await awardXp(idea.userId, XP_EVENTS.RECEIVE_LIKE);
     }
 
     revalidatePath("/feed");
@@ -347,13 +332,23 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
   const isViewer = idea.viewerIds?.includes(callerId) ?? false;
   if (isViewer) return { success: false, error: "You already have access" };
 
-  await db
-    .update(ideas)
-    .set({
-      viewerIds: sql`array_append(${ideas.viewerIds}, ${callerId})`,
-      updatedAt: new Date(),
-    })
-    .where(eq(ideas.id, ideaId));
+  if (level === "partner") {
+    await db
+      .update(ideas)
+      .set({
+        partnerIds: sql`array_append(${ideas.partnerIds}, ${callerId})`,
+        updatedAt: new Date(),
+      })
+      .where(eq(ideas.id, ideaId));
+  } else {
+    await db
+      .update(ideas)
+      .set({
+        viewerIds: sql`array_append(${ideas.viewerIds}, ${callerId})`,
+        updatedAt: new Date(),
+      })
+      .where(eq(ideas.id, ideaId));
+  }
 
   await awardXp(callerId, 5);
   revalidatePath("/feed");
@@ -364,6 +359,16 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
 
 // ─── RECORD VIEW ──────────────────────────────────────────────────────────────
 export async function recordView(ideaId: string) {
+  // Fix #42: Apply rate limiting using request headers IP to prevent view inflation
+  try {
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") ?? headersList.get("x-real-ip") ?? "anonymous";
+    const { success } = await lightLimiter.limit(`view:${ip}`);
+    if (!success) return; // silently drop excess view counts
+  } catch {
+    // If headers not available (e.g. called server-side directly), proceed
+  }
   await db
     .update(ideas)
     .set({ views: sql`${ideas.views} + 1` })

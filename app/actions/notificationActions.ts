@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
@@ -29,13 +29,14 @@ export async function getUnreadCount() {
         return 0;
     }
 
-    const unread = await db.query.notifications.findMany({
-        where: and(
+    const [result] = await db
+        .select({ count: count() })
+        .from(notifications)
+        .where(and(
             eq(notifications.userId, userId),
             eq(notifications.read, false)
-        ),
-    });
-    return unread.length;
+        ));
+    return result?.count ?? 0;
 }
 
 export async function markAllRead() {

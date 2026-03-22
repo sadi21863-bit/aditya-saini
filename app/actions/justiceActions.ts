@@ -6,8 +6,9 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { jsonbMerge } from "@/lib/jsonb";
 import { requireAdmin, getAuthenticatedUserId } from "@/lib/auth";
-import { getTierFromXp } from "@/lib/tier-engine";
+import { getTierFromXp, XP_EVENTS } from "@/lib/tier-engine";
 import { createNotification } from "./notificationActions";
+import { awardXp } from "./ideaActions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -30,6 +31,7 @@ const NOTE_MIN_XP = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 export async function performJusticeAudit(ideaId: string) {
     try {
+        await requireAdmin();
         const [idea] = await db
             .select({
                 id: ideas.id, title: ideas.title, content: ideas.content,
@@ -94,10 +96,14 @@ export async function performJusticeAudit(ideaId: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function batchAuditUnscanned() {
     try {
+        await requireAdmin();
         const unscanned = await db
             .select({ id: ideas.id })
             .from(ideas)
-            .where(eq(ideas.status, "public"));
+            .where(and(
+                eq(ideas.status, "public"),
+                sql`(${ideas.aiMetadata}->>'scanned')::boolean IS NOT TRUE`
+            ));
 
         let scannedCount = 0;
         let flaggedCount = 0;
@@ -182,11 +188,13 @@ export async function submitCommunityNote(
         .where(eq(users.id, callerId));
 
     const tier = getTierFromXp(caller?.xp ?? 0);
-    if ((caller?.xp ?? 0) < NOTE_MIN_XP)
+    if ((caller?.xp ?? 0) < NOTE_MIN_XP) {
+        const requiredTier = getTierFromXp(NOTE_MIN_XP).displayName;
         return {
             success: false,
-            error: `Community notes require Architect tier (500 XP). You are ${tier.displayName} (${caller?.xp ?? 0} XP).`,
+            error: `Community notes require ${requiredTier} tier (${NOTE_MIN_XP} XP). You are ${tier.displayName} (${caller?.xp ?? 0} XP).`,
         };
+    }
 
     const [idea] = await db
         .select({ userId: ideas.userId, title: ideas.title })
@@ -204,6 +212,9 @@ export async function submitCommunityNote(
         supportingEvidence: supportingEvidence ?? [],
         threshold: 5,
     }).returning({ id: communityNotes.id });
+
+    // Fix #29: Award XP for submitting a community note
+    await awardXp(callerId, XP_EVENTS.SUBMIT_COMMUNITY_NOTE);
 
     if (idea.userId) {
         await createNotification({
@@ -259,8 +270,21 @@ export async function voteCommunityNote(noteId: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DISMISS NOTE  (Admin only)
+// TOGGLE EDITOR'S PICK  (Admin only)
 // ─────────────────────────────────────────────────────────────────────────────
+export async function toggleEditorsPick(ideaId: string, value: boolean) {
+    await requireAdmin();
+
+    await db.update(ideas)
+        .set({ editorsPick: value, updatedAt: new Date() })
+        .where(eq(ideas.id, ideaId));
+
+    revalidatePath("/feed");
+    revalidatePath("/leaderboard");
+    revalidatePath(`/idea/${ideaId}`);
+    return { success: true };
+}
+
 export async function dismissCommunityNote(noteId: string) {
     await requireAdmin();
 

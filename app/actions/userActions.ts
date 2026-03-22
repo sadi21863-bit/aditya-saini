@@ -12,6 +12,12 @@ export async function createUserProfile(data: {
     name: string;
     email: string;
 }) {
+    // Fix #45: Validate handle format server-side — client-side stripping is not enough
+    const handleRegex = /^[a-z0-9_]{3,30}$/;
+    if (!handleRegex.test(data.handle)) {
+        return { success: false, error: "Handle must be 3–30 characters: lowercase letters, numbers and underscores only." };
+    }
+
     const existing = await db
         .select({ id: users.id })
         .from(users)
