@@ -20,13 +20,13 @@ export interface AuditMetadata {
     lastAudit: string;
     status: AuditStatus;
     scanVersion: string;
+    isMockScore?: boolean; // ✅ flag so UI can show "simulated" label
 }
 
-// Tier gate: only Architect (500 XP) and above can submit notes
 const NOTE_MIN_XP = 500;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PERFORM JUSTICE AUDIT  (Admin or internal)
+// PERFORM JUSTICE AUDIT
 // ─────────────────────────────────────────────────────────────────────────────
 export async function performJusticeAudit(ideaId: string) {
     try {
@@ -41,13 +41,18 @@ export async function performJusticeAudit(ideaId: string) {
 
         if (!idea) return { success: false, error: "Idea not found" };
 
-        const riskScore = Math.floor(Math.random() * 100); // Phase 5+: real ML
+        // ✅ Fixed: labeled as mock — real ML score goes here in Phase 5+
+        const riskScore = Math.floor(Math.random() * 100);
+        const isMockScore = true;
         const status: AuditStatus = riskScore > 75 ? "flagged" : "verified";
 
         const auditMetadata: AuditMetadata = {
-            scanned: true, riskScore,
+            scanned: true,
+            riskScore,
             lastAudit: new Date().toISOString(),
-            status, scanVersion: "v2.0-justice",
+            status,
+            scanVersion: "v2.0-justice-mock",
+            isMockScore,
         };
 
         await db.update(ideas).set({
@@ -55,8 +60,8 @@ export async function performJusticeAudit(ideaId: string) {
             updatedAt: new Date(),
         }).where(eq(ideas.id, ideaId));
 
-        // Notify creator if flagged
-        if (status === "flagged" && idea.userId) {
+        // ✅ Fixed: only notify on real scores, not mock random ones
+        if (status === "flagged" && idea.userId && !isMockScore) {
             await createNotification({
                 userId: idea.userId,
                 type: "milestone",
@@ -72,10 +77,10 @@ export async function performJusticeAudit(ideaId: string) {
         return {
             success: true,
             data: {
-                ideaId, riskScore, status,
+                ideaId, riskScore, status, isMockScore,
                 message: status === "flagged"
-                    ? `⚠️ Flagged: Risk score ${riskScore}/100`
-                    : `✅ Verified: Risk score ${riskScore}/100`,
+                    ? `⚠️ Flagged (simulated): Risk score ${riskScore}/100`
+                    : `✅ Verified (simulated): Risk score ${riskScore}/100`,
             },
         };
     } catch (error) {
@@ -110,7 +115,7 @@ export async function batchAuditUnscanned() {
             success: true,
             data: {
                 scannedCount, flaggedCount,
-                message: `Scanned ${scannedCount} ideas. Flagged ${flaggedCount}.`
+                message: `Scanned ${scannedCount} ideas. Flagged ${flaggedCount} (simulated scores).`
             },
         };
     } catch (error) {
@@ -135,6 +140,7 @@ export async function manualOverride(
                 status, manualOverride: true,
                 overrideTimestamp: new Date().toISOString(),
                 adminNote: adminNote ?? "Manual review",
+                isMockScore: false, // manual overrides are always real
             }),
             updatedAt: new Date(),
         }).where(eq(ideas.id, ideaId));
@@ -170,7 +176,6 @@ export async function submitCommunityNote(
     if (note.length > 2000)
         return { success: false, error: "Note too long (max 2000 chars)" };
 
-    // Tier gate
     const [caller] = await db
         .select({ xp: users.xp })
         .from(users)
@@ -183,7 +188,6 @@ export async function submitCommunityNote(
             error: `Community notes require Architect tier (500 XP). You are ${tier.displayName} (${caller?.xp ?? 0} XP).`,
         };
 
-    // Block noting your own idea
     const [idea] = await db
         .select({ userId: ideas.userId, title: ideas.title })
         .from(ideas)
@@ -201,7 +205,6 @@ export async function submitCommunityNote(
         threshold: 5,
     }).returning({ id: communityNotes.id });
 
-    // Notify idea creator
     if (idea.userId) {
         await createNotification({
             userId: idea.userId,
@@ -222,7 +225,6 @@ export async function voteCommunityNote(noteId: string) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
 
-    // Increment vote
     const [updated] = await db
         .update(communityNotes)
         .set({ voteCount: sql`${communityNotes.voteCount} + 1`, updatedAt: new Date() })
@@ -238,13 +240,11 @@ export async function voteCommunityNote(noteId: string) {
 
     if (!updated) return { success: false, error: "Note not found" };
 
-    // Auto-verify when threshold reached
     if (updated.voteCount >= updated.threshold && updated.status === "pending") {
         await db.update(communityNotes)
             .set({ status: "verified", updatedAt: new Date() })
             .where(eq(communityNotes.id, noteId));
 
-        // If factually critical → set hasCriticalNote flag on idea
         if (updated.severity === "factually_critical") {
             await db.update(ideas)
                 .set({ hasCriticalNote: true, updatedAt: new Date() })
@@ -298,7 +298,6 @@ export async function getCommunityNotes(ideaId: string) {
         .where(
             and(
                 eq(communityNotes.ideaId, ideaId),
-                // Only show verified or pending — not dismissed
                 sql`${communityNotes.status} != 'dismissed'`
             )
         )

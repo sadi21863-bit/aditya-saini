@@ -41,8 +41,11 @@ export default async function RootLayout({
       <html lang="en" className={playfair.variable}>
         <body className="bg-slate-950 text-white min-h-screen">
           <GlobalErrorBoundary>
-            <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
-            <main className="ml-64 min-h-screen">{children}</main>
+            {/* Sidebar returns itself + a spacer div, so main needs no margin */}
+            <div className="flex min-h-screen">
+              <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
+              <main className="flex-1 min-h-screen">{children}</main>
+            </div>
             <Toaster position="bottom-right" />
           </GlobalErrorBoundary>
         </body>

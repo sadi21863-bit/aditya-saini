@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function getMyNotifications() {
     let userId: string;
@@ -49,6 +50,8 @@ export async function markAllRead() {
         .update(notifications)
         .set({ read: true })
         .where(eq(notifications.userId, userId));
+
+    revalidatePath("/notifications"); // ✅ add this so the page refreshes after marking read
 }
 
 export async function createNotification({
