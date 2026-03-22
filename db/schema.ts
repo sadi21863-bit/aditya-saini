@@ -45,7 +45,9 @@ export const users = pgTable("users", {
 // ─────────────────────────────────────────────────────────────────────────────
 export const ideas = pgTable("ideas", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id"),
+
+  // ✅ Fixed: FK to users with SET NULL on delete (tombstone-safe)
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
 
   title: text("title").notNull(),
   context: text("context"),
@@ -72,15 +74,13 @@ export const ideas = pgTable("ideas", {
 
   flair: text("flair"),
 
-  // v11 prep — remix origin
-  remixedFromId: uuid("remixed_from_id"),
+  // ✅ Fixed: FK to self (remix chain integrity)
+  remixedFromId: uuid("remixed_from_id").references((): any => ideas.id, {
+    onDelete: "set null",
+  }),
 
-  // Admin-curated highlight
   editorsPick: boolean("editors_pick").default(false).notNull(),
 
-  // ── v11 Truth Layer ────────────────────────────────────────────
-  // Set true when a verified "Factually Critical" community note exists.
-  // Blocks project level-up until creator acknowledges it.
   hasCriticalNote: boolean("has_critical_note").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
@@ -94,8 +94,10 @@ export const likes = pgTable(
   "likes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id"),
-    ideaId: uuid("idea_id").references(() => ideas.id),
+
+    // ✅ Fixed: FK to users with cascade delete
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    ideaId: uuid("idea_id").references(() => ideas.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -123,7 +125,7 @@ export const follows = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. COMMENTS  (kept for backwards compat — upgraded in Phase 3)
+// 5. COMMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 export const comments = pgTable("comments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -163,7 +165,7 @@ export const ideaRevisions = pgTable("idea_revisions", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. BOOKMARKS  [v10]
+// 8. BOOKMARKS
 // ─────────────────────────────────────────────────────────────────────────────
 export const bookmarks = pgTable(
   "bookmarks",
@@ -184,12 +186,17 @@ export const bookmarks = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. NOTIFICATIONS  [v10]
+// 9. NOTIFICATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id").notNull(),
-  type: text("type").notNull(), // "spark" | "follow" | "comment" | "milestone" | "access_request" | "critical_note"
+
+  // ✅ Fixed: FK to users with cascade delete (no ghost notifications)
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  type: text("type").notNull(),
   body: text("body").notNull(),
   link: text("link"),
   read: boolean("read").default(false).notNull(),
@@ -197,11 +204,7 @@ export const notifications = pgTable("notifications", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 10. COMMUNITY NOTES  [v11 — Truth Layer]
-// ─────────────────────────────────────────────────────────────────────────────
-// Only Master+ tier users can submit notes.
-// Justice Engine validates: voteCount >= threshold → status = "verified"
-// Verified "factually_critical" notes set ideas.hasCriticalNote = true
+// 10. COMMUNITY NOTES
 // ─────────────────────────────────────────────────────────────────────────────
 export const communityNotes = pgTable("community_notes", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -212,20 +215,15 @@ export const communityNotes = pgTable("community_notes", {
     .notNull()
     .references(() => users.id),
 
-  note: text("note").notNull(),                        // max enforced in Zod
-  supportingEvidence: jsonb("supporting_evidence"),    // { url, description }[]
+  note: text("note").notNull(),
+  supportingEvidence: jsonb("supporting_evidence"),
 
   voteCount: integer("vote_count").default(0).notNull(),
-  threshold: integer("threshold").default(5).notNull(), // votes needed to verify
+  threshold: integer("threshold").default(5).notNull(),
 
-  // "pending" → "verified" | "dismissed"
   status: text("status").default("pending").notNull(),
-
-  // "informational" | "factually_critical"
-  // factually_critical → triggers ideas.hasCriticalNote = true
   severity: text("severity").default("informational").notNull(),
 
-  // true once the idea creator has acknowledged this note
   acknowledgedByCreator: boolean("acknowledged_by_creator")
     .default(false)
     .notNull(),
@@ -235,12 +233,7 @@ export const communityNotes = pgTable("community_notes", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 11. PEER REVIEWS  [v11 — 3-Axis Rating System]
-// ─────────────────────────────────────────────────────────────────────────────
-// Replaces flat comments with weighted authority scoring.
-// ratings: { feasibility: 1-5, originality: 1-5, impact: 1-5 }
-// tierWeight: Dreamer=1 | Visionary=1.5 | Architect=2 | Oracle=5
-// avgScore: pre-computed weighted average stored for fast leaderboard queries
+// 11. PEER REVIEWS
 // ─────────────────────────────────────────────────────────────────────────────
 export const peerReviews = pgTable(
   "peer_reviews",
@@ -257,10 +250,10 @@ export const peerReviews = pgTable(
       .$type<{ feasibility: number; originality: number; impact: number }>()
       .notNull(),
 
-    comment: text("comment"),                          // optional written review
+    comment: text("comment"),
 
-    tierWeight: real("tier_weight").notNull(),         // snapshot of tier at review time
-    avgScore: real("avg_score").notNull(),             // (feasibility+originality+impact)/3 * tierWeight
+    tierWeight: real("tier_weight").notNull(),
+    avgScore: real("avg_score").notNull(),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -269,7 +262,7 @@ export const peerReviews = pgTable(
     uniqueReview: uniqueIndex("unique_peer_review").on(
       table.ideaId,
       table.reviewerId
-    ), // one review per user per idea
+    ),
   })
 );
 
