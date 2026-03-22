@@ -11,6 +11,20 @@ import { getTierNameFromXp } from "@/lib/tier-engine";
 import { generateGenesisHash, generateCombinedSimHash } from "@/lib/hash";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TIER PROTECTION LEVELS — minimum XP required
+// ─────────────────────────────────────────────────────────────────────────────
+const PROTECTION_XP_REQUIRED: Record<string, number> = {
+  open: 0,
+  guarded: 500,
+  shielded: 2000,
+  vault: 5000,
+};
+
+function canUseProtection(xp: number, level: string): boolean {
+  return xp >= (PROTECTION_XP_REQUIRED[level] ?? 0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ZOD SCHEMAS
 // ─────────────────────────────────────────────────────────────────────────────
 const IdeaWriteSchema = z.object({
@@ -62,10 +76,11 @@ async function awardXp(userId: string, delta: number) {
     .set({ tier: newTier })
     .where(eq(users.id, userId));
 
-  // ── Phase 6: auto-check + award badges (fire-and-forget, non-blocking) ──
-  import("@/app/actions/badgeActions")
-    .then(({ checkAndAwardBadges }) => checkAndAwardBadges(userId))
-    .catch(() => { });
+  // ── Phase 6: await badge check directly to prevent silent loss on Vercel ──
+  try {
+    const { checkAndAwardBadges } = await import("@/app/actions/badgeActions");
+    await checkAndAwardBadges(userId);
+  } catch { /* badge errors should not block XP award */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +103,13 @@ export async function addIdea(formData: FormData) {
   }
 
   const { title, category, context, content, protectionLevel, flair } = parsed.data;
+
+  // ✅ Fixed: enforce tier-based protection level
+  const [callerRow] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, callerId));
+  const callerXp = callerRow?.xp ?? 0;
+  if (!canUseProtection(callerXp, protectionLevel)) {
+    return { success: false, errors: { protectionLevel: ["Your tier is too low for this protection level"] } };
+  }
 
   await db.insert(ideas).values({
     title,
@@ -128,6 +150,13 @@ export async function updateIdea(id: string, formData: FormData) {
 
   const { title, category, context, content, protectionLevel, flair } = parsed.data;
 
+  // ✅ Fixed: enforce tier-based protection on update too
+  const [callerRow] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, callerId));
+  const callerXp = callerRow?.xp ?? 0;
+  if (!canUseProtection(callerXp, protectionLevel)) {
+    return { success: false, errors: { protectionLevel: ["Your tier is too low for this protection level"] } };
+  }
+
   await db
     .update(ideas)
     .set({
@@ -147,7 +176,7 @@ export async function updateIdea(id: string, formData: FormData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE  (v11: Tombstone — scrubs content, preserves genesisHash + timestamp)
+// DELETE
 // ─────────────────────────────────────────────────────────────────────────────
 export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
@@ -162,7 +191,6 @@ export async function deleteIdea(id: string) {
       context: null,
       simHash: null,
       updatedAt: new Date(),
-      // genesisHash intentionally NOT touched — immutable ledger preserved
     })
     .where(eq(ideas.id, id));
 
@@ -170,21 +198,18 @@ export async function deleteIdea(id: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");
+  return { success: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LAUNCH (draft → public)
+// LAUNCH
 // ─────────────────────────────────────────────────────────────────────────────
 export async function launchIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   const idea = await assertOwnership(id, callerId);
 
   const launchedAt = new Date();
-
-  const newSimHash = await generateCombinedSimHash(
-    idea.title,
-    idea.content ?? ""
-  );
+  const newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
 
   const duplicates = await db
     .select({ id: ideas.id, title: ideas.title, userId: ideas.userId })
@@ -229,7 +254,7 @@ export async function launchIdea(id: string) {
     .where(eq(ideas.id, id));
 
   if (!idea.genesisHash) {
-    await awardXp(callerId, 10); // +10 XP + badge check fires inside awardXp
+    await awardXp(callerId, 10);
   }
 
   revalidatePath("/dashboard");
@@ -238,7 +263,7 @@ export async function launchIdea(id: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RECALL (public → draft)
+// RECALL
 // ─────────────────────────────────────────────────────────────────────────────
 export async function recallIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
@@ -251,13 +276,26 @@ export async function recallIdea(id: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");
+  return { success: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SPARK (like)
+// SPARK (like) — ✅ Fixed: self-spark blocked
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sparkIdea(ideaId: string, viewerId: string) {
   try {
+    const [idea] = await db
+      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes })
+      .from(ideas)
+      .where(eq(ideas.id, ideaId));
+
+    if (!idea) return { success: false, error: "Idea not found" };
+
+    // ✅ Block self-sparking
+    if (idea.userId === viewerId) {
+      return { success: false, error: "Cannot spark your own idea" };
+    }
+
     const existing = await db
       .select({ id: likes.id })
       .from(likes)
@@ -267,13 +305,6 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       return { success: false, error: "Already liked" };
     }
 
-    const [idea] = await db
-      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes })
-      .from(ideas)
-      .where(eq(ideas.id, ideaId));
-
-    if (!idea) return { success: false, error: "Idea not found" };
-
     await db.insert(likes).values({ userId: viewerId, ideaId });
 
     await db
@@ -282,7 +313,7 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       .where(eq(ideas.id, ideaId));
 
     if (idea.userId) {
-      await awardXp(idea.userId, 5); // badge check fires inside awardXp
+      await awardXp(idea.userId, 5);
       await db
         .update(users)
         .set({ score: sql`${users.score} + 5` })
@@ -322,7 +353,7 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
     })
     .where(eq(ideas.id, ideaId));
 
-  await awardXp(callerId, 5); // badge check fires inside awardXp
+  await awardXp(callerId, 5);
   revalidatePath("/feed");
   revalidatePath(`/idea/${ideaId}`);
 

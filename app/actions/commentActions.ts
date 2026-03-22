@@ -10,10 +10,6 @@ import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { ideas } from "@/db/schema";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER WEIGHT MAP
-// Dreamer=1 | Visionary=1.5 | Architect=2 | Oracle=5
-// ─────────────────────────────────────────────────────────────────────────────
 const TIER_WEIGHTS: Record<string, number> = {
     dreamer: 1,
     visionary: 1.5,
@@ -26,9 +22,6 @@ function getTierWeight(xp: number): number {
     return TIER_WEIGHTS[tier.name] ?? 1;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ZOD SCHEMA
-// ─────────────────────────────────────────────────────────────────────────────
 const PeerReviewSchema = z.object({
     ideaId: z.string().uuid(),
     feasibility: z.number().min(1).max(5),
@@ -37,9 +30,6 @@ const PeerReviewSchema = z.object({
     comment: z.string().max(1000).optional(),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUBMIT PEER REVIEW
-// ─────────────────────────────────────────────────────────────────────────────
 export async function submitPeerReview(
     ideaId: string,
     ratings: { feasibility: number; originality: number; impact: number },
@@ -52,7 +42,6 @@ export async function submitPeerReview(
     if (!parsed.success)
         return { success: false, error: parsed.error.flatten().fieldErrors };
 
-    // Block reviewing your own idea
     const [idea] = await db
         .select({ userId: ideas.userId, title: ideas.title })
         .from(ideas)
@@ -61,7 +50,6 @@ export async function submitPeerReview(
     if (idea.userId === callerId)
         return { success: false, error: "Cannot review your own idea" };
 
-    // Check duplicate review
     const existing = await db
         .select({ id: peerReviews.id })
         .from(peerReviews)
@@ -69,14 +57,12 @@ export async function submitPeerReview(
     if (existing.length > 0)
         return { success: false, error: "You have already reviewed this idea" };
 
-    // Get reviewer XP → tier weight
     const [reviewer] = await db
         .select({ xp: users.xp })
         .from(users)
         .where(eq(users.id, callerId));
     const tierWeight = getTierWeight(reviewer?.xp ?? 0);
 
-    // Compute weighted avg score
     const rawAvg = (ratings.feasibility + ratings.originality + ratings.impact) / 3;
     const avgScore = parseFloat((rawAvg * tierWeight).toFixed(2));
 
@@ -89,7 +75,6 @@ export async function submitPeerReview(
         avgScore,
     });
 
-    // Notify idea creator
     if (idea.userId) {
         await createNotification({
             userId: idea.userId,
@@ -103,9 +88,6 @@ export async function submitPeerReview(
     return { success: true, avgScore };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET PEER REVIEWS FOR AN IDEA
-// ─────────────────────────────────────────────────────────────────────────────
 export async function getPeerReviews(ideaId: string) {
     const rows = await db
         .select({
@@ -124,7 +106,7 @@ export async function getPeerReviews(ideaId: string) {
         .from(peerReviews)
         .leftJoin(users, eq(peerReviews.reviewerId, users.id))
         .where(eq(peerReviews.ideaId, ideaId))
-        .orderBy(desc(peerReviews.avgScore)); // highest weighted scores first
+        .orderBy(desc(peerReviews.avgScore));
 
     return rows.map((r) => ({
         id: r.id,
@@ -144,9 +126,6 @@ export async function getPeerReviews(ideaId: string) {
     }));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE PEER REVIEW (own only)
-// ─────────────────────────────────────────────────────────────────────────────
 export async function deletePeerReview(reviewId: string, ideaId: string) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
@@ -164,27 +143,31 @@ export async function deletePeerReview(reviewId: string, ideaId: string) {
     return { success: true };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LEGACY COMPAT — old getComments still works for any page using it
-// ─────────────────────────────────────────────────────────────────────────────
 export async function addComment(ideaId: string, content: string) {
     const callerId = await getAuthenticatedUserId();
+    // ✅ Fixed: null guard instead of callerId!
+    if (!callerId) return { success: false, error: "Not authenticated" };
+
     const trimmed = content?.trim();
     if (!trimmed) return { success: false, error: "Comment cannot be empty" };
     if (trimmed.length > 1000) return { success: false, error: "Too long" };
-    await db.insert(comments).values({ ideaId, userId: callerId!, content: trimmed });
+
+    await db.insert(comments).values({ ideaId, userId: callerId, content: trimmed });
     revalidatePath(`/idea/${ideaId}`);
     return { success: true };
 }
 
 export async function deleteComment(commentId: string, ideaId: string) {
     const callerId = await getAuthenticatedUserId();
+    if (!callerId) return { success: false, error: "Not authenticated" };
+
     const [comment] = await db
         .select({ userId: comments.userId })
         .from(comments)
         .where(eq(comments.id, commentId));
     if (!comment) return { success: false, error: "Not found" };
     if (comment.userId !== callerId) return { success: false, error: "Forbidden" };
+
     await db.delete(comments).where(eq(comments.id, commentId));
     revalidatePath(`/idea/${ideaId}`);
     return { success: true };

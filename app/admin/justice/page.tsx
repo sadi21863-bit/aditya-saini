@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ideas, users, similarityFlags } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 import {
     performJusticeAudit,
     batchAuditUnscanned,
@@ -33,13 +34,13 @@ export default async function JusticePage() {
         redirect("/feed");
     }
 
+    // ✅ Fixed: real admin check instead of hardcoded true
+    const adminCheck = await isAdmin();
+    if (!adminCheck) redirect("/feed");
+
     const me = await db.query.users.findFirst({
         where: eq(users.id, callerId),
     });
-
-    // Swap this for a real roles check when ready
-    const isAdmin = true;
-    if (!isAdmin) redirect("/feed");
 
     const allPublicIdeas = await db
         .select({
@@ -65,7 +66,6 @@ export default async function JusticePage() {
         .from(similarityFlags)
         .orderBy(desc(similarityFlags.detectedAt));
 
-    // Stats
     const total = allPublicIdeas.length;
     const scanned = allPublicIdeas.filter(
         (i) => (i.aiMetadata as AiMeta)?.scanned
@@ -106,7 +106,6 @@ export default async function JusticePage() {
         <div className="min-h-screen bg-slate-950 text-white">
             <div className="max-w-7xl mx-auto px-6 py-10">
 
-                {/* Header */}
                 <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#0d9488]/10 flex items-center justify-center">
@@ -136,7 +135,6 @@ export default async function JusticePage() {
                     </form>
                 </div>
 
-                {/* Stats Row */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
                     {[
                         { label: "Total Public Ideas", value: total, icon: ShieldOff, color: "text-slate-400" },
@@ -152,7 +150,6 @@ export default async function JusticePage() {
                     ))}
                 </div>
 
-                {/* Ideas Audit Table */}
                 <div className="mb-12">
                     <h2 className="text-lg font-bold mb-4">Public Ideas Audit</h2>
                     <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
@@ -272,7 +269,6 @@ export default async function JusticePage() {
                     </div>
                 </div>
 
-                {/* Similarity Flags Table */}
                 <div>
                     <h2 className="text-lg font-bold mb-4">Similarity Flags</h2>
                     <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
