@@ -5,20 +5,12 @@ import { peerReviews, comments, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { getTierFromXp, XP_EVENTS } from "@/lib/tier-engine";
+import { getTierFromXp, XP_EVENTS, TIER_WEIGHTS } from "@/lib/tier-engine";
 import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { ideas } from "@/db/schema";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
 import { awardXp } from "@/app/actions/ideaActions";
-
-// Canonical TIER_WEIGHTS — exported so PeerReviewBox.tsx can import from here
-export const TIER_WEIGHTS: Record<string, number> = {
-    dreamer: 1,
-    visionary: 1.5,
-    architect: 2,
-    oracle: 5,
-};
 
 function getTierWeight(xp: number): number {
     const tier = getTierFromXp(xp);
@@ -81,7 +73,6 @@ export async function submitPeerReview(
         avgScore,
     });
 
-    // Fix #28: Award XP to reviewer for submitting a peer review
     await awardXp(callerId, XP_EVENTS.PEER_REVIEW_GIVEN);
 
     if (idea.userId) {

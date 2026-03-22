@@ -1,16 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import { getBadge, BADGE_TIER_STYLES } from "@/lib/badge-engine";
 
 interface Props {
-    badges: string[];      // array of slugs from users.badges
-    maxVisible?: number;   // truncate after N (default: show all)
+    badges: string[];
+    maxVisible?: number;
     size?: "sm" | "md";
 }
 
-export default function BadgeDisplay({ badges, maxVisible, size = "md" }: Props) {
+export default function BadgeDisplay({ badges, maxVisible = 5, size = "md" }: Props) {
+    const [expanded, setExpanded] = useState(false);
+
     if (!badges?.length) return null;
 
-    const visible = maxVisible ? badges.slice(0, maxVisible) : badges;
-    const overflow = maxVisible ? Math.max(0, badges.length - maxVisible) : 0;
+    const visible = expanded ? badges : badges.slice(0, maxVisible);
+    const overflow = Math.max(0, badges.length - maxVisible);
 
     return (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -34,10 +39,26 @@ export default function BadgeDisplay({ badges, maxVisible, size = "md" }: Props)
                 );
             })}
 
-            {overflow > 0 && (
-                <span className="text-xs text-slate-500 font-medium">
+            {/* #54: show expandable +N button instead of plain text */}
+            {!expanded && overflow > 0 && (
+                <button
+                    onClick={() => setExpanded(true)}
+                    title="Show all badges"
+                    className="inline-flex items-center px-2 py-0.5 rounded-full border
+                        border-slate-600 bg-slate-800 text-slate-400
+                        text-[11px] font-semibold hover:bg-slate-700 hover:text-white
+                        transition-colors cursor-pointer select-none"
+                >
                     +{overflow} more
-                </span>
+                </button>
+            )}
+            {expanded && badges.length > maxVisible && (
+                <button
+                    onClick={() => setExpanded(false)}
+                    className="text-[11px] text-slate-500 hover:text-white transition-colors"
+                >
+                    Show less
+                </button>
             )}
         </div>
     );

@@ -3,15 +3,14 @@
 import { useState, useEffect, useRef, useTransition } from "react";
 import {
     Bell, Zap, UserPlus, GitBranch,
-    MessageSquare, Trophy, X, CheckCheck,
+    MessageSquare, Trophy, X, CheckCheck, AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import {
     getMyNotifications,
     markAllRead,
+    getUnreadCount,
 } from "@/app/actions/notificationActions";
-
-type NotifType = "spark" | "follow" | "access_request" | "comment" | "milestone";
 
 interface Notification {
     id: string;
@@ -37,6 +36,8 @@ const ICON_MAP: Record<string, React.FC<{ size: number; className?: string }>> =
     access_request: GitBranch,
     comment: MessageSquare,
     milestone: Trophy,
+    // #6: add critical_note
+    critical_note: AlertTriangle,
 };
 
 const COLOR_MAP: Record<string, string> = {
@@ -45,6 +46,8 @@ const COLOR_MAP: Record<string, string> = {
     access_request: "text-amber-400",
     comment: "text-blue-400",
     milestone: "text-yellow-400",
+    // #6: add critical_note
+    critical_note: "text-red-400",
 };
 
 interface NotificationCenterProps {
@@ -55,12 +58,12 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [loaded, setLoaded] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const [isPending, startTransition] = useTransition();
     const panelRef = useRef<HTMLDivElement>(null);
+    const prevCountRef = useRef(0);
 
-    const unreadCount = notifications.filter((n) => !n.read).length;
-
-    // Load notifications when panel opens (only once per session)
+    // Load full notification list when panel opens or count changes
     useEffect(() => {
         if (isOpen && !loaded) {
             startTransition(async () => {
@@ -71,13 +74,21 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
         }
     }, [isOpen, loaded]);
 
-    // Poll unread count every 30s silently
+    // #40: poll only getUnreadCount() every 30s — only fetch full list when
+    // the panel opens or when the count changes from the previous poll value.
     useEffect(() => {
         if (!userId) return;
-        const interval = setInterval(async () => {
-            const data = await getMyNotifications();
-            setNotifications(data as Notification[]);
-        }, 30_000);
+        const poll = async () => {
+            const count = await getUnreadCount();
+            setUnreadCount(count);
+            if (count !== prevCountRef.current) {
+                // Count changed — mark loaded false so full list refreshes on next open
+                setLoaded(false);
+                prevCountRef.current = count;
+            }
+        };
+        poll(); // run immediately on mount
+        const interval = setInterval(poll, 30_000);
         return () => clearInterval(interval);
     }, [userId]);
 
@@ -96,6 +107,8 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
         startTransition(async () => {
             await markAllRead();
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+            setUnreadCount(0);
+            prevCountRef.current = 0;
         });
     }
 

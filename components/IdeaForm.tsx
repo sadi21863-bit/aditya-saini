@@ -69,20 +69,17 @@ export default function IdeaForm({
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
             Category *
           </label>
-          <input
+          <select
             name="category"
-            list="category-list"
-            placeholder="e.g. Energy, Tech, Social"
-            className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
-              placeholder:text-slate-400 focus:border-[#0d9488] focus:ring-2
-              focus:ring-[#0d9488]/20 outline-none transition-all"
+            defaultValue={CATEGORIES[0]}
             required
-          />
-          <datalist id="category-list">
+            className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-900
+              focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none transition-all"
+          >
             {allCategories.map((cat) => (
-              <option key={cat} value={cat} />
+              <option key={cat} value={cat}>{cat}</option>
             ))}
-          </datalist>
+          </select>
         </div>
 
         {/* Flair */}

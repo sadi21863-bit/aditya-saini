@@ -40,11 +40,18 @@ export const XP_EVENTS = {
   LAUNCH_IDEA: 10,
   RECEIVE_LIKE: 5,
   GAIN_FOLLOWER: 1,
-  PEER_REVIEW_GIVEN: 3,  // ← NEW Phase 6
-  SUBMIT_COMMUNITY_NOTE: 2, // ← NEW Phase 6
+  PEER_REVIEW_GIVEN: 3,
+  SUBMIT_COMMUNITY_NOTE: 2,
   RECALL_TO_DRAFT: 0,
   DELETE_IDEA: -10,
 } as const;
+
+export const TIER_WEIGHTS: Record<string, number> = {
+  dreamer: 1,
+  visionary: 1.5,
+  architect: 2,
+  oracle: 5,
+};
 
 export function getTierFromXp(xp: number) {
   for (let i = TIERS.length - 1; i >= 0; i--) {

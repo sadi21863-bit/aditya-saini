@@ -70,6 +70,7 @@ export default function IdeaTextEditor({
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Build highlighted HTML from matches
   const buildHtml = useCallback(
@@ -135,6 +136,37 @@ export default function IdeaTextEditor({
     setMatches([]);
     setActiveIdx(null);
     setPanelOpen(false);
+
+    // #41: debounce grammar check — only fires 500ms after the user stops typing
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (editorRef.current) {
+        const currentText = editorRef.current.innerText;
+        if (currentText.trim().length > 20) {
+          handleCheckDebounced(currentText);
+        }
+      }
+    }, 500);
+  };
+
+  const handleCheckDebounced = async (text: string) => {
+    setIsChecking(true);
+    setActiveIdx(null);
+    try {
+      const res = await fetch("/api/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language: "en-US" }),
+      });
+      const data = await res.json();
+      const newMatches: LTMatch[] = data.matches || [];
+      setMatches(newMatches);
+      setPanelOpen(newMatches.length > 0);
+    } catch {
+      setMatches([]);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const handleCheck = async () => {

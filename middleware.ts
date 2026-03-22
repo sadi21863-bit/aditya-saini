@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { isAdmin } from "@/lib/auth";
 
 const isPublicRoute = createRouteMatcher([
     "/",
@@ -15,25 +16,21 @@ const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 export default clerkMiddleware(async (auth, request) => {
     const { userId } = await auth();
 
-    // Protect admin routes
+    // Protect admin routes using single isAdmin() source of truth from lib/auth
     if (isAdminRoute(request)) {
-        await auth.protect((has) => has({ role: "admin" }));
+        if (!userId) {
+            await auth.protect();
+            return;
+        }
+        const adminOk = await isAdmin();
+        if (!adminOk) {
+            return NextResponse.redirect(new URL("/feed", request.url));
+        }
     }
 
     // Protect all non-public routes
     if (!isPublicRoute(request)) {
         await auth.protect();
-    }
-
-    // Redirect authenticated users without a profile to onboarding
-    if (
-        userId &&
-        !request.nextUrl.pathname.startsWith("/onboarding") &&
-        !request.nextUrl.pathname.startsWith("/sign-in") &&
-        !request.nextUrl.pathname.startsWith("/sign-up")
-    ) {
-        // Let the onboarding page itself handle the DB check and redirect
-        // This avoids DB calls in middleware for every request
     }
 
     return NextResponse.next();

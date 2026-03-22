@@ -38,8 +38,4 @@ export async function requireAdmin(): Promise<void> {
   if (!adminStatus) throw new Error("Admin access required");
 }
 
-export async function getDevUserId(): Promise<string> {
-  const userId = await getAuthenticatedUserId();
-  if (!userId) throw new Error("Authentication required");
-  return userId;
-}
+

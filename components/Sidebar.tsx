@@ -11,6 +11,7 @@ const NAV = [
   { href: "/feed", label: "🌐 Feed" },
   { href: "/registry", label: "🔍 Registry" },
   { href: "/leaderboard", label: "🏆 Leaderboard" },
+  { href: "/bookmarks", label: "🔖 Bookmarks" },
   { href: "/dashboard", label: "⚡ My Workspace" },
   { href: "/new", label: "✦ New Idea" },
 ];

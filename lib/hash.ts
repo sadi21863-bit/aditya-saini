@@ -46,7 +46,7 @@ export async function generateGenesisHash(
  * Generate SimHash from content only.
  * Returns a decimal string (not hex) — Hamming-distance comparable.
  */
-export async function generateSimHash(content: string): Promise<string> {
+async function generateSimHash(content: string): Promise<string> {
     return computeSimHash(content);
 }
 

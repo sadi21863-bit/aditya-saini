@@ -22,10 +22,16 @@ interface Comment {
     user: CommentUser;
 }
 
+// #49: accept viewer identity props so optimistic comments show real user data
 interface CommentsSectionProps {
     ideaId: string;
     viewerId: string;
     initialComments: Comment[];
+    viewerName?: string | null;
+    viewerHandle?: string | null;
+    viewerImage?: string | null;
+    viewerTier?: string | null;
+    viewerXp?: number;
 }
 
 function relativeTime(date: Date | null): string {
@@ -41,6 +47,11 @@ export default function CommentsSection({
     ideaId,
     viewerId,
     initialComments,
+    viewerName = null,
+    viewerHandle = null,
+    viewerImage = null,
+    viewerTier = null,
+    viewerXp = 0,
 }: CommentsSectionProps) {
     const [commentList, setCommentList] = useState<Comment[]>(initialComments);
     const [text, setText] = useState("");
@@ -55,17 +66,18 @@ export default function CommentsSection({
             const result = await addComment(ideaId, text);
             if (result.success) {
                 setText("");
+                // #49: use real viewer data for optimistic comment instead of empty strings
                 const tempComment: Comment = {
                     id: `temp-${Date.now()}`,
                     content: text.trim(),
                     createdAt: new Date(),
                     user: {
                         id: viewerId,
-                        name: null,
-                        handle: null,
-                        image: null,
-                        tier: null,
-                        xp: 0,
+                        name: viewerName,
+                        handle: viewerHandle,
+                        image: viewerImage,
+                        tier: viewerTier,
+                        xp: viewerXp,
                     },
                 };
                 setCommentList((prev) => [tempComment, ...prev]);
@@ -95,7 +107,9 @@ export default function CommentsSection({
             {/* Add Comment Box */}
             <div className="flex gap-3 mb-8">
                 <div className="w-8 h-8 rounded-full bg-[#0d9488]/20 flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-[#0d9488] text-xs font-bold">U</span>
+                    <span className="text-[#0d9488] text-xs font-bold">
+                        {viewerHandle?.[0]?.toUpperCase() ?? viewerName?.[0]?.toUpperCase() ?? "U"}
+                    </span>
                 </div>
                 <div className="flex-1">
                     <textarea

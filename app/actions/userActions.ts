@@ -48,15 +48,33 @@ export async function updateProfile(data: {
     name: string;
     bio: string;
     avatarUrl?: string;
+    handle?: string;
 }) {
     const userId = await requireAuth();
 
     const { success } = await lightLimiter.limit(userId);
     if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
+    // Validate handle if provided
+    if (data.handle) {
+        const handleRegex = /^[a-z0-9_]{3,30}$/;
+        if (!handleRegex.test(data.handle)) {
+            return { success: false, error: "Handle must be 3–30 characters: lowercase letters, numbers, underscores only." };
+        }
+        const existing = await db.query.users.findFirst({ where: eq(users.handle, data.handle) });
+        if (existing && existing.id !== userId) {
+            return { success: false, error: "That handle is already taken. Please choose another." };
+        }
+    }
+
     await db
         .update(users)
-        .set({ name: data.name, bio: data.bio, avatarUrl: data.avatarUrl })
+        .set({
+            name: data.name || null,
+            bio: data.bio || null,
+            avatarUrl: data.avatarUrl || null,
+            ...(data.handle ? { handle: data.handle } : {}),
+        })
         .where(eq(users.id, userId));
     return { success: true };
 }

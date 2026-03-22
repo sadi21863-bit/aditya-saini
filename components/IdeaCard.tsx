@@ -35,7 +35,6 @@ interface IdeaCardProps {
   isOwner?: boolean;
   showActions?: boolean;
   showAccessButtons?: boolean;
-  initialBookmarked?: boolean;
 }
 
 export default function IdeaCard({
@@ -77,7 +76,7 @@ export default function IdeaCard({
     }
   };
 
-  const handleAccessRequest = async (level: "viewer" | "partner") => {
+  const handleAccessRequest = async (level: "viewer") => {
     setLoading(`access-${level}`);
     const result = await requestAccess(idea.id, level);
     setLoading(null);

@@ -176,7 +176,6 @@ export default async function FeedPage({
               author={author}
               viewerId={currentUserId ?? ""}
               hasLiked={likedIds.includes(idea.id)}
-              initialBookmarked={bookmarkedIds.includes(idea.id)}
             />
           ))}
       </div>

@@ -26,9 +26,10 @@ const IdeaWriteSchema = z.object({
     .optional(),
 });
 
+// #7: only "viewer" — "partner" removed (partnerIds column doesn't exist in schema)
 const AccessRequestSchema = z.object({
   ideaId: z.string().uuid("Invalid idea ID"),
-  level: z.enum(["viewer", "partner"]),
+  level: z.enum(["viewer"]),
 });
 
 async function assertOwnership(ideaId: string, callerId: string) {
@@ -200,7 +201,7 @@ export async function launchIdea(id: string) {
   const launchedAt = new Date();
   const newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
 
-  // Fetch all public ideas' simHashes for fuzzy Hamming distance comparison
+  // #1: Fetch all public ideas' simHashes and use areSimilar() (Hamming distance) for fuzzy detection
   const publicIdeas = await db
     .select({ id: ideas.id, title: ideas.title, userId: ideas.userId, simHash: ideas.simHash })
     .from(ideas)
@@ -216,6 +217,7 @@ export async function launchIdea(id: string) {
     return {
       success: false,
       error: "A similar idea already exists in the Genesis Registry.",
+      duplicates: nearDuplicates,
       duplicateId: duplicate.id,
       duplicateTitle: duplicate.title,
       message: `⚠️ Plagiarism Protection: "${duplicate.title}" already exists.`,
@@ -301,6 +303,9 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
       .where(eq(ideas.id, ideaId));
 
+    // #25: xp is the canonical reputation field; score is a legacy duplicate.
+    // We only increment xp here. The score field is kept in schema for now
+    // but is not incremented to avoid double-counting.
     if (idea.userId) {
       await awardXp(idea.userId, XP_EVENTS.RECEIVE_LIKE);
     }
@@ -315,14 +320,15 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
 }
 
 // ─── REQUEST ACCESS ───────────────────────────────────────────────────────────
-export async function requestAccess(ideaId: string, level: "viewer" | "partner") {
+// #7: level is always "viewer" — "partner" option removed (no partnerIds column in schema)
+export async function requestAccess(ideaId: string, level: "viewer" = "viewer") {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
   const { success } = await lightLimiter.limit(callerId);
   if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
-  const parsed = AccessRequestSchema.safeParse({ ideaId, level });
+  const parsed = AccessRequestSchema.safeParse({ ideaId, level: "viewer" });
   if (!parsed.success) return { success: false, error: "Invalid input" };
 
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId));
@@ -332,59 +338,31 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
   const isViewer = idea.viewerIds?.includes(callerId) ?? false;
   if (isViewer) return { success: false, error: "You already have access" };
 
-  if (level === "partner") {
-    await db
-      .update(ideas)
-      .set({
-        partnerIds: sql`array_append(${ideas.partnerIds}, ${callerId})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(ideas.id, ideaId));
-  } else {
-    await db
-      .update(ideas)
-      .set({
-        viewerIds: sql`array_append(${ideas.viewerIds}, ${callerId})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(ideas.id, ideaId));
-  }
+  await db
+    .update(ideas)
+    .set({
+      viewerIds: sql`array_append(${ideas.viewerIds}, ${callerId})`,
+      updatedAt: new Date(),
+    })
+    .where(eq(ideas.id, ideaId));
 
-  await awardXp(callerId, 5);
   revalidatePath("/feed");
   revalidatePath(`/idea/${ideaId}`);
 
-  return { success: true, message: "✅ Access Granted! (+5 XP)" };
+  return { success: true, message: "✅ Access Granted!" };
 }
 
 // ─── RECORD VIEW ──────────────────────────────────────────────────────────────
+// #42: require a valid userId, skip unauthenticated requests, rate-limit by userId
 export async function recordView(ideaId: string) {
-  // Fix #42: Apply rate limiting using request headers IP to prevent view inflation
-  try {
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    const ip = headersList.get("x-forwarded-for") ?? headersList.get("x-real-ip") ?? "anonymous";
-    const { success } = await lightLimiter.limit(`view:${ip}`);
-    if (!success) return; // silently drop excess view counts
-  } catch {
-    // If headers not available (e.g. called server-side directly), proceed
-  }
+  const userId = await getAuthenticatedUserId();
+  if (!userId) return; // skip unauthenticated views
+
+  const { success } = await lightLimiter.limit(`view:${userId}`);
+  if (!success) return; // silently drop excess view counts
+
   await db
     .update(ideas)
     .set({ views: sql`${ideas.views} + 1` })
     .where(eq(ideas.id, ideaId));
-}
-
-// ─── LEGACY COMPAT ────────────────────────────────────────────────────────────
-export async function addLike(id: string) {
-  try {
-    await db
-      .update(ideas)
-      .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
-      .where(eq(ideas.id, id));
-    revalidatePath("/feed");
-    return { success: true };
-  } catch {
-    return { success: false };
-  }
 }

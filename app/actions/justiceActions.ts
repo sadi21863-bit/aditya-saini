@@ -9,26 +9,10 @@ import { requireAdmin, getAuthenticatedUserId } from "@/lib/auth";
 import { getTierFromXp, XP_EVENTS } from "@/lib/tier-engine";
 import { createNotification } from "./notificationActions";
 import { awardXp } from "./ideaActions";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────────────────────────────────────
-export type AuditStatus = "verified" | "flagged";
-
-export interface AuditMetadata {
-    scanned: boolean;
-    riskScore: number;
-    lastAudit: string;
-    status: AuditStatus;
-    scanVersion: string;
-    isMockScore?: boolean; // ✅ flag so UI can show "simulated" label
-}
+import type { AuditStatus, AuditMetadata } from "@/lib/justice-types";
 
 const NOTE_MIN_XP = 500;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PERFORM JUSTICE AUDIT
-// ─────────────────────────────────────────────────────────────────────────────
 export async function performJusticeAudit(ideaId: string) {
     try {
         await requireAdmin();
@@ -43,7 +27,6 @@ export async function performJusticeAudit(ideaId: string) {
 
         if (!idea) return { success: false, error: "Idea not found" };
 
-        // ✅ Fixed: labeled as mock — real ML score goes here in Phase 5+
         const riskScore = Math.floor(Math.random() * 100);
         const isMockScore = true;
         const status: AuditStatus = riskScore > 75 ? "flagged" : "verified";
@@ -62,7 +45,6 @@ export async function performJusticeAudit(ideaId: string) {
             updatedAt: new Date(),
         }).where(eq(ideas.id, ideaId));
 
-        // ✅ Fixed: only notify on real scores, not mock random ones
         if (status === "flagged" && idea.userId && !isMockScore) {
             await createNotification({
                 userId: idea.userId,
@@ -91,9 +73,6 @@ export async function performJusticeAudit(ideaId: string) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BATCH AUDIT UNSCANNED
-// ─────────────────────────────────────────────────────────────────────────────
 export async function batchAuditUnscanned() {
     try {
         await requireAdmin();
@@ -130,9 +109,6 @@ export async function batchAuditUnscanned() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MANUAL OVERRIDE  (Admin only)
-// ─────────────────────────────────────────────────────────────────────────────
 export async function manualOverride(
     ideaId: string,
     status: AuditStatus,
@@ -146,7 +122,7 @@ export async function manualOverride(
                 status, manualOverride: true,
                 overrideTimestamp: new Date().toISOString(),
                 adminNote: adminNote ?? "Manual review",
-                isMockScore: false, // manual overrides are always real
+                isMockScore: false,
             }),
             updatedAt: new Date(),
         }).where(eq(ideas.id, ideaId));
@@ -165,9 +141,6 @@ export async function manualOverride(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUBMIT COMMUNITY NOTE  (Architect+ only)
-// ─────────────────────────────────────────────────────────────────────────────
 export async function submitCommunityNote(
     ideaId: string,
     note: string,
@@ -213,7 +186,6 @@ export async function submitCommunityNote(
         threshold: 5,
     }).returning({ id: communityNotes.id });
 
-    // Fix #29: Award XP for submitting a community note
     await awardXp(callerId, XP_EVENTS.SUBMIT_COMMUNITY_NOTE);
 
     if (idea.userId) {
@@ -229,9 +201,6 @@ export async function submitCommunityNote(
     return { success: true, noteId: inserted.id };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VOTE ON COMMUNITY NOTE
-// ─────────────────────────────────────────────────────────────────────────────
 export async function voteCommunityNote(noteId: string) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
@@ -269,9 +238,6 @@ export async function voteCommunityNote(noteId: string) {
     return { success: true, voteCount: updated.voteCount };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOGGLE EDITOR'S PICK  (Admin only)
-// ─────────────────────────────────────────────────────────────────────────────
 export async function toggleEditorsPick(ideaId: string, value: boolean) {
     await requireAdmin();
 
@@ -299,9 +265,6 @@ export async function dismissCommunityNote(noteId: string) {
     return { success: true };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET NOTES FOR AN IDEA
-// ─────────────────────────────────────────────────────────────────────────────
 export async function getCommunityNotes(ideaId: string) {
     return db
         .select({

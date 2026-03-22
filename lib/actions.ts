@@ -8,7 +8,6 @@ export {
   deleteIdea,
   launchIdea,
   recallIdea,
-  addLike,
   sparkIdea,
   recordView,
 } from "@/app/actions/ideaActions";
