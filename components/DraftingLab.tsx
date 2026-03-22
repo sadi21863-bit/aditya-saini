@@ -5,7 +5,7 @@ import { Zap, Save, Info, CheckCircle2, AlertCircle, Loader2 } from "lucide-reac
 import { saveToHangar } from "@/app/actions/visionActions";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
 
-export default function DraftingLab({ userId }: { userId: string }) {
+export default function DraftingLab() {
   const [form, setForm] = useState({ title: "", context: "", content: "", category: "" });
   const [luminosity, setLuminosity] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -30,18 +30,12 @@ export default function DraftingLab({ userId }: { userId: string }) {
     setIsSaving(true);
     setMessage({ type: "", text: "" });
     try {
-      const result = await saveToHangar({
-        title: form.title,
-        context: form.context,   // ← was hook
-        content: form.content,
-        category: form.category || "General",
-        userId,
-      });
+      const result = await saveToHangar({ ...});
       if (result.success) {
         setMessage({ type: "success", text: "Saved to Dashboard!" });
         setForm({ title: "", context: "", content: "", category: "" });
       } else {
-        setMessage({ type: "error", text: result.error || "Failed to save." });
+        setMessage({ type: "error", text: "Failed to save. Please try again." });
       }
     } catch {
       setMessage({ type: "error", text: "Server error. Please try again." });

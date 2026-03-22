@@ -3,6 +3,7 @@ import { ideas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft, Sparkles, FileText, Rocket, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
 function scoreIdea(content: string | null, category: string | null): number {
@@ -39,6 +40,7 @@ function ScoreBadge({ score }: { score: number }) {
 
 export default async function StudioPage() {
   const userId = await getAuthenticatedUserId();
+  if (!userId) redirect("/sign-in");  // ← THE FIX
 
   const drafts = await db
     .select()
@@ -175,7 +177,6 @@ export default async function StudioPage() {
                       >
                         {draft.title}
                       </h3>
-                      {/* ✅ Fixed: was draft.hook, now draft.context */}
                       {draft.context && (
                         <p className="text-sm text-slate-500 italic mt-0.5 line-clamp-1">
                           "{draft.context}"
@@ -196,8 +197,8 @@ export default async function StudioPage() {
                         key={label}
                         title={done ? undefined : tip}
                         className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${done
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-slate-50  text-slate-400  border-slate-200"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50  text-slate-400  border-slate-200"
                           }`}
                       >
                         {done ? "✓" : "○"} {label}
@@ -208,7 +209,7 @@ export default async function StudioPage() {
                   <div className="w-full h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${draft.qualityScore >= 80 ? "bg-emerald-500" :
-                          draft.qualityScore >= 50 ? "bg-amber-400" : "bg-red-400"
+                        draft.qualityScore >= 50 ? "bg-amber-400" : "bg-red-400"
                         }`}
                       style={{ width: `${draft.qualityScore}%` }}
                     />

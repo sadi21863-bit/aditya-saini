@@ -3,7 +3,13 @@ import { useState } from "react";
 import { createUserProfile } from "@/app/actions/userActions";
 import { useRouter } from "next/navigation";
 
-export default function OnboardingForm({ userId }: { userId: string }) {
+export default function OnboardingForm({
+    userId,
+    email,
+}: {
+    userId: string;
+    email: string;
+}) {
     const router = useRouter();
     const [handle, setHandle] = useState("");
     const [name, setName] = useState("");
@@ -14,7 +20,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
         e.preventDefault();
         setLoading(true);
         setError("");
-        const result = await createUserProfile({ userId, handle, name });
+        const result = await createUserProfile({ userId, handle, name, email });
         if (result.error) {
             setError(result.error);
             setLoading(false);

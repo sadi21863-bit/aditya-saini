@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { bookmarks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { lightLimiter } from "@/lib/ratelimit";
 
 export async function toggleBookmark(ideaId: string) {
     let userId: string;
@@ -12,6 +13,9 @@ export async function toggleBookmark(ideaId: string) {
     } catch {
         return { success: false, error: "unauthenticated" };
     }
+
+    const { success } = await lightLimiter.limit(userId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const existing = await db.query.bookmarks.findFirst({
         where: and(

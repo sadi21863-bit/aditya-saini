@@ -5,17 +5,17 @@ import { db } from "@/db";
 import { follows, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { lightLimiter } from "@/lib/ratelimit";
 
-/**
- * Follow a user
- */
 export async function followUser(followerId: string, targetId: string) {
     try {
         if (followerId === targetId) {
             return { success: false, error: "Cannot follow yourself" };
         }
 
-        // Check if already following
+        const { success } = await lightLimiter.limit(followerId);
+        if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
         const existing = await db
             .select()
             .from(follows)
@@ -30,11 +30,7 @@ export async function followUser(followerId: string, targetId: string) {
             return { success: false, error: "Already following" };
         }
 
-        // Create follow relationship
-        await db.insert(follows).values({
-            followerId,
-            followingId: targetId,
-        });
+        await db.insert(follows).values({ followerId, followingId: targetId });
 
         revalidatePath(`/profile/${targetId}`);
         return { success: true };
@@ -44,11 +40,11 @@ export async function followUser(followerId: string, targetId: string) {
     }
 }
 
-/**
- * Unfollow a user
- */
 export async function unfollowUser(followerId: string, targetId: string) {
     try {
+        const { success } = await lightLimiter.limit(followerId);
+        if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
         await db
             .delete(follows)
             .where(
@@ -66,9 +62,6 @@ export async function unfollowUser(followerId: string, targetId: string) {
     }
 }
 
-/**
- * Get followers for a user
- */
 export async function getFollowers(userId: string) {
     try {
         const followers = await db
@@ -92,9 +85,6 @@ export async function getFollowers(userId: string) {
     }
 }
 
-/**
- * Get following (users this user follows)
- */
 export async function getFollowing(userId: string) {
     try {
         const following = await db
@@ -118,9 +108,6 @@ export async function getFollowing(userId: string) {
     }
 }
 
-/**
- * Check if user A follows user B
- */
 export async function isFollowing(followerId: string, targetId: string) {
     try {
         const result = await db
@@ -140,9 +127,6 @@ export async function isFollowing(followerId: string, targetId: string) {
     }
 }
 
-/**
- * Get follow stats for a user
- */
 export async function getFollowStats(userId: string) {
     try {
         const [followersCount] = await db

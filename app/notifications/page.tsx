@@ -4,15 +4,11 @@ import { eq, desc } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
-import { markAllRead } from "@/app/actions/notificationActions"; // ✅ correct name
+import { markAllRead } from "@/app/actions/notificationActions";
 
 export default async function NotificationsPage() {
-    let userId: string;
-    try {
-        userId = await getAuthenticatedUserId();
-    } catch {
-        redirect("/sign-in");
-    }
+    const userId = await getAuthenticatedUserId();
+    if (!userId) redirect("/sign-in");
 
     const items = await db
         .select()
@@ -41,7 +37,7 @@ export default async function NotificationsPage() {
                 </div>
 
                 {unreadCount > 0 && (
-                    <form action={markAllRead}> {/* ✅ correct name */}
+                    <form action={markAllRead}>
                         <button
                             type="submit"
                             className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2

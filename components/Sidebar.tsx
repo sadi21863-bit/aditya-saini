@@ -109,7 +109,7 @@ export default function Sidebar({
 
           {/* User row */}
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
             {!collapsed && currentHandle && (
               <span className="text-slate-400 text-sm truncate">
                 @{currentHandle}

@@ -25,8 +25,16 @@ export default async function EditIdea({
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, id));
   if (!idea) notFound();
 
-  const updateIdeaWithId = updateIdea.bind(null, id);
-  const deleteIdeaWithId = deleteIdea.bind(null, id);
+  // ── Wrap in void-returning server actions so <form action> is happy ──
+  async function handleUpdate(formData: FormData): Promise<void> {
+    "use server";
+    await updateIdea(id, formData);
+  }
+
+  async function handleDelete(): Promise<void> {
+    "use server";
+    await deleteIdea(id);
+  }
 
   return (
     <main className="min-h-screen bg-[#f8fafb] p-8">
@@ -48,7 +56,7 @@ export default async function EditIdea({
             Edit Idea
           </h1>
 
-          <form action={updateIdeaWithId} className="flex flex-col gap-6">
+          <form action={handleUpdate} className="flex flex-col gap-6">
 
             {/* Title */}
             <div>
@@ -81,7 +89,7 @@ export default async function EditIdea({
               </select>
             </div>
 
-            {/* Context (was: Hook) */}
+            {/* Context */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
                 Public Pitch
@@ -165,7 +173,7 @@ export default async function EditIdea({
           </form>
 
           {/* Danger zone */}
-          <form action={deleteIdeaWithId} className="mt-6 pt-6 border-t border-slate-100">
+          <form action={handleDelete} className="mt-6 pt-6 border-t border-slate-100">
             <button
               type="submit"
               className="w-full text-red-400 text-sm font-semibold hover:text-red-600

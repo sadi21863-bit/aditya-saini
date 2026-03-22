@@ -4,13 +4,14 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { lightLimiter } from "@/lib/ratelimit";
 
 export async function createUserProfile(data: {
     userId: string;
     handle: string;
     name: string;
+    email: string;
 }) {
-    // Validate handle uniqueness
     const existing = await db
         .select({ id: users.id })
         .from(users)
@@ -27,6 +28,7 @@ export async function createUserProfile(data: {
             id: data.userId,
             handle: data.handle,
             name: data.name,
+            email: data.email,
         })
         .onConflictDoUpdate({
             target: users.id,
@@ -42,6 +44,10 @@ export async function updateProfile(data: {
     avatarUrl?: string;
 }) {
     const userId = await requireAuth();
+
+    const { success } = await lightLimiter.limit(userId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
     await db
         .update(users)
         .set({ name: data.name, bio: data.bio, avatarUrl: data.avatarUrl })
@@ -51,6 +57,9 @@ export async function updateProfile(data: {
 
 export async function pinIdea(ideaId: string) {
     const userId = await requireAuth();
+
+    const { success } = await lightLimiter.limit(userId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const me = await db.query.users.findFirst({ where: eq(users.id, userId) });
     if (!me) return { success: false, error: "User not found" };
@@ -70,8 +79,11 @@ export async function pinIdea(ideaId: string) {
 export async function unpinIdea(ideaId: string) {
     const userId = await requireAuth();
 
+    const { success } = await lightLimiter.limit(userId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
     const me = await db.query.users.findFirst({ where: eq(users.id, userId) });
-    if (!me) return { success: false };
+    if (!me) return { success: false, error: "User not found" };
 
     const updated = (me.pinnedIdeaIds ?? []).filter((id) => id !== ideaId);
     await db

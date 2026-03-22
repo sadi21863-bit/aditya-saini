@@ -9,10 +9,8 @@ import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getTierNameFromXp } from "@/lib/tier-engine";
 import { generateGenesisHash, generateCombinedSimHash } from "@/lib/hash";
+import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER PROTECTION LEVELS — minimum XP required
-// ─────────────────────────────────────────────────────────────────────────────
 const PROTECTION_XP_REQUIRED: Record<string, number> = {
   open: 0,
   guarded: 500,
@@ -24,9 +22,6 @@ function canUseProtection(xp: number, level: string): boolean {
   return xp >= (PROTECTION_XP_REQUIRED[level] ?? 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ZOD SCHEMAS
-// ─────────────────────────────────────────────────────────────────────────────
 const IdeaWriteSchema = z.object({
   title: z.string().min(1, "Title is required").max(120, "Title too long"),
   category: z.string().min(1, "Category is required").max(60),
@@ -47,9 +42,6 @@ const AccessRequestSchema = z.object({
   level: z.enum(["viewer", "partner"]),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INTERNAL HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
 async function assertOwnership(ideaId: string, callerId: string) {
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId));
   if (!idea) throw new Error("Idea not found");
@@ -76,18 +68,19 @@ async function awardXp(userId: string, delta: number) {
     .set({ tier: newTier })
     .where(eq(users.id, userId));
 
-  // ── Phase 6: await badge check directly to prevent silent loss on Vercel ──
   try {
     const { checkAndAwardBadges } = await import("@/app/actions/badgeActions");
     await checkAndAwardBadges(userId);
   } catch { /* badge errors should not block XP award */ }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CREATE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── CREATE ───────────────────────────────────────────────────────────────────
 export async function addIdea(formData: FormData) {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, errors: { form: ["Not authenticated"] } };
+
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, errors: { form: ["Too many requests. Please slow down."] } };
 
   const parsed = IdeaWriteSchema.safeParse({
     title: formData.get("title"),
@@ -104,7 +97,6 @@ export async function addIdea(formData: FormData) {
 
   const { title, category, context, content, protectionLevel, flair } = parsed.data;
 
-  // ✅ Fixed: enforce tier-based protection level
   const [callerRow] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, callerId));
   const callerXp = callerRow?.xp ?? 0;
   if (!canUseProtection(callerXp, protectionLevel)) {
@@ -128,12 +120,15 @@ export async function addIdea(formData: FormData) {
   redirect("/dashboard?tab=drafts");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UPDATE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── UPDATE ───────────────────────────────────────────────────────────────────
 export async function updateIdea(id: string, formData: FormData) {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, errors: { form: ["Not authenticated"] } };
+
   await assertOwnership(id, callerId);
+
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, errors: { form: ["Too many requests. Please slow down."] } };
 
   const parsed = IdeaWriteSchema.safeParse({
     title: formData.get("title"),
@@ -150,7 +145,6 @@ export async function updateIdea(id: string, formData: FormData) {
 
   const { title, category, context, content, protectionLevel, flair } = parsed.data;
 
-  // ✅ Fixed: enforce tier-based protection on update too
   const [callerRow] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, callerId));
   const callerXp = callerRow?.xp ?? 0;
   if (!canUseProtection(callerXp, protectionLevel)) {
@@ -175,12 +169,15 @@ export async function updateIdea(id: string, formData: FormData) {
   redirect("/dashboard");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── DELETE ───────────────────────────────────────────────────────────────────
 export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
   await assertOwnership(id, callerId);
+
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
   await db
     .update(ideas)
@@ -201,12 +198,15 @@ export async function deleteIdea(id: string) {
   return { success: true };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LAUNCH
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── LAUNCH ───────────────────────────────────────────────────────────────────
 export async function launchIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
   const idea = await assertOwnership(id, callerId);
+
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
   const launchedAt = new Date();
   const newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
@@ -262,11 +262,11 @@ export async function launchIdea(id: string) {
   return { success: true };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RECALL
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── RECALL ───────────────────────────────────────────────────────────────────
 export async function recallIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
   await assertOwnership(id, callerId);
 
   await db
@@ -279,11 +279,12 @@ export async function recallIdea(id: string) {
   return { success: true };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SPARK (like) — ✅ Fixed: self-spark blocked
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── SPARK ────────────────────────────────────────────────────────────────────
 export async function sparkIdea(ideaId: string, viewerId: string) {
   try {
+    const { success } = await lightLimiter.limit(viewerId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
     const [idea] = await db
       .select({ userId: ideas.userId, totalLikes: ideas.totalLikes })
       .from(ideas)
@@ -291,7 +292,6 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
 
     if (!idea) return { success: false, error: "Idea not found" };
 
-    // ✅ Block self-sparking
     if (idea.userId === viewerId) {
       return { success: false, error: "Cannot spark your own idea" };
     }
@@ -329,11 +329,13 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REQUEST ACCESS
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── REQUEST ACCESS ───────────────────────────────────────────────────────────
 export async function requestAccess(ideaId: string, level: "viewer" | "partner") {
   const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
+  const { success } = await lightLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
   const parsed = AccessRequestSchema.safeParse({ ideaId, level });
   if (!parsed.success) return { success: false, error: "Invalid input" };
@@ -360,9 +362,7 @@ export async function requestAccess(ideaId: string, level: "viewer" | "partner")
   return { success: true, message: "✅ Access Granted! (+5 XP)" };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RECORD VIEW
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── RECORD VIEW ──────────────────────────────────────────────────────────────
 export async function recordView(ideaId: string) {
   await db
     .update(ideas)
@@ -370,9 +370,7 @@ export async function recordView(ideaId: string) {
     .where(eq(ideas.id, ideaId));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LEGACY COMPAT
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── LEGACY COMPAT ────────────────────────────────────────────────────────────
 export async function addLike(id: string) {
   try {
     await db

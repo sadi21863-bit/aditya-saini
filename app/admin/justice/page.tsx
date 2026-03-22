@@ -27,14 +27,11 @@ type AiMeta = {
 };
 
 export default async function JusticePage() {
-    let callerId: string;
-    try {
-        callerId = await getAuthenticatedUserId();
-    } catch {
-        redirect("/feed");
-    }
+    // ── Auth: null-safe check ──
+    const callerId = await getAuthenticatedUserId();
+    if (!callerId) redirect("/feed");
 
-    // ✅ Fixed: real admin check instead of hardcoded true
+    // ── Admin guard ──
     const adminCheck = await isAdmin();
     if (!adminCheck) redirect("/feed");
 

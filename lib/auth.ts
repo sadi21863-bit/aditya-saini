@@ -25,7 +25,9 @@ export async function requireAuth(): Promise<string> {
 export async function isAdmin(): Promise<boolean> {
   try {
     const { sessionClaims } = await auth();
-    return sessionClaims?.metadata?.role === "admin";
+    // Cast metadata to access custom role claim
+    const metadata = sessionClaims?.metadata as { role?: string } | undefined;
+    return metadata?.role === "admin";
   } catch {
     return false;
   }

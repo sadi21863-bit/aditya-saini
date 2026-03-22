@@ -9,6 +9,7 @@ import { getTierFromXp } from "@/lib/tier-engine";
 import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { ideas } from "@/db/schema";
+import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
 
 const TIER_WEIGHTS: Record<string, number> = {
     dreamer: 1,
@@ -37,6 +38,9 @@ export async function submitPeerReview(
 ) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
+
+    const { success } = await writeLimiter.limit(callerId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const parsed = PeerReviewSchema.safeParse({ ideaId, ...ratings, comment });
     if (!parsed.success)
@@ -130,6 +134,9 @@ export async function deletePeerReview(reviewId: string, ideaId: string) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
 
+    const { success } = await lightLimiter.limit(callerId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
     const [review] = await db
         .select({ reviewerId: peerReviews.reviewerId })
         .from(peerReviews)
@@ -145,8 +152,10 @@ export async function deletePeerReview(reviewId: string, ideaId: string) {
 
 export async function addComment(ideaId: string, content: string) {
     const callerId = await getAuthenticatedUserId();
-    // ✅ Fixed: null guard instead of callerId!
     if (!callerId) return { success: false, error: "Not authenticated" };
+
+    const { success } = await writeLimiter.limit(callerId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const trimmed = content?.trim();
     if (!trimmed) return { success: false, error: "Comment cannot be empty" };
@@ -160,6 +169,9 @@ export async function addComment(ideaId: string, content: string) {
 export async function deleteComment(commentId: string, ideaId: string) {
     const callerId = await getAuthenticatedUserId();
     if (!callerId) return { success: false, error: "Not authenticated" };
+
+    const { success } = await lightLimiter.limit(callerId);
+    if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const [comment] = await db
         .select({ userId: comments.userId })
@@ -189,7 +201,7 @@ export async function getComments(ideaId: string) {
         id: r.id, content: r.content, createdAt: r.createdAt,
         user: {
             id: r.userId, name: r.userName, handle: r.userHandle,
-            image: r.userImage, tier: r.userTier, xp: r.userXp ?? 0
+            image: r.userImage, tier: r.userTier, xp: r.userXp ?? 0,
         },
     }));
 }
