@@ -7,7 +7,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { lightLimiter } from "@/lib/ratelimit";
 import { XP_EVENTS } from "@/lib/tier-engine";
-import { awardXp } from "@/app/actions/ideaActions";
+import { awardXp } from "@/lib/xp";
+
 
 export async function followUser(followerId: string, targetId: string) {
     try {
