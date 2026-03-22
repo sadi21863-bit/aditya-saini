@@ -34,54 +34,50 @@ export default async function ProfilePage({
   const progress = tierProgress(profileUser.xp);
   const xpLeft = xpToNextTier(profileUser.xp);
   const isOwnProfile = currentUserId === profileUser.id;
-
-  // All public ideas
-  const userIdeas = await db
-    .select()
-    .from(ideas)
-    .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "public")))
-    .orderBy(desc(ideas.createdAt));
-
-  // Pinned ideas (ordered by pinnedIdeaIds order)
   const pinnedIds = profileUser.pinnedIdeaIds ?? [];
-  const pinnedIdeas =
-    pinnedIds.length > 0
-      ? await db
+
+  // ✅ Fixed: all 5 queries run in parallel instead of sequential
+  const [userIdeas, pinnedIdeas, followState, followerRows, followingRows] =
+    await Promise.all([
+      // All public ideas
+      db
         .select()
         .from(ideas)
-        .where(inArray(ideas.id, pinnedIds))
-      : [];
+        .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "public")))
+        .orderBy(desc(ideas.createdAt)),
+
+      // Pinned ideas
+      pinnedIds.length > 0
+        ? db.select().from(ideas).where(inArray(ideas.id, pinnedIds))
+        : Promise.resolve([]),
+
+      // Follow state
+      currentUserId && !isOwnProfile
+        ? db.query.follows.findFirst({
+          where: and(
+            eq(follows.followerId, currentUserId),
+            eq(follows.followingId, profileUser.id)
+          ),
+        })
+        : Promise.resolve(undefined),
+
+      // Follower count
+      db.select({ id: follows.id }).from(follows).where(eq(follows.followingId, profileUser.id)),
+
+      // Following count
+      db.select({ id: follows.id }).from(follows).where(eq(follows.followerId, profileUser.id)),
+    ]);
+
+  const isFollowing = !!followState;
+  const followerCount = followerRows.length;
+  const followingCount = followingRows.length;
 
   // Preserve pin order
   const orderedPinned = pinnedIds
     .map((id) => pinnedIdeas.find((i) => i.id === id))
     .filter(Boolean) as typeof pinnedIdeas;
 
-  // Non-pinned ideas
   const unpinnedIdeas = userIdeas.filter((i) => !pinnedIds.includes(i.id));
-
-  // Follow state
-  const isFollowing =
-    currentUserId && !isOwnProfile
-      ? !!(await db.query.follows.findFirst({
-        where: and(
-          eq(follows.followerId, currentUserId),
-          eq(follows.followingId, profileUser.id)
-        ),
-      }))
-      : false;
-
-  const followerCount = await db
-    .select()
-    .from(follows)
-    .where(eq(follows.followingId, profileUser.id))
-    .then((r) => r.length);
-
-  const followingCount = await db
-    .select()
-    .from(follows)
-    .where(eq(follows.followerId, profileUser.id))
-    .then((r) => r.length);
 
   const authorMeta = {
     handle: profileUser.handle,
@@ -205,7 +201,6 @@ export default async function ProfilePage({
                 viewerId={currentUserId ?? ""}
                 hasLiked={false}
               />
-              {/* Pin button for owner */}
               {isOwnProfile && pinnedIds.length < 3 && (
                 <div className="absolute top-3 right-3">
                   <PinButton ideaId={idea.id} initialPinned={false} />

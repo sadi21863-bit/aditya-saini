@@ -23,21 +23,50 @@ export default async function FeedPage({
       ? and(eq(ideas.status, "public"), eq(ideas.category, category))
       : eq(ideas.status, "public");
 
-  const rawIdeas = await db
-    .select({
-      idea: ideas,
-      author: {
-        handle: users.handle,
-        name: users.name,
-        tier: users.tier,
-        xp: users.xp,
-      },
-    })
-    .from(ideas)
-    .leftJoin(users, eq(ideas.userId, users.id))
-    .where(whereClause)
-    .orderBy(desc(ideas.createdAt))
-    .limit(100);
+  // ✅ Fixed: all 4 queries run in parallel instead of sequential
+  const [rawIdeas, likedRows, bookmarkedRows, categoryRows] = await Promise.all([
+    db
+      .select({
+        idea: ideas,
+        author: {
+          handle: users.handle,
+          name: users.name,
+          tier: users.tier,
+          xp: users.xp,
+        },
+      })
+      .from(ideas)
+      .leftJoin(users, eq(ideas.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(ideas.createdAt))
+      .limit(50), // ✅ Fixed: reduced from 100 to 50
+
+    // Liked IDs
+    currentUserId
+      ? db
+        .select({ ideaId: likes.ideaId })
+        .from(likes)
+        .where(eq(likes.userId, currentUserId))
+      : Promise.resolve([]),
+
+    // Bookmarked IDs
+    currentUserId
+      ? db
+        .select({ ideaId: bookmarks.ideaId })
+        .from(bookmarks)
+        .where(eq(bookmarks.userId, currentUserId))
+      : Promise.resolve([]),
+
+    // Categories
+    db
+      .selectDistinct({ category: ideas.category })
+      .from(ideas)
+      .where(eq(ideas.status, "public")),
+  ]);
+
+  const likedIds = likedRows.map((l) => l.ideaId);
+  const bookmarkedIds = bookmarkedRows.map((b) => b.ideaId);
+  const categories = categoryRows.map((c) => c.category).filter(Boolean) as string[];
 
   // ── Sort ─────────────────────────────────────────────────────────────────
   const sorted =
@@ -52,36 +81,6 @@ export default async function FeedPage({
   // ── Idea of the Day (only on Hot, no category filter) ───────────────────
   const ideaOfTheDay =
     sort !== "new" && !category ? pickIdeaOfTheDay(rawIdeas) : null;
-
-  // ── Liked IDs ────────────────────────────────────────────────────────────
-  const likedIds = currentUserId
-    ? (
-      await db
-        .select({ ideaId: likes.ideaId })
-        .from(likes)
-        .where(eq(likes.userId, currentUserId))
-    ).map((l) => l.ideaId)
-    : [];
-
-  // ── Bookmarked IDs ────────────────────────────────────────────────────────
-  const bookmarkedIds = currentUserId
-    ? (
-      await db
-        .select({ ideaId: bookmarks.ideaId })
-        .from(bookmarks)
-        .where(eq(bookmarks.userId, currentUserId))
-    ).map((b) => b.ideaId)
-    : [];
-
-  // ── Categories ───────────────────────────────────────────────────────────
-  const categoryRows = await db
-    .selectDistinct({ category: ideas.category })
-    .from(ideas)
-    .where(eq(ideas.status, "public"));
-
-  const categories = categoryRows
-    .map((c) => c.category)
-    .filter(Boolean) as string[];
 
   // ── Editor's Pick ─────────────────────────────────────────────────────────
   const editorsPick = sorted.find((r) => r.idea.editorsPick);
@@ -161,7 +160,7 @@ export default async function FeedPage({
       {/* Category Filter */}
       <FeedFilter categories={categories} />
 
-      {/* Idea List — hide IOTD from list to avoid duplicate */}
+      {/* Idea List */}
       <div className="mt-6 flex flex-col gap-4">
         {sorted.length === 0 && (
           <p className="text-slate-500 text-center py-20">
