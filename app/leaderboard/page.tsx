@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { users, ideas } from "@/db/schema";
-import { desc, eq, sql, and } from "drizzle-orm";
+import { desc, eq, sql, and, gt } from "drizzle-orm";
 import {
   Trophy, Zap, Clock, Calendar, Infinity,
   Lightbulb, Users, TrendingUp,
@@ -28,7 +28,7 @@ export default async function LeaderboardPage({
   };
   const interval = intervalMap[range] ?? null;
 
-  // ── CREATORS query ────────────────────────────────────────────────────────
+  // FIX #33: Use INNER JOIN + HAVING to exclude users with zero published ideas
   const topCreators = tab === "creators"
     ? await db
       .select({
@@ -41,7 +41,7 @@ export default async function LeaderboardPage({
         totalLikes: sql<number>`cast(coalesce(sum(${ideas.totalLikes}), 0) as int)`,
       })
       .from(users)
-      .leftJoin(
+      .innerJoin(
         ideas,
         and(
           eq(ideas.userId, users.id),
@@ -52,11 +52,12 @@ export default async function LeaderboardPage({
         ),
       )
       .groupBy(users.id)
+      // FIX #33: HAVING ensures only users with ≥1 public idea appear
+      .having(gt(sql<number>`cast(count(${ideas.id}) as int)`, 0))
       .orderBy(desc(sql`coalesce(sum(${ideas.totalLikes}), 0)`))
       .limit(20)
     : [];
 
-  // ── IDEAS query ───────────────────────────────────────────────────────────
   const topIdeas = tab === "ideas"
     ? await db
       .select({
@@ -87,7 +88,6 @@ export default async function LeaderboardPage({
       .limit(20)
     : [];
 
-  // ── Tab configs ───────────────────────────────────────────────────────────
   const mainTabs = [
     { key: "creators", label: "Creators", icon: <Users size={13} /> },
     { key: "ideas", label: "Ideas", icon: <Lightbulb size={13} /> },
@@ -101,10 +101,10 @@ export default async function LeaderboardPage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafb] p-8">
+    // FIX #23: Use bg-slate-950 to match global dark theme — was bg-[#f8fafb] (light)
+    <div className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-4xl mx-auto">
 
-        {/* HEADER */}
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-[#0d9488]/10 rounded-xl">
@@ -115,26 +115,27 @@ export default async function LeaderboardPage({
             </p>
           </div>
           <h1
-            className="text-4xl font-bold text-slate-900 tracking-tight"
+            className="text-4xl font-bold text-white tracking-tight"
             style={{ fontFamily: "var(--font-playfair)" }}
           >
             Leaderboard
           </h1>
-          <p className="text-slate-500 mt-1">
-            The Genesis Registry's most impactful creators and ideas.
+          <p className="text-slate-400 mt-1">
+            The Genesis Registry&apos;s most impactful creators and ideas.
           </p>
         </header>
 
-        {/* MAIN TABS — Creators / Ideas */}
-        <div className="flex gap-2 mb-4 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-sm">
+        {/* MAIN TABS */}
+        <div className="flex gap-2 mb-4 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 w-fit">
           {mainTabs.map((t) => (
             <Link
               key={t.key}
               href={`/leaderboard?tab=${t.key}&range=${range}`}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${tab === t.key
-                ? "bg-[#0d9488] text-white shadow-md"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-                }`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                tab === t.key
+                  ? "bg-[#0d9488] text-white shadow-md"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              }`}
             >
               {t.icon}
               {t.label}
@@ -142,16 +143,17 @@ export default async function LeaderboardPage({
           ))}
         </div>
 
-        {/* RANGE TABS — All-Time / Monthly / Weekly / Daily */}
-        <div className="flex gap-2 mb-8 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-sm">
+        {/* RANGE TABS */}
+        <div className="flex gap-2 mb-8 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 w-fit">
           {rangeTabs.map((t) => (
             <Link
               key={t.key}
               href={`/leaderboard?tab=${tab}&range=${t.key}`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${range === t.key
-                ? "bg-slate-800 text-white shadow-md"
-                : "text-slate-400 hover:text-slate-700 hover:bg-slate-50"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                range === t.key
+                  ? "bg-slate-700 text-white shadow-md"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              }`}
             >
               {t.icon}
               {t.label}
@@ -159,12 +161,12 @@ export default async function LeaderboardPage({
           ))}
         </div>
 
-        {/* ── CREATORS TABLE ─────────────────────────────────────────────── */}
+        {/* CREATORS TABLE */}
         {tab === "creators" && (
-          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
+                <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase tracking-widest bg-slate-950/50">
                   <th className="p-5 font-semibold w-14">Rank</th>
                   <th className="p-5 font-semibold">Creator</th>
                   <th className="p-5 font-semibold">Tier</th>
@@ -179,13 +181,14 @@ export default async function LeaderboardPage({
                   return (
                     <tr
                       key={user.id}
-                      className="group hover:bg-teal-50/50 transition-colors border-b border-slate-50 last:border-0"
+                      className="group hover:bg-slate-800/50 transition-colors border-b border-slate-800 last:border-0"
                     >
                       <td className="p-5">
-                        <span className={`text-xl font-bold font-mono ${i === 0 ? "text-amber-500" :
+                        <span className={`text-xl font-bold font-mono ${
+                          i === 0 ? "text-amber-500" :
                           i === 1 ? "text-slate-400" :
-                            i === 2 ? "text-orange-400" : "text-slate-300"
-                          }`}>{i + 1}</span>
+                          i === 2 ? "text-orange-400" : "text-slate-600"
+                        }`}>{i + 1}</span>
                       </td>
                       <td className="p-5">
                         <div className="flex items-center gap-3">
@@ -195,12 +198,12 @@ export default async function LeaderboardPage({
                           <div>
                             <Link
                               href={`/profile/${user.handle ?? user.id}`}
-                              className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors"
+                              className="font-semibold text-white hover:text-[#0d9488] transition-colors"
                             >
                               {user.handle ? `@${user.handle}` : user.name ?? user.id}
                             </Link>
                             {i === 0 && (
-                              <span className="block text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-200 w-fit mt-0.5">
+                              <span className="block text-[10px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-800 w-fit mt-0.5">
                                 Top Creator
                               </span>
                             )}
@@ -213,12 +216,12 @@ export default async function LeaderboardPage({
                         </span>
                       </td>
                       <td className="p-5 text-center">
-                        <span className="flex items-center justify-center gap-1 text-sm font-bold text-violet-600">
+                        <span className="flex items-center justify-center gap-1 text-sm font-bold text-violet-400">
                           <Zap size={12} className="fill-violet-400" />
                           {(user.xp ?? 0).toLocaleString()}
                         </span>
                       </td>
-                      <td className="p-5 text-center text-slate-500 font-medium">{user.ideaCount}</td>
+                      <td className="p-5 text-center text-slate-400 font-medium">{user.ideaCount}</td>
                       <td className="p-5 text-right">
                         <span className="text-xl font-bold text-[#0d9488]">
                           {user.totalLikes.toLocaleString()}
@@ -233,12 +236,12 @@ export default async function LeaderboardPage({
           </div>
         )}
 
-        {/* ── IDEAS TABLE ────────────────────────────────────────────────── */}
+        {/* IDEAS TABLE */}
         {tab === "ideas" && (
-          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-widest bg-slate-50">
+                <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase tracking-widest bg-slate-950/50">
                   <th className="p-5 font-semibold w-14">Rank</th>
                   <th className="p-5 font-semibold">Idea</th>
                   <th className="p-5 font-semibold">Creator</th>
@@ -252,36 +255,37 @@ export default async function LeaderboardPage({
                   return (
                     <tr
                       key={idea.id}
-                      className="group hover:bg-teal-50/50 transition-colors border-b border-slate-50 last:border-0"
+                      className="group hover:bg-slate-800/50 transition-colors border-b border-slate-800 last:border-0"
                     >
                       <td className="p-5">
-                        <span className={`text-xl font-bold font-mono ${i === 0 ? "text-amber-500" :
+                        <span className={`text-xl font-bold font-mono ${
+                          i === 0 ? "text-amber-500" :
                           i === 1 ? "text-slate-400" :
-                            i === 2 ? "text-orange-400" : "text-slate-300"
-                          }`}>{i + 1}</span>
+                          i === 2 ? "text-orange-400" : "text-slate-600"
+                        }`}>{i + 1}</span>
                       </td>
                       <td className="p-5">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
                             {idea.editorsPick && (
-                              <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-200">
-                                Editor's Pick
+                              <span className="text-[10px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-800">
+                                Editor&apos;s Pick
                               </span>
                             )}
                             {idea.flair && (
-                              <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-bold uppercase border border-teal-200">
+                              <span className="text-[10px] bg-teal-900/40 text-teal-400 px-2 py-0.5 rounded-full font-bold uppercase border border-teal-800">
                                 {idea.flair}
                               </span>
                             )}
                           </div>
                           <Link
                             href={`/idea/${idea.id}`}
-                            className="font-semibold text-slate-900 hover:text-[#0d9488] transition-colors line-clamp-1"
+                            className="font-semibold text-white hover:text-[#0d9488] transition-colors line-clamp-1"
                           >
                             {idea.title}
                           </Link>
                           {idea.category && (
-                            <span className="text-xs text-slate-400">{idea.category}</span>
+                            <span className="text-xs text-slate-500">{idea.category}</span>
                           )}
                         </div>
                       </td>
@@ -292,13 +296,13 @@ export default async function LeaderboardPage({
                           </div>
                           <Link
                             href={`/profile/${idea.userHandle ?? idea.userId}`}
-                            className="text-sm text-slate-600 hover:text-[#0d9488] transition-colors"
+                            className="text-sm text-slate-400 hover:text-[#0d9488] transition-colors"
                           >
                             {idea.userHandle ? `@${idea.userHandle}` : idea.userName ?? "Unknown"}
                           </Link>
                         </div>
                       </td>
-                      <td className="p-5 text-center text-slate-500 font-medium">
+                      <td className="p-5 text-center text-slate-400 font-medium">
                         {(idea.views ?? 0).toLocaleString()}
                       </td>
                       <td className="p-5 text-right">
@@ -315,31 +319,30 @@ export default async function LeaderboardPage({
           </div>
         )}
 
-        {/* XP GUIDE */}
-        <div className="mt-8 p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
+        <div className="mt-8 p-6 bg-slate-900 border border-slate-800 rounded-2xl">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={16} className="text-[#0d9488]" />
-            <h4 className="font-bold text-slate-900 text-sm">How XP & Tiers work</h4>
+            <h4 className="font-bold text-white text-sm">How XP &amp; Tiers work</h4>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-500 mt-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-400 mt-3">
             {[
               { action: "Launch idea", xp: "+10 XP" },
               { action: "Receive a spark", xp: "+5 XP" },
-              { action: "Contributor tag", xp: "+25 XP" },
+              { action: "Peer review given", xp: "+3 XP" },
               { action: "Delete idea", xp: "−10 XP" },
             ].map((row) => (
-              <div key={row.action} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <p className="font-bold text-violet-600">{row.xp}</p>
+              <div key={row.action} className="bg-slate-800 rounded-xl p-3 border border-slate-700">
+                <p className="font-bold text-violet-400">{row.xp}</p>
                 <p className="mt-0.5">{row.action}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-slate-400 mt-4">
+          <p className="text-xs text-slate-500 mt-4">
             Tier ladder:{" "}
-            <span className="font-semibold text-slate-600">Dreamer (0)</span> →{" "}
-            <span className="font-semibold text-teal-600">Visionary (100)</span> →{" "}
-            <span className="font-semibold text-violet-600">Architect (500)</span> →{" "}
-            <span className="font-semibold text-amber-600">Oracle (2000)</span>
+            <span className="font-semibold text-slate-400">Dreamer (0)</span> →{" "}
+            <span className="font-semibold text-teal-400">Visionary (500)</span> →{" "}
+            <span className="font-semibold text-violet-400">Architect (2000)</span> →{" "}
+            <span className="font-semibold text-amber-400">Oracle (5000)</span>
           </p>
         </div>
 
@@ -350,10 +353,7 @@ export default async function LeaderboardPage({
 
 function EmptyState() {
   return (
-    <div
-      className="p-16 text-center text-slate-400 italic"
-      style={{ fontFamily: "var(--font-playfair)" }}
-    >
+    <div className="p-16 text-center text-slate-500 italic" style={{ fontFamily: "var(--font-playfair)" }}>
       No data for this period yet. Be the first to launch an idea!
     </div>
   );

@@ -7,15 +7,23 @@ import FeedFilter from "@/components/FeedFilter";
 import IdeaOfTheDay from "@/components/IdeaOfTheDay";
 import { computeFeedScore } from "@/lib/feed-score";
 import { pickIdeaOfTheDay } from "@/lib/idea-of-the-day";
-import { Flame, Clock } from "lucide-react";
+import { Flame, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
+
+// FIX #29: Pagination constants
+const PAGE_SIZE = 20;
 
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; sort?: string }>;
+  searchParams: Promise<{ category?: string; sort?: string; page?: string }>;
 }) {
-  const { category, sort = "hot" } = await searchParams;
+  // FIX #29: Read page param for cursor-based pagination
+  const { category, sort = "hot", page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam ?? 1));
+  const offset = (page - 1) * PAGE_SIZE;
+
   const currentUserId = await getAuthenticatedUserId();
 
   const whereClause =
@@ -23,8 +31,7 @@ export default async function FeedPage({
       ? and(eq(ideas.status, "public"), eq(ideas.category, category))
       : eq(ideas.status, "public");
 
-  // ✅ Fixed: all 4 queries run in parallel instead of sequential
-  const [rawIdeas, likedRows, bookmarkedRows, categoryRows] = await Promise.all([
+  const [rawIdeas, likedRows, bookmarkedRows, categoryRows, totalRow] = await Promise.all([
     db
       .select({
         idea: ideas,
@@ -39,51 +46,55 @@ export default async function FeedPage({
       .leftJoin(users, eq(ideas.userId, users.id))
       .where(whereClause)
       .orderBy(desc(ideas.createdAt))
-      .limit(50), // ✅ Fixed: reduced from 100 to 50
+      .limit(PAGE_SIZE)
+      .offset(offset),
 
-    // Liked IDs
     currentUserId
-      ? db
-        .select({ ideaId: likes.ideaId })
-        .from(likes)
-        .where(eq(likes.userId, currentUserId))
+      ? db.select({ ideaId: likes.ideaId }).from(likes).where(eq(likes.userId, currentUserId))
       : Promise.resolve([]),
 
-    // Bookmarked IDs
     currentUserId
-      ? db
-        .select({ ideaId: bookmarks.ideaId })
-        .from(bookmarks)
-        .where(eq(bookmarks.userId, currentUserId))
+      ? db.select({ ideaId: bookmarks.ideaId }).from(bookmarks).where(eq(bookmarks.userId, currentUserId))
       : Promise.resolve([]),
 
-    // Categories
+    db.selectDistinct({ category: ideas.category }).from(ideas).where(eq(ideas.status, "public")),
+
+    // FIX #29: Count total for pagination controls
     db
-      .selectDistinct({ category: ideas.category })
+      .select({ id: ideas.id })
       .from(ideas)
-      .where(eq(ideas.status, "public")),
+      .where(whereClause),
   ]);
 
   const likedIds = likedRows.map((l) => l.ideaId);
   const bookmarkedIds = bookmarkedRows.map((b) => b.ideaId);
   const categories = categoryRows.map((c) => c.category).filter(Boolean) as string[];
+  const totalCount = totalRow.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // ── Sort ─────────────────────────────────────────────────────────────────
   const sorted =
     sort === "new"
       ? rawIdeas
       : [...rawIdeas].sort(
-        (a, b) =>
-          computeFeedScore(b.idea.totalLikes, b.idea.views, b.idea.createdAt) -
-          computeFeedScore(a.idea.totalLikes, a.idea.views, a.idea.createdAt)
-      );
+          (a, b) =>
+            computeFeedScore(b.idea.totalLikes, b.idea.views, b.idea.createdAt) -
+            computeFeedScore(a.idea.totalLikes, a.idea.views, a.idea.createdAt)
+        );
 
-  // ── Idea of the Day (only on Hot, no category filter) ───────────────────
   const ideaOfTheDay =
     sort !== "new" && !category ? pickIdeaOfTheDay(rawIdeas) : null;
 
-  // ── Editor's Pick ─────────────────────────────────────────────────────────
-  const editorsPick = sorted.find((r) => r.idea.editorsPick);
+  // FIX #10: editorsPick only on page 1
+  const editorsPick = page === 1 ? sorted.find((r) => r.idea.editorsPick) : null;
+
+  const buildUrl = (p: number) => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (sort !== "hot") params.set("sort", sort);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/feed${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
@@ -124,16 +135,13 @@ export default async function FeedPage({
         </div>
       </div>
 
-      {/* 💡 Idea of the Day */}
-      {ideaOfTheDay && (
-        <IdeaOfTheDay
-          idea={ideaOfTheDay.idea}
-          author={ideaOfTheDay.author}
-        />
+      {/* 💡 Idea of the Day — only page 1 */}
+      {page === 1 && ideaOfTheDay && (
+        <IdeaOfTheDay idea={ideaOfTheDay.idea} author={ideaOfTheDay.author} />
       )}
 
-      {/* ⭐ Editor's Pick */}
-      {editorsPick && sort !== "new" && (
+      {/* ⭐ Editor's Pick — only page 1 */}
+      {editorsPick && sort !== "new" && page === 1 && (
         <Link
           href={`/idea/${editorsPick.idea.id}`}
           className="block mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10
@@ -157,8 +165,10 @@ export default async function FeedPage({
         </Link>
       )}
 
-      {/* Category Filter */}
-      <FeedFilter categories={categories} />
+      {/* FIX #24: Wrap FeedFilter in Suspense — useSearchParams requires it */}
+      <Suspense fallback={<div className="h-10 mb-8" />}>
+        <FeedFilter categories={categories} />
+      </Suspense>
 
       {/* Idea List */}
       <div className="mt-6 flex flex-col gap-4">
@@ -168,7 +178,11 @@ export default async function FeedPage({
           </p>
         )}
         {sorted
-          .filter((r) => r.idea.id !== ideaOfTheDay?.idea.id)
+          // FIX #10: Filter out BOTH ideaOfTheDay AND editorsPick from main list
+          .filter((r) =>
+            r.idea.id !== ideaOfTheDay?.idea.id &&
+            r.idea.id !== editorsPick?.idea.id
+          )
           .map(({ idea, author }) => (
             <IdeaCard
               key={idea.id}
@@ -179,6 +193,44 @@ export default async function FeedPage({
             />
           ))}
       </div>
+
+      {/* FIX #29: Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-10">
+          {page > 1 ? (
+            <Link
+              href={buildUrl(page - 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300
+                hover:bg-slate-700 text-sm font-semibold transition-colors"
+            >
+              <ChevronLeft size={14} /> Previous
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+              <ChevronLeft size={14} /> Previous
+            </span>
+          )}
+
+          <span className="text-slate-400 text-sm">
+            Page <span className="text-white font-bold">{page}</span> of{" "}
+            <span className="text-white font-bold">{totalPages}</span>
+          </span>
+
+          {page < totalPages ? (
+            <Link
+              href={buildUrl(page + 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300
+                hover:bg-slate-700 text-sm font-semibold transition-colors"
+            >
+              Next <ChevronRight size={14} />
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+              Next <ChevronRight size={14} />
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import type { Metadata } from "next";
-import { Playfair_Display } from "next/font/google";
+// FIX #22: Import Inter so --font-inter CSS variable is actually defined
+import { Playfair_Display, Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
@@ -13,6 +14,12 @@ import { eq } from "drizzle-orm";
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
+});
+
+// FIX #22: Inter loaded and exposed as --font-inter CSS variable
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -38,10 +45,10 @@ export default async function RootLayout({
 
   return (
     <ClerkProvider>
-      <html lang="en" className={playfair.variable}>
+      {/* FIX #22: Apply both font variables to <html> so they cascade everywhere */}
+      <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
         <body className="bg-slate-950 text-white min-h-screen">
           <GlobalErrorBoundary>
-            {/* Sidebar returns itself + a spacer div, so main needs no margin */}
             <div className="flex min-h-screen">
               <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
               <main className="flex-1 min-h-screen">{children}</main>

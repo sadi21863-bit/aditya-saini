@@ -33,12 +33,8 @@ export async function toggleBookmark(ideaId: string) {
     return { success: true, bookmarked: true };
 }
 
-export async function getUserBookmarks(userId: string) {
-    return db.query.bookmarks.findMany({
-        where: eq(bookmarks.userId, userId),
-        orderBy: (b, { desc }) => [desc(b.createdAt)],
-    });
-}
+// FIX #38: getUserBookmarks was exported but never called anywhere.
+// bookmarks/page.tsx queries inline. Removed to avoid dead API surface.
 
 export async function isBookmarked(userId: string, ideaId: string) {
     const result = await db.query.bookmarks.findFirst({

@@ -1,11 +1,9 @@
 import { db } from "@/db";
-import { ideas } from "@/db/schema";
+import { ideas, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import IdeaCard from "@/components/IdeaCard";
-import { db as dbClient } from "@/db";
-import { users } from "@/db/schema";
 
 export default async function DashboardPage({
   searchParams,
@@ -22,7 +20,8 @@ export default async function DashboardPage({
   const { tab } = await searchParams;
   const activeTab = tab ?? "all";
 
-  const me = await dbClient.query.users.findFirst({
+  // FIX #48: removed duplicate `import { db as dbClient }` alias — use one db import
+  const me = await db.query.users.findFirst({
     where: eq(users.id, userId),
   });
 
@@ -78,10 +77,11 @@ export default async function DashboardPage({
           <a
             key={t.key}
             href={`/dashboard?tab=${t.key}`}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${activeTab === t.key
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+              activeTab === t.key
                 ? "bg-teal-600 text-white"
                 : "text-slate-400 hover:text-white"
-              }`}
+            }`}
           >
             {t.label}
           </a>
@@ -112,6 +112,7 @@ export default async function DashboardPage({
               viewerId={userId}
               hasLiked={false}
               isOwner
+              showActions={true}
             />
           ))}
         </div>

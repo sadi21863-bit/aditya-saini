@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Rocket, Trash2, Edit3, Eye, Loader2,
   RotateCcw, Heart, Fingerprint, Lock, Unlock,
@@ -48,10 +48,20 @@ export default function IdeaCard({
 }: IdeaCardProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteTimer, setDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [liked, setLiked] = useState(hasLiked);
   const [likeCount, setLikeCount] = useState(idea.totalLikes ?? 0);
   const [hovered, setHovered] = useState(false);
+
+  // FIX #27: Use useRef for the timer ID — useState caused a memory leak when
+  // the component unmounted during the 3-second confirm window
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // FIX #27: Cleanup timer on unmount so it never fires on an unmounted component
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    };
+  }, []);
 
   const run = async (key: string, action: (id: string) => Promise<unknown>) => {
     try {
@@ -67,10 +77,10 @@ export default function IdeaCard({
   const handleDeleteClick = () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      const t = setTimeout(() => setConfirmDelete(false), 3000);
-      setDeleteTimer(t);
+      // FIX #27: Store in ref, not state
+      deleteTimerRef.current = setTimeout(() => setConfirmDelete(false), 3000);
     } else {
-      if (deleteTimer) clearTimeout(deleteTimer);
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
       setConfirmDelete(false);
       run("delete", deleteIdea);
     }
@@ -112,15 +122,13 @@ export default function IdeaCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* ── COLLAPSED ───────────────────────────────────────────────────── */}
+      {/* COLLAPSED */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          {/* Category + Flair row */}
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
             <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">
               {idea.category ?? "General"}
             </span>
-            {/* ✅ Flair Badge */}
             <FlairBadge flair={idea.flair} size="xs" />
           </div>
           <h3 className="text-sm font-bold text-white truncate">
@@ -139,7 +147,7 @@ export default function IdeaCard({
         </div>
       </div>
 
-      {/* ── EXPANDED ────────────────────────────────────────────────────── */}
+      {/* EXPANDED */}
       <div
         style={{
           maxHeight: hovered ? "300px" : "0px",
@@ -162,7 +170,6 @@ export default function IdeaCard({
           </div>
         )}
 
-        {/* Author */}
         {author && (
           <Link
             href={`/profile/${author.handle ?? "unknown"}`}
@@ -187,7 +194,6 @@ export default function IdeaCard({
           </Link>
         )}
 
-        {/* Actions */}
         <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
           <Link
             href={`/idea/${idea.id}`}

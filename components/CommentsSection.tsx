@@ -22,7 +22,6 @@ interface Comment {
     user: CommentUser;
 }
 
-// #49: accept viewer identity props so optimistic comments show real user data
 interface CommentsSectionProps {
     ideaId: string;
     viewerId: string;
@@ -32,6 +31,8 @@ interface CommentsSectionProps {
     viewerImage?: string | null;
     viewerTier?: string | null;
     viewerXp?: number;
+    // FIX #12: callback so IdeaDetailClient can keep its comment count in sync
+    onCountChange?: (count: number) => void;
 }
 
 function relativeTime(date: Date | null): string {
@@ -52,12 +53,22 @@ export default function CommentsSection({
     viewerImage = null,
     viewerTier = null,
     viewerXp = 0,
+    onCountChange,
 }: CommentsSectionProps) {
     const [commentList, setCommentList] = useState<Comment[]>(initialComments);
     const [text, setText] = useState("");
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // FIX #12: whenever commentList changes, notify parent
+    const updateList = (updater: (prev: Comment[]) => Comment[]) => {
+        setCommentList((prev) => {
+            const next = updater(prev);
+            onCountChange?.(next.length);
+            return next;
+        });
+    };
 
     async function handleAdd() {
         if (!text.trim()) return;
@@ -66,7 +77,6 @@ export default function CommentsSection({
             const result = await addComment(ideaId, text);
             if (result.success) {
                 setText("");
-                // #49: use real viewer data for optimistic comment instead of empty strings
                 const tempComment: Comment = {
                     id: `temp-${Date.now()}`,
                     content: text.trim(),
@@ -80,7 +90,7 @@ export default function CommentsSection({
                         xp: viewerXp,
                     },
                 };
-                setCommentList((prev) => [tempComment, ...prev]);
+                updateList((prev) => [tempComment, ...prev]);
             } else {
                 setError(result.error ?? "Failed to post comment");
             }
@@ -91,20 +101,18 @@ export default function CommentsSection({
         startTransition(async () => {
             const result = await deleteComment(commentId, ideaId);
             if (result.success) {
-                setCommentList((prev) => prev.filter((c) => c.id !== commentId));
+                updateList((prev) => prev.filter((c) => c.id !== commentId));
             }
         });
     }
 
     return (
         <section className="mt-10 pt-8 border-t border-slate-800">
-            {/* Header */}
             <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                 <MessageCircle size={18} className="text-[#0d9488]" />
                 {commentList.length} Comment{commentList.length !== 1 ? "s" : ""}
             </h3>
 
-            {/* Add Comment Box */}
             <div className="flex gap-3 mb-8">
                 <div className="w-8 h-8 rounded-full bg-[#0d9488]/20 flex items-center justify-center shrink-0 mt-0.5">
                     <span className="text-[#0d9488] text-xs font-bold">
@@ -141,7 +149,6 @@ export default function CommentsSection({
                 </div>
             </div>
 
-            {/* Comment List */}
             <div className="flex flex-col gap-5">
                 {commentList.length === 0 && (
                     <p className="text-slate-500 text-sm text-center py-6">
@@ -151,22 +158,17 @@ export default function CommentsSection({
                 {commentList.map((comment) => {
                     const tier = getTierFromXp(comment.user.xp);
                     const isOwn = comment.user.id === viewerId;
-                    const displayName =
-                        comment.user.handle ?? comment.user.name ?? "Anonymous";
+                    const displayName = comment.user.handle ?? comment.user.name ?? "Anonymous";
                     const initial = displayName[0].toUpperCase();
 
                     return (
                         <div key={comment.id} className="flex gap-3">
-                            {/* Avatar */}
-                            <div
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0d9488] to-teal-300
-                  flex items-center justify-center shrink-0 mt-0.5 text-white text-xs font-bold"
-                            >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0d9488] to-teal-300
+                  flex items-center justify-center shrink-0 mt-0.5 text-white text-xs font-bold">
                                 {initial}
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                {/* Meta row */}
                                 <div className="flex items-center gap-2 flex-wrap">
                                     {comment.user.handle ? (
                                         <Link
@@ -176,28 +178,19 @@ export default function CommentsSection({
                                             @{displayName}
                                         </Link>
                                     ) : (
-                                        <span className="text-sm font-bold text-white">
-                                            @{displayName}
-                                        </span>
+                                        <span className="text-sm font-bold text-white">@{displayName}</span>
                                     )}
-                                    <span
-                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border
-                      uppercase tracking-wider ${tier.color} ${tier.bgColor}`}
-                                    >
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border
+                      uppercase tracking-wider ${tier.color} ${tier.bgColor}`}>
                                         {tier.displayName}
                                     </span>
-                                    <span className="text-xs text-slate-500">
-                                        {relativeTime(comment.createdAt)}
-                                    </span>
+                                    <span className="text-xs text-slate-500">{relativeTime(comment.createdAt)}</span>
                                 </div>
-
-                                {/* Content */}
                                 <p className="text-sm text-slate-300 mt-1 leading-relaxed whitespace-pre-wrap">
                                     {comment.content}
                                 </p>
                             </div>
 
-                            {/* Delete button (own comments only) */}
                             {isOwn && (
                                 <button
                                     onClick={() => handleDelete(comment.id)}

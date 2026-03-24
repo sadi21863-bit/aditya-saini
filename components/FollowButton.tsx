@@ -33,12 +33,12 @@ export default function FollowButton({
     const handleToggleFollow = () => {
         startTransition(async () => {
             if (isFollowing) {
-                const result = await unfollowUser(currentUserId, targetUserId);
+                const result = await unfollowUser(targetUserId);
                 if (result.success) {
                     setIsFollowing(false);
                 }
             } else {
-                const result = await followUser(currentUserId, targetUserId);
+                const result = await followUser(targetUserId);
                 if (result.success) {
                     setIsFollowing(true);
                 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { submitPeerReview } from "@/app/actions/commentActions";
-import { getTierFromXp } from "@/lib/tier-engine";
+import { getTierFromXp, TIER_WEIGHTS } from "@/lib/tier-engine";
 import { Zap } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -17,9 +17,8 @@ const AXES = [
     { key: "impact", label: "Impact", desc: "How much value could this create?" },
 ] as const;
 
-const TIER_WEIGHTS: Record<string, number> = {
-    dreamer: 1, visionary: 1.5, architect: 2, oracle: 5,
-};
+// FIX #32: Removed local TIER_WEIGHTS copy — import canonical from lib/tier-engine
+// so this never drifts from the authoritative definition
 
 export default function PeerReviewBox({ ideaId, currentUserXp }: Props) {
     const [ratings, setRatings] = useState({ feasibility: 3, originality: 3, impact: 3 });
@@ -54,7 +53,6 @@ export default function PeerReviewBox({ ideaId, currentUserXp }: Props) {
                 </span>
             </div>
 
-            {/* 3-Axis Sliders */}
             {AXES.map(({ key, label, desc }) => (
                 <div key={key} className="space-y-1.5">
                     <div className="flex justify-between items-center">
@@ -78,7 +76,6 @@ export default function PeerReviewBox({ ideaId, currentUserXp }: Props) {
                 </div>
             ))}
 
-            {/* Optional written review */}
             <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
@@ -88,12 +85,12 @@ export default function PeerReviewBox({ ideaId, currentUserXp }: Props) {
                 className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-400 text-slate-700 placeholder:text-slate-300"
             />
 
-            {/* Live score preview */}
             <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
                 <span className="text-xs text-slate-500">Weighted Score Preview</span>
                 <div className="flex items-center gap-1.5">
                     <Zap size={13} className="text-violet-500 fill-violet-400" />
-                    <span className="font-bold text-violet-600 text-sm">{finalScore} / 25</span>
+                    {/* Score is out of (5 * weight) — max 25 for Oracle, 5 for Dreamer */}
+                    <span className="font-bold text-violet-600 text-sm">{finalScore} / {(5 * weight).toFixed(1)}</span>
                 </div>
             </div>
 

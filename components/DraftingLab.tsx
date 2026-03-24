@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Zap, Save, Info, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { saveToHangar } from "@/app/actions/visionActions";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
+// FIX #33: Import shared scoreIdea from lib — removes duplicate inline logic
+import { scoreIdea } from "@/lib/scoreIdea";
 
 export default function DraftingLab() {
   const [form, setForm] = useState({ title: "", context: "", content: "", category: "" });
@@ -11,15 +13,11 @@ export default function DraftingLab() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | ""; text: string }>({ type: "", text: "" });
 
+  // FIX #15: Track the saved draft's id so subsequent saves UPDATE instead of INSERT
+  const [savedIdeaId, setSavedIdeaId] = useState<string | null>(null);
+
   useEffect(() => {
-    let score = 0;
-    if (form.content.includes("##")) score += 15;
-    if (form.content.includes("*")) score += 15;
-    const words = form.content.trim().split(/\s+/).filter((w) => w.length > 0).length;
-    if (words >= 250) score += 40;
-    else if (words > 0) score += (words / 250) * 40;
-    if (form.category.trim().length > 0) score += 30;
-    setLuminosity(Math.round(score));
+    setLuminosity(scoreIdea(form.content, form.category));
   }, [form]);
 
   const handleSave = async () => {
@@ -30,15 +28,18 @@ export default function DraftingLab() {
     setIsSaving(true);
     setMessage({ type: "", text: "" });
     try {
+      // FIX #15: Pass savedIdeaId so visionActions updates the existing draft
       const result = await saveToHangar({
         title: form.title,
         context: form.context,
         content: form.content,
         category: form.category || "General",
+        ideaId: savedIdeaId ?? undefined,
       });
       if (result.success) {
-        setMessage({ type: "success", text: "Saved to Dashboard!" });
-        setForm({ title: "", context: "", content: "", category: "" });
+        // FIX #15: Persist the id returned so future saves hit the same row
+        if (result.id) setSavedIdeaId(result.id);
+        setMessage({ type: "success", text: savedIdeaId ? "Draft updated!" : "Saved to Dashboard!" });
       } else {
         setMessage({ type: "error", text: "Failed to save. Please try again." });
       }
@@ -84,7 +85,7 @@ export default function DraftingLab() {
           onChange={(e) => setForm({ ...form, title: e.target.value })}
         />
         <input
-          placeholder="Category (e.g. Tech, Energy, Social)"
+          placeholder="Category (e.g. Tech, Design, Social)"
           className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:ring-2
             focus:ring-[#0d9488]/20 focus:border-[#0d9488] outline-none text-slate-900
             placeholder:text-slate-400"
@@ -122,10 +123,11 @@ export default function DraftingLab() {
 
       {message.text && (
         <div
-          className={`mt-5 p-4 rounded-2xl flex items-center gap-3 border text-sm font-medium ${message.type === "success"
-            ? "bg-teal-50 border-teal-200 text-teal-700"
-            : "bg-red-50 border-red-200 text-red-600"
-            }`}
+          className={`mt-5 p-4 rounded-2xl flex items-center gap-3 border text-sm font-medium ${
+            message.type === "success"
+              ? "bg-teal-50 border-teal-200 text-teal-700"
+              : "bg-red-50 border-red-200 text-red-600"
+          }`}
         >
           {message.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           {message.text}
@@ -143,7 +145,7 @@ export default function DraftingLab() {
             hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all shadow-md"
         >
           {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-          Save to Dashboard
+          {savedIdeaId ? "Update Draft" : "Save to Dashboard"}
         </button>
       </div>
     </div>

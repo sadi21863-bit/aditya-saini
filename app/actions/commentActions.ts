@@ -1,16 +1,16 @@
 "use server";
 
 import { db } from "@/db";
-import { peerReviews, comments, users } from "@/db/schema";
+import { peerReviews, comments, users, ideas } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getTierFromXp, XP_EVENTS, TIER_WEIGHTS } from "@/lib/tier-engine";
 import { z } from "zod";
 import { createNotification } from "./notificationActions";
-import { ideas } from "@/db/schema";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
-import { awardXp } from "@/app/actions/ideaActions";
+// FIX #8: Import awardXp from the canonical lib/xp — not from ideaActions
+import { awardXp } from "@/lib/xp";
 
 function getTierWeight(xp: number): number {
     const tier = getTierFromXp(xp);
@@ -156,6 +156,13 @@ export async function addComment(ideaId: string, content: string) {
     const trimmed = content?.trim();
     if (!trimmed) return { success: false, error: "Comment cannot be empty" };
     if (trimmed.length > 1000) return { success: false, error: "Too long" };
+
+    // FIX #5: Verify the idea exists and is publicly visible before inserting
+    const [idea] = await db
+        .select({ id: ideas.id })
+        .from(ideas)
+        .where(and(eq(ideas.id, ideaId), eq(ideas.status, "public")));
+    if (!idea) return { success: false, error: "Idea not found or not public" };
 
     await db.insert(comments).values({ ideaId, userId: callerId, content: trimmed });
     revalidatePath(`/idea/${ideaId}`);

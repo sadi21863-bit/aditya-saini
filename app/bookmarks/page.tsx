@@ -2,7 +2,7 @@ import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { bookmarks, ideas, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import IdeaCard from "@/components/IdeaCard";
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
@@ -17,7 +17,6 @@ export default async function BookmarksPage() {
 
     if (!userId) redirect("/sign-in");
 
-    // Fetch all bookmarked ideas with author info
     const rows = await db
         .select({
             bookmark: bookmarks,
@@ -32,8 +31,15 @@ export default async function BookmarksPage() {
         .from(bookmarks)
         .innerJoin(ideas, eq(bookmarks.ideaId, ideas.id))
         .leftJoin(users, eq(ideas.userId, users.id))
-        .where(eq(bookmarks.userId, userId))
-        .orderBy(bookmarks.createdAt);
+        .where(
+            and(
+                eq(bookmarks.userId, userId),
+                // FIX #14: Exclude soft-deleted ideas so '[deleted]' entries don't show
+                eq(ideas.status, "public")
+            )
+        )
+        // FIX #20: Descending sort — newest bookmarks first
+        .orderBy(desc(bookmarks.createdAt));
 
     return (
         <div className="max-w-3xl mx-auto px-6 py-10">

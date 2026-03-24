@@ -3,6 +3,14 @@ import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getTierNameFromXp } from "@/lib/tier-engine";
 
+/**
+ * lib/xp.ts — canonical awardXp implementation
+ *
+ * FIX #8: All server actions must import awardXp from HERE, not from ideaActions.ts.
+ * The duplicate export in ideaActions.ts has been removed.
+ *
+ * Importers: socialActions, commentActions, justiceActions, ideaActions (via this file)
+ */
 export async function awardXp(userId: string, delta: number) {
     await db
         .update(users)

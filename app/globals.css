@@ -2,10 +2,11 @@
 
 :root {
   --teal-600: #0d9488;
-  --background: #f8fafb;
-  --foreground: #0f1923;
+  --background: #0f172a;
+  --foreground: #f8fafc;
 }
 
+/* FIX #22: Use --font-inter (now properly defined in layout.tsx via next/font) */
 body {
   font-family: var(--font-inter), sans-serif;
 }
@@ -17,13 +18,4 @@ h3,
   font-family: var(--font-playfair), serif;
 }
 
-/* Dashboard Tab Utilities */
-.tab-active {
-  color: var(--teal-600);
-  border-bottom: 2px solid var(--teal-600);
-}
-
-.tab-inactive {
-  color: #64748b;
-  border-bottom: 2px solid transparent;
-}
+/* FIX #39: Removed .tab-active and .tab-inactive — never used anywhere in codebase */

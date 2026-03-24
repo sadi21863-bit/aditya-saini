@@ -4,21 +4,14 @@ import { recordView } from "@/app/actions/ideaActions";
 /**
  * POST /api/view/[id]
  *
- * Cookie-based view deduplication.
- * Called by a lightweight client-side effect on the idea detail page.
- *
- * Flow:
- *   1. Check for `viewed_<id>` cookie in the incoming request
- *   2. If absent → call recordView() to increment DB counter, set cookie
- *   3. If present → skip increment, return early
- *
- * Cookie TTL: 24 hours (prevents self-inflation on repeated visits)
+ * FIX #4: Cookie is now only set when recordView() actually recorded the view.
+ * Previously the cookie was set even when recordView() returned void (unauthenticated
+ * user), permanently blocking future authenticated view counts on that browser.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  // Next.js 16: await params before reading
   const resolvedParams = await params;
   const ideaId = resolvedParams.id;
 
@@ -34,21 +27,26 @@ export async function POST(
   }
 
   try {
-    await recordView(ideaId);
+    // FIX #4: recordView now returns boolean — only set cookie on true
+    const recorded = await recordView(ideaId);
 
-    // Build the response and attach a 24-hour cookie
+    if (!recorded) {
+      // Guest or rate-limited — don't set cookie so authenticated views can
+      // still be counted on a future visit
+      return NextResponse.json({ counted: false, reason: "not_recorded" });
+    }
+
     const response = NextResponse.json({ counted: true });
     response.cookies.set(cookieKey, "1", {
       httpOnly: true,
       sameSite: "lax",
-      path:     "/",
-      maxAge:   60 * 60 * 24, // 24 hours in seconds
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
     });
 
     return response;
   } catch (err) {
     console.error("View recording failed:", err);
-    // Fail silently — a missing view count is not a critical error
     return NextResponse.json({ counted: false, reason: "error" });
   }
 }

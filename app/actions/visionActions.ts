@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { ideas } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -18,7 +18,6 @@ const HangarSaveSchema = z.object({
 export async function saveToHangar(data: unknown) {
     const userId = await requireAuth();
 
-    // Fix #44: Validate all inputs with Zod — no bare writes to the DB
     const parsed = HangarSaveSchema.safeParse(data);
     if (!parsed.success) {
         return { success: false, error: "Invalid input" };
@@ -26,23 +25,37 @@ export async function saveToHangar(data: unknown) {
     const { ideaId, title, content, context, category } = parsed.data;
 
     if (ideaId) {
-        // Update existing draft
+        // FIX #2: Verify the caller owns this draft before updating
+        const existing = await db
+            .select({ id: ideas.id })
+            .from(ideas)
+            .where(and(eq(ideas.id, ideaId), eq(ideas.userId, userId)));
+
+        if (!existing[0]) {
+            return { success: false, error: "Forbidden" };
+        }
+
         await db
             .update(ideas)
             .set({ title, content, context, category })
             .where(eq(ideas.id, ideaId));
+
+        revalidatePath("/dashboard/studio");
+        // FIX #15: Return id so DraftingLab can track and reuse the same draft
+        return { success: true, id: ideaId };
     } else {
         // Create new draft
-        await db.insert(ideas).values({
+        const [inserted] = await db.insert(ideas).values({
             userId,
             title,
             content,
             context,
             category,
             status: "draft",
-        });
-    }
+        }).returning({ id: ideas.id });
 
-    revalidatePath("/dashboard/studio");
-    return { success: true };
+        revalidatePath("/dashboard/studio");
+        // FIX #15: Return the new id so subsequent saves update rather than re-insert
+        return { success: true, id: inserted?.id ?? null };
+    }
 }

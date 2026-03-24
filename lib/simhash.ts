@@ -2,10 +2,12 @@
  * lib/simhash.ts — v11-justice Phase 5 (BigInt upgrade)
  *
  * Real Charikar SimHash for near-duplicate detection using 64-bit FNV-1a.
- * Unlike SHA-256 (exact only), SimHash produces similar hashes for similar
- * content — allowing fuzzy matching via Hamming distance.
  *
- * Hamming distance ≤ 3 = near-duplicate (configurable)
+ * FIX #17: computeSimHash now THROWS on empty/whitespace-only content instead of
+ * returning "0". Previously both hashes would be "0" and isNearDuplicate would
+ * return false — allowing any two minimal-content ideas to bypass duplicate detection.
+ *
+ * launchIdea() catches this throw and returns { success: false, error: "Content too short..." }
  */
 
 const FNV64_PRIME = BigInt("0x00000100000001B3");
@@ -31,11 +33,17 @@ function tokenize(text: string): string[] {
 
 /**
  * Compute 64-bit SimHash as a hex string from text tokens.
- * Returns a hex string for DB storage (text column).
+ *
+ * FIX #17: Throws instead of returning "0" for empty content.
+ * Callers (launchIdea) must catch and handle gracefully.
  */
 export function computeSimHash(text: string): string {
   const tokens = tokenize(text);
-  if (tokens.length === 0) return "0";
+
+  // FIX #17: Throw rather than return sentinel "0" — callers must catch
+  if (tokens.length === 0) {
+    throw new Error("Content too short for similarity check");
+  }
 
   const bits = new Array(64).fill(0);
 
@@ -56,7 +64,6 @@ export function computeSimHash(text: string): string {
 
 /**
  * Hamming distance between two SimHash hex strings.
- * Lower = more similar. Distance ≤ 3 = near-duplicate.
  */
 export function hammingDistance(a: string, b: string): number {
   let x = BigInt("0x" + a) ^ BigInt("0x" + b);
@@ -71,9 +78,12 @@ export function hammingDistance(a: string, b: string): number {
 /**
  * Returns true if two SimHash strings represent near-duplicate content.
  * Threshold: Hamming distance ≤ 3 (tunable)
+ *
+ * FIX #17: Guard removed for "0" — computeSimHash no longer returns "0",
+ * so the only falsy case is empty/null strings (genuine missing data).
  */
 export function isNearDuplicate(a: string, b: string, threshold = 3): boolean {
-  if (!a || !b || a === "0" || b === "0") return false;
+  if (!a || !b) return false;
   try {
     return hammingDistance(a, b) <= threshold;
   } catch {

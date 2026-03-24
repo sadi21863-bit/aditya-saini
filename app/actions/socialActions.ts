@@ -5,12 +5,16 @@ import { db } from "@/db";
 import { follows, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { auth } from "@clerk/nextjs/server";
 import { lightLimiter } from "@/lib/ratelimit";
 import { XP_EVENTS } from "@/lib/tier-engine";
 import { awardXp } from "@/lib/xp";
 
+// FIX #1: Remove client-supplied followerId — derive it server-side from Clerk auth()
+export async function followUser(targetId: string) {
+    const { userId: followerId } = await auth();
+    if (!followerId) return { success: false, error: "Unauthenticated" };
 
-export async function followUser(followerId: string, targetId: string) {
     try {
         if (followerId === targetId) {
             return { success: false, error: "Cannot follow yourself" };
@@ -35,7 +39,6 @@ export async function followUser(followerId: string, targetId: string) {
 
         await db.insert(follows).values({ followerId, followingId: targetId });
 
-        // Fix #30: Award XP to the user being followed
         await awardXp(targetId, XP_EVENTS.GAIN_FOLLOWER);
 
         revalidatePath(`/profile/${targetId}`);
@@ -46,7 +49,11 @@ export async function followUser(followerId: string, targetId: string) {
     }
 }
 
-export async function unfollowUser(followerId: string, targetId: string) {
+// FIX #1: Same pattern for unfollowUser — no client-supplied followerId
+export async function unfollowUser(targetId: string) {
+    const { userId: followerId } = await auth();
+    if (!followerId) return { success: false, error: "Unauthenticated" };
+
     try {
         const { success } = await lightLimiter.limit(followerId);
         if (!success) return { success: false, error: "Too many requests. Please slow down." };

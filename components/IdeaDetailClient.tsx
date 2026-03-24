@@ -54,6 +54,8 @@ export default function IdeaDetailClient({
   initialComments,
 }: IdeaDetailClientProps) {
   const [isRevealed, setIsRevealed] = useState(hasLiked || isOwner || isPartner);
+  // FIX #12: commentCount is state so it updates when comments are added/deleted
+  const [commentCount, setCommentCount] = useState(initialComments.length);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const protectionLevel = idea.protectionLevel ?? "open";
@@ -108,16 +110,12 @@ export default function IdeaDetailClient({
   return (
     <div className="space-y-6">
 
-      {/* ── MAIN CARD ─────────────────────────────────────────────────── */}
       <article className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
 
-        {/* Gradient top bar */}
         <div className="h-1 w-full bg-gradient-to-r from-[#0d9488] via-teal-400 to-violet-500" />
 
-        {/* HEADER */}
         <div className="px-8 pt-8 pb-6">
 
-          {/* Badges row */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
             <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#0d9488]/10
               text-[#0d9488] border border-[#0d9488]/20 uppercase tracking-wider">
@@ -153,27 +151,24 @@ export default function IdeaDetailClient({
               <Calendar size={11} />
               {idea.createdAt
                 ? new Date(idea.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric", month: "long", day: "numeric",
-                })
+                    year: "numeric", month: "long", day: "numeric",
+                  })
                 : ""}
             </span>
           </div>
 
-          {/* Title */}
           <h1 className="text-4xl font-bold text-white leading-tight mb-5 tracking-tight"
             style={{ fontFamily: "var(--font-playfair)" }}>
             {idea.title}
           </h1>
 
-          {/* Public pitch */}
           {idea.context && (
             <p className="text-lg text-[#0d9488] italic font-medium mb-6 pb-6
               border-b border-slate-800 leading-relaxed">
-              "{idea.context}"
+              &quot;{idea.context}&quot;
             </p>
           )}
 
-          {/* Author */}
           {author && (
             <div className="flex items-center gap-3 py-4 border-b border-slate-800/60">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0d9488] to-teal-300
@@ -207,16 +202,16 @@ export default function IdeaDetailClient({
                   <Zap size={12} />
                   {idea.totalLikes ?? 0} sparks
                 </span>
+                {/* FIX #12: Dynamic comment count driven by state — updates when comments change */}
                 <span className="flex items-center gap-1.5">
                   <GitBranch size={12} />
-                  {initialComments.length} comments
+                  {commentCount} comments
                 </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* CONTENT */}
         <div className="px-8 pb-8" ref={contentRef}>
           <div className={`mt-2 ${contentWrapperCls}`}>
             <p className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
@@ -227,7 +222,6 @@ export default function IdeaDetailClient({
             </p>
           </div>
 
-          {/* Vault blur overlay */}
           {hasBlurPart && blurLevel === 3 && (
             <div className="relative mt-4">
               <div className={`transition-all duration-700 ease-in-out ${
@@ -252,18 +246,20 @@ export default function IdeaDetailClient({
                       Like this idea to unlock the complete vision from the Genesis Creator.
                     </p>
                   </div>
-                  <SparkButton
-                    ideaId={idea.id}
-                    viewerId={viewerId}
-                    initialLikes={idea.totalLikes ?? 0}
-                    onSuccess={() => setIsRevealed(true)}
-                  />
+                  {/* Vault unlock SparkButton — only shown to non-owners */}
+                  {!isOwner && (
+                    <SparkButton
+                      ideaId={idea.id}
+                      viewerId={viewerId}
+                      initialLikes={idea.totalLikes ?? 0}
+                      onSuccess={() => setIsRevealed(true)}
+                    />
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Non-vault protected content */}
           {blurLevel < 3 && hasBlurPart && (
             <div className={`mt-4 ${contentWrapperCls}`}>
               <p className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
@@ -273,11 +269,11 @@ export default function IdeaDetailClient({
           )}
         </div>
 
-        {/* FOOTER */}
         <div className="px-8 py-5 border-t border-slate-800 bg-slate-950/40
           flex items-center justify-between flex-wrap gap-4">
 
-          {!(blurLevel === 3 && !isRevealed) && (
+          {/* FIX #11: Footer SparkButton hidden for owners — they can't spark their own idea */}
+          {!(blurLevel === 3 && !isRevealed) && !isOwner && (
             <SparkButton
               ideaId={idea.id}
               viewerId={viewerId}

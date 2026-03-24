@@ -4,6 +4,8 @@
 import { Search, Lightbulb, Users as UsersIcon, Hash } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// Note: This component uses useSearchParams() which requires a <Suspense> boundary.
+// FIX #24: registry/page.tsx wraps this in <Suspense fallback={<div />}>.
 type SearchType = "all" | "ideas" | "creators" | "category";
 
 export default function RegistrySearchTabs() {
@@ -31,10 +33,11 @@ export default function RegistrySearchTabs() {
                     key={type}
                     type="button"
                     onClick={() => handleTypeChange(type)}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${currentType === type
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                        currentType === type
                             ? "bg-[#0d9488] text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
+                            : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                    }`}
                 >
                     <span className="flex items-center gap-2">
                         <Icon size={14} />

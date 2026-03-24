@@ -36,7 +36,6 @@ const ICON_MAP: Record<string, React.FC<{ size: number; className?: string }>> =
     access_request: GitBranch,
     comment: MessageSquare,
     milestone: Trophy,
-    // #6: add critical_note
     critical_note: AlertTriangle,
 };
 
@@ -46,7 +45,6 @@ const COLOR_MAP: Record<string, string> = {
     access_request: "text-amber-400",
     comment: "text-blue-400",
     milestone: "text-yellow-400",
-    // #6: add critical_note
     critical_note: "text-red-400",
 };
 
@@ -63,7 +61,6 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
     const panelRef = useRef<HTMLDivElement>(null);
     const prevCountRef = useRef(0);
 
-    // Load full notification list when panel opens or count changes
     useEffect(() => {
         if (isOpen && !loaded) {
             startTransition(async () => {
@@ -74,25 +71,38 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
         }
     }, [isOpen, loaded]);
 
-    // #40: poll only getUnreadCount() every 30s — only fetch full list when
-    // the panel opens or when the count changes from the previous poll value.
+    // FIX #26: Skip polling when the tab is hidden — saves requests on background tabs
     useEffect(() => {
         if (!userId) return;
+
         const poll = async () => {
+            // Only poll when the tab is visible
+            if (document.visibilityState !== "visible") return;
+
             const count = await getUnreadCount();
             setUnreadCount(count);
             if (count !== prevCountRef.current) {
-                // Count changed — mark loaded false so full list refreshes on next open
                 setLoaded(false);
                 prevCountRef.current = count;
             }
         };
+
         poll(); // run immediately on mount
+
         const interval = setInterval(poll, 30_000);
-        return () => clearInterval(interval);
+
+        // FIX #26: Re-poll immediately when user returns to the tab
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") poll();
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
     }, [userId]);
 
-    // Close on outside click
     useEffect(() => {
         function handleClick(e: MouseEvent) {
             if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
@@ -115,7 +125,6 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
     return (
         <div className="relative" ref={panelRef}>
 
-            {/* Bell Button */}
             <button
                 onClick={() => setIsOpen((v) => !v)}
                 className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
@@ -127,12 +136,10 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                 )}
             </button>
 
-            {/* Dropdown */}
             {isOpen && (
                 <div className="absolute right-0 top-11 w-80 rounded-2xl bg-white border border-slate-200
           shadow-2xl shadow-black/10 z-50 overflow-hidden">
 
-                    {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-slate-900">Notifications</h3>
@@ -163,12 +170,9 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                         </div>
                     </div>
 
-                    {/* List */}
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                         {isPending && !loaded ? (
-                            <div className="py-8 text-center text-xs text-slate-400">
-                                Loading...
-                            </div>
+                            <div className="py-8 text-center text-xs text-slate-400">Loading...</div>
                         ) : notifications.length === 0 ? (
                             <div className="py-10 text-center">
                                 <Bell size={24} className="mx-auto text-slate-300 mb-2" />
@@ -182,21 +186,14 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                                     <div
                                         key={notif.id}
                                         className={`flex gap-3 px-4 py-3 hover:bg-slate-50 transition-colors
-                      ${!notif.read
-                                                ? "border-l-2 border-l-[#0d9488]"
-                                                : "border-l-2 border-l-transparent"
-                                            }`}
+                      ${!notif.read ? "border-l-2 border-l-[#0d9488]" : "border-l-2 border-l-transparent"}`}
                                     >
                                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
                                             <Icon size={14} className={color} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs text-slate-700 leading-relaxed">
-                                                {notif.body}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400 mt-1">
-                                                {relativeTime(notif.createdAt)}
-                                            </p>
+                                            <p className="text-xs text-slate-700 leading-relaxed">{notif.body}</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">{relativeTime(notif.createdAt)}</p>
                                         </div>
                                         {!notif.read && (
                                             <div className="w-1.5 h-1.5 rounded-full bg-[#0d9488] mt-2 shrink-0" />
@@ -215,7 +212,6 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                         )}
                     </div>
 
-                    {/* Footer */}
                     <div className="px-4 py-3 border-t border-slate-100">
                         <Link
                             href="/notifications"

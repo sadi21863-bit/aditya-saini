@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 
 const LT_ENDPOINT = "https://api.languagetool.org/v2/check";
 
+// FIX #6: Grammar proxy now requires authentication — prevents open abuse / rate-limit exhaustion
 export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { text, language = "en-US" } = await req.json();
 

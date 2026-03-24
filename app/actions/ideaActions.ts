@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { ideas, likes, users, similarityFlags, ideaRevisions } from "@/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,10 +10,15 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import { getTierNameFromXp, XP_EVENTS, canUseProtection } from "@/lib/tier-engine";
 import { generateGenesisHash, generateCombinedSimHash } from "@/lib/hash";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
+import { awardXp } from "@/lib/xp";
+import { createNotification } from "@/app/actions/notificationActions";
+
+// FIX #7: category validated against canonical enum — arbitrary strings rejected
+const VALID_CATEGORIES = ["Tech", "Design", "Social", "Finance", "Creative", "General"] as const;
 
 const IdeaWriteSchema = z.object({
   title: z.string().min(1, "Title is required").max(120, "Title too long"),
-  category: z.string().min(1, "Category is required").max(60),
+  category: z.enum(VALID_CATEGORIES),
   context: z.string().max(280).optional().default(""),
   content: z.string().min(1, "Content is required").max(10000),
   protectionLevel: z
@@ -26,7 +31,6 @@ const IdeaWriteSchema = z.object({
     .optional(),
 });
 
-// #7: only "viewer" — "partner" removed (partnerIds column doesn't exist in schema)
 const AccessRequestSchema = z.object({
   ideaId: z.string().uuid("Invalid idea ID"),
   level: z.enum(["viewer"]),
@@ -39,30 +43,8 @@ async function assertOwnership(ideaId: string, callerId: string) {
   return idea;
 }
 
-export async function awardXp(userId: string, delta: number) {
-  await db
-    .update(users)
-    .set({ xp: sql`${users.xp} + ${delta}` })
-    .where(eq(users.id, userId));
-
-  const [user] = await db
-    .select({ xp: users.xp })
-    .from(users)
-    .where(eq(users.id, userId));
-
-  if (!user) return;
-
-  const newTier = getTierNameFromXp(user.xp);
-  await db
-    .update(users)
-    .set({ tier: newTier })
-    .where(eq(users.id, userId));
-
-  try {
-    const { checkAndAwardBadges } = await import("@/app/actions/badgeActions");
-    await checkAndAwardBadges(userId);
-  } catch { /* badge errors should not block XP award */ }
-}
+// FIX #8: awardXp lives only in lib/xp.ts — this re-export is removed.
+// All callers (commentActions, justiceActions) must import from @/lib/xp directly.
 
 // ─── CREATE ───────────────────────────────────────────────────────────────────
 export async function addIdea(formData: FormData) {
@@ -115,7 +97,12 @@ export async function updateIdea(id: string, formData: FormData) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, errors: { form: ["Not authenticated"] } };
 
-  await assertOwnership(id, callerId);
+  // FIX #3: Wrap assertOwnership in try/catch → structured error instead of 500
+  try {
+    await assertOwnership(id, callerId);
+  } catch {
+    return { success: false, errors: { form: ["Forbidden"] } };
+  }
 
   const { success } = await writeLimiter.limit(callerId);
   if (!success) return { success: false, errors: { form: ["Too many requests. Please slow down."] } };
@@ -164,7 +151,12 @@ export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
-  await assertOwnership(id, callerId);
+  // FIX #3: Wrap assertOwnership in try/catch → structured { success: false } instead of 500
+  try {
+    await assertOwnership(id, callerId);
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
 
   const { success } = await writeLimiter.limit(callerId);
   if (!success) return { success: false, error: "Too many requests. Please slow down." };
@@ -193,19 +185,34 @@ export async function launchIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
-  const idea = await assertOwnership(id, callerId);
+  // FIX #3: Wrap assertOwnership in try/catch
+  let idea: Awaited<ReturnType<typeof assertOwnership>>;
+  try {
+    idea = await assertOwnership(id, callerId);
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
 
   const { success } = await writeLimiter.limit(callerId);
   if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
   const launchedAt = new Date();
-  const newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
 
-  // #1: Fetch all public ideas' simHashes and use areSimilar() (Hamming distance) for fuzzy detection
+  // FIX #17: computeSimHash throws on empty content — catch and block launch
+  let newSimHash: string;
+  try {
+    newSimHash = await generateCombinedSimHash(idea.title, idea.content ?? "");
+  } catch {
+    return { success: false, error: "Content too short for similarity check. Please add more detail." };
+  }
+
+  // FIX #13: Limit candidate pool to 200 most recent public ideas — O(n) → bounded
   const publicIdeas = await db
     .select({ id: ideas.id, title: ideas.title, userId: ideas.userId, simHash: ideas.simHash })
     .from(ideas)
-    .where(and(eq(ideas.status, "public"), sql`${ideas.id} != ${id}`));
+    .where(and(eq(ideas.status, "public"), sql`${ideas.id} != ${id}`))
+    .orderBy(desc(ideas.createdAt))
+    .limit(200);
 
   const { areSimilar } = await import("@/lib/hash");
   const nearDuplicates = publicIdeas.filter(
@@ -258,7 +265,12 @@ export async function recallIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
-  await assertOwnership(id, callerId);
+  // FIX #3: Wrap assertOwnership in try/catch
+  try {
+    await assertOwnership(id, callerId);
+  } catch {
+    return { success: false, error: "Forbidden" };
+  }
 
   await db
     .update(ideas)
@@ -277,7 +289,7 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
     if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const [idea] = await db
-      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes })
+      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes, title: ideas.title })
       .from(ideas)
       .where(eq(ideas.id, ideaId));
 
@@ -303,11 +315,16 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
       .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
       .where(eq(ideas.id, ideaId));
 
-    // #25: xp is the canonical reputation field; score is a legacy duplicate.
-    // We only increment xp here. The score field is kept in schema for now
-    // but is not incremented to avoid double-counting.
     if (idea.userId) {
       await awardXp(idea.userId, XP_EVENTS.RECEIVE_LIKE);
+
+      // FIX #16: Notify the idea owner when their idea is sparked
+      await createNotification({
+        userId: idea.userId,
+        type: "spark",
+        body: `Someone sparked your idea "${idea.title}"`,
+        link: `/idea/${ideaId}`,
+      });
     }
 
     revalidatePath("/feed");
@@ -320,7 +337,6 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
 }
 
 // ─── REQUEST ACCESS ───────────────────────────────────────────────────────────
-// #7: level is always "viewer" — "partner" option removed (no partnerIds column in schema)
 export async function requestAccess(ideaId: string, level: "viewer" = "viewer") {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
@@ -353,16 +369,18 @@ export async function requestAccess(ideaId: string, level: "viewer" = "viewer") 
 }
 
 // ─── RECORD VIEW ──────────────────────────────────────────────────────────────
-// #42: require a valid userId, skip unauthenticated requests, rate-limit by userId
-export async function recordView(ideaId: string) {
+// FIX #4: Return boolean so the route handler only sets the cookie when a view was actually recorded
+export async function recordView(ideaId: string): Promise<boolean> {
   const userId = await getAuthenticatedUserId();
-  if (!userId) return; // skip unauthenticated views
+  if (!userId) return false; // skip unauthenticated views — return false so no cookie is set
 
   const { success } = await lightLimiter.limit(`view:${userId}`);
-  if (!success) return; // silently drop excess view counts
+  if (!success) return false; // rate-limited — no cookie
 
   await db
     .update(ideas)
     .set({ views: sql`${ideas.views} + 1` })
     .where(eq(ideas.id, ideaId));
+
+  return true;
 }

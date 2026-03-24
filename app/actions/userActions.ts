@@ -12,7 +12,7 @@ export async function createUserProfile(data: {
     name: string;
     email: string;
 }) {
-    // Fix #45: Validate handle format server-side — client-side stripping is not enough
+    // FIX #9: Lowercase-only regex — matches the edit page validation below
     const handleRegex = /^[a-z0-9_]{3,30}$/;
     if (!handleRegex.test(data.handle)) {
         return { success: false, error: "Handle must be 3–30 characters: lowercase letters, numbers and underscores only." };
@@ -55,7 +55,6 @@ export async function updateProfile(data: {
     const { success } = await lightLimiter.limit(userId);
     if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
-    // Validate handle if provided
     if (data.handle) {
         const handleRegex = /^[a-z0-9_]{3,30}$/;
         if (!handleRegex.test(data.handle)) {

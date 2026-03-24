@@ -75,7 +75,21 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
                 )}
             </div>
 
-            {/* ── AI SUMMARY ─────────────────────────────────────────────────── */}
+            {/* FIX #35: AI processing disclosure — shown whenever the AI summary feature
+                is enabled (API key present). Users must know their note content is sent
+                to an external AI model for GDPR / transparency compliance. */}
+            {process.env.HUGGINGFACE_API_KEY && notes.length > 0 && (
+                <div className="flex items-start gap-2 mb-5 px-3 py-2.5 rounded-xl
+                    bg-slate-800/60 border border-slate-700/50">
+                    <Info size={12} className="text-slate-500 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Note content is processed by an AI model (Llama 3.2) to generate a
+                        moderation summary. No data is stored by the AI provider beyond this request.
+                    </p>
+                </div>
+            )}
+
+            {/* AI SUMMARY */}
             {aiSummary && (
                 <div className="flex items-start gap-3 mb-6 p-4 bg-violet-950/30
           border border-violet-800/40 rounded-2xl">
@@ -111,10 +125,11 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
                         return (
                             <div
                                 key={n.id}
-                                className={`rounded-2xl border p-5 ${isCritical
+                                className={`rounded-2xl border p-5 ${
+                                    isCritical
                                         ? "bg-red-950/30 border-red-900/60"
                                         : "bg-amber-950/30 border-amber-900/60"
-                                    }`}
+                                }`}
                             >
                                 <div className="flex items-start gap-3">
                                     <div className={`mt-0.5 shrink-0 ${isCritical ? "text-red-400" : "text-amber-400"}`}>
@@ -123,8 +138,9 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
 
                                     <div className="flex-1 space-y-2 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isCritical ? "text-red-400" : "text-amber-400"
-                                                }`}>
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                                isCritical ? "text-red-400" : "text-amber-400"
+                                            }`}>
                                                 {isCritical ? "⚠️ Factually Critical" : "ℹ️ Community Note"}
                                             </span>
 
@@ -142,8 +158,9 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
                                             )}
                                         </div>
 
-                                        <p className={`text-sm leading-relaxed ${isCritical ? "text-red-300" : "text-amber-300"
-                                            }`}>
+                                        <p className={`text-sm leading-relaxed ${
+                                            isCritical ? "text-red-300" : "text-amber-300"
+                                        }`}>
                                             {n.note}
                                         </p>
 
@@ -154,7 +171,6 @@ export default async function CommunityNotesList({ ideaId, ideaTitle, ideaContex
                                                     {n.authorHandle ? `@${n.authorHandle}` : n.authorName ?? "Anonymous"}
                                                 </span>
                                             </p>
-                                            {/* ✅ Fixed props */}
                                             <CommunityNoteVoteButton
                                                 noteId={n.id}
                                                 initialVotes={n.voteCount}

@@ -46,13 +46,15 @@ export default async function ProfileEditPage({
         if (!callerId) redirect("/sign-in");
 
         const name = (formData.get("name") as string)?.trim();
-        const newHandle = (formData.get("handle") as string)
-            ?.trim()
-            .toLowerCase();
         const bio = (formData.get("bio") as string)?.trim();
         const avatarUrl = (formData.get("avatarUrl") as string)?.trim();
 
-        const handleRegex = /^[a-zA-Z0-9_]{3,30}$/;
+        // FIX #9: Normalize to lowercase FIRST, then validate with lowercase-only regex
+        // Previously used /^[a-zA-Z0-9_]/ which allowed uppercase handles that
+        // userActions.ts would then reject — inconsistency allowing invalid handles to slip through
+        const newHandle = (formData.get("handle") as string)?.trim().toLowerCase();
+
+        const handleRegex = /^[a-z0-9_]{3,30}$/;
         if (!handleRegex.test(newHandle)) {
             redirect(`/profile/${handle}/edit?error=invalid_handle`);
         }
@@ -81,7 +83,7 @@ export default async function ProfileEditPage({
 
     const errorMessages: Record<string, string> = {
         invalid_handle:
-            "Handle must be 3–30 characters. Letters, numbers and underscores only.",
+            "Handle must be 3–30 characters. Lowercase letters, numbers and underscores only.",
         handle_taken:
             "That handle is already taken. Please choose another.",
     };
@@ -110,7 +112,6 @@ export default async function ProfileEditPage({
 
                 <form action={updateProfile} className="flex flex-col gap-6">
 
-                    {/* Display Name */}
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-2">
                             Display Name
@@ -126,7 +127,6 @@ export default async function ProfileEditPage({
                         />
                     </div>
 
-                    {/* Handle */}
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-2">
                             Handle
@@ -149,11 +149,10 @@ export default async function ProfileEditPage({
                             />
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                            3–30 characters. Letters, numbers, underscores only.
+                            3–30 characters. Lowercase letters, numbers, underscores only.
                         </p>
                     </div>
 
-                    {/* Bio */}
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-2">
                             Bio
@@ -172,7 +171,6 @@ export default async function ProfileEditPage({
                         <p className="text-xs text-slate-500 mt-1">Max 200 characters.</p>
                     </div>
 
-                    {/* Avatar URL */}
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-2">
                             Avatar URL
@@ -188,7 +186,6 @@ export default async function ProfileEditPage({
                         />
                     </div>
 
-                    {/* Avatar Preview */}
                     {me.avatarUrl && (
                         <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
                             <img
@@ -203,7 +200,6 @@ export default async function ProfileEditPage({
                         </div>
                     )}
 
-                    {/* Action Buttons */}
                     <div className="flex items-center gap-4 pt-2">
                         <button
                             type="submit"

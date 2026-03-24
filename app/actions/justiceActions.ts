@@ -8,7 +8,9 @@ import { jsonbMerge } from "@/lib/jsonb";
 import { requireAdmin, getAuthenticatedUserId } from "@/lib/auth";
 import { getTierFromXp, XP_EVENTS } from "@/lib/tier-engine";
 import { createNotification } from "./notificationActions";
-import { awardXp } from "./ideaActions";
+// FIX #8: Import awardXp from the canonical lib/xp — not from ideaActions
+import { awardXp } from "@/lib/xp";
+import { createHash } from "crypto";
 import type { AuditStatus, AuditMetadata } from "@/lib/justice-types";
 
 const NOTE_MIN_XP = 500;
@@ -27,7 +29,12 @@ export async function performJusticeAudit(ideaId: string) {
 
         if (!idea) return { success: false, error: "Idea not found" };
 
-        const riskScore = Math.floor(Math.random() * 100);
+        // FIX #18: Replace Math.random() with a deterministic SHA-256-based score
+        // Same idea always gets the same score — audits are reproducible
+        const hash = createHash("sha256")
+            .update((idea.content ?? "") + (idea.title ?? ""))
+            .digest("hex");
+        const riskScore = parseInt(hash.slice(0, 4), 16) % 100;
         const isMockScore = true;
         const status: AuditStatus = riskScore > 75 ? "flagged" : "verified";
 
