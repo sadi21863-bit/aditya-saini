@@ -21,7 +21,7 @@ export default async function ProfilePage({
   try {
     currentUserId = await getAuthenticatedUserId();
   } catch {
-    // guest
+    // guest — no auth required for reading profiles
   }
 
   const profileUser = await db.query.users.findFirst({
@@ -36,43 +36,43 @@ export default async function ProfilePage({
   const isOwnProfile = currentUserId === profileUser.id;
   const pinnedIds = profileUser.pinnedIdeaIds ?? [];
 
-  // ✅ Fixed: all 5 queries run in parallel instead of sequential
+  // v12: status = "published" (not "public")
   const [userIdeas, pinnedIdeas, followState, followerRows, followingRows] =
     await Promise.all([
-      // All public ideas
       db
         .select()
         .from(ideas)
-        .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "public")))
+        .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "published")))
         .orderBy(desc(ideas.createdAt)),
 
-      // Pinned ideas
       pinnedIds.length > 0
         ? db.select().from(ideas).where(inArray(ideas.id, pinnedIds))
         : Promise.resolve([]),
 
-      // Follow state
       currentUserId && !isOwnProfile
         ? db.query.follows.findFirst({
-          where: and(
-            eq(follows.followerId, currentUserId),
-            eq(follows.followingId, profileUser.id)
-          ),
-        })
+            where: and(
+              eq(follows.followerId, currentUserId),
+              eq(follows.followingId, profileUser.id)
+            ),
+          })
         : Promise.resolve(undefined),
 
-      // Follower count
-      db.select({ id: follows.id }).from(follows).where(eq(follows.followingId, profileUser.id)),
+      db
+        .select({ id: follows.id })
+        .from(follows)
+        .where(eq(follows.followingId, profileUser.id)),
 
-      // Following count
-      db.select({ id: follows.id }).from(follows).where(eq(follows.followerId, profileUser.id)),
+      db
+        .select({ id: follows.id })
+        .from(follows)
+        .where(eq(follows.followerId, profileUser.id)),
     ]);
 
   const isFollowing = !!followState;
   const followerCount = followerRows.length;
   const followingCount = followingRows.length;
 
-  // Preserve pin order
   const orderedPinned = pinnedIds
     .map((id) => pinnedIdeas.find((i) => i.id === id))
     .filter(Boolean) as typeof pinnedIdeas;
@@ -152,7 +152,7 @@ export default async function ProfilePage({
         />
       </div>
 
-      {/* ── PINNED IDEAS ─────────────────────────────────────────────────── */}
+      {/* Pinned Ideas */}
       {orderedPinned.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
@@ -181,7 +181,7 @@ export default async function ProfilePage({
         </div>
       )}
 
-      {/* ── ALL IDEAS ────────────────────────────────────────────────────── */}
+      {/* All Ideas */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-white">
           {orderedPinned.length > 0 ? "All Ideas" : "Anchored Ideas"}
@@ -190,7 +190,7 @@ export default async function ProfilePage({
       </div>
 
       {unpinnedIdeas.length === 0 && orderedPinned.length === 0 ? (
-        <p className="text-slate-500 text-sm">No public ideas yet.</p>
+        <p className="text-slate-500 text-sm">No published ideas yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {unpinnedIdeas.map((idea) => (

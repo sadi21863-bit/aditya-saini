@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { ideas, users, likes, bookmarks } from "@/db/schema";
+import { ideas, users, ideaLikes } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import IdeaCard from "@/components/IdeaCard";
@@ -11,7 +11,8 @@ import { Flame, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-// FIX #29: Pagination constants
+// v12: status = "published" (not "public")
+// v12: no bookmarks table — bookmarkedIds always empty for now
 const PAGE_SIZE = 20;
 
 export default async function FeedPage({
@@ -19,7 +20,6 @@ export default async function FeedPage({
 }: {
   searchParams: Promise<{ category?: string; sort?: string; page?: string }>;
 }) {
-  // FIX #29: Read page param for cursor-based pagination
   const { category, sort = "hot", page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
   const offset = (page - 1) * PAGE_SIZE;
@@ -28,10 +28,10 @@ export default async function FeedPage({
 
   const whereClause =
     category && category !== "all"
-      ? and(eq(ideas.status, "public"), eq(ideas.category, category))
-      : eq(ideas.status, "public");
+      ? and(eq(ideas.status, "published"), eq(ideas.category, category))
+      : eq(ideas.status, "published");
 
-  const [rawIdeas, likedRows, bookmarkedRows, categoryRows, totalRow] = await Promise.all([
+  const [rawIdeas, likedRows, categoryRows, totalRow] = await Promise.all([
     db
       .select({
         idea: ideas,
@@ -49,25 +49,23 @@ export default async function FeedPage({
       .limit(PAGE_SIZE)
       .offset(offset),
 
+    // v12: use ideaLikes (not old likes table)
     currentUserId
-      ? db.select({ ideaId: likes.ideaId }).from(likes).where(eq(likes.userId, currentUserId))
+      ? db
+          .select({ ideaId: ideaLikes.ideaId })
+          .from(ideaLikes)
+          .where(eq(ideaLikes.userId, currentUserId))
       : Promise.resolve([]),
 
-    currentUserId
-      ? db.select({ ideaId: bookmarks.ideaId }).from(bookmarks).where(eq(bookmarks.userId, currentUserId))
-      : Promise.resolve([]),
-
-    db.selectDistinct({ category: ideas.category }).from(ideas).where(eq(ideas.status, "public")),
-
-    // FIX #29: Count total for pagination controls
     db
-      .select({ id: ideas.id })
+      .selectDistinct({ category: ideas.category })
       .from(ideas)
-      .where(whereClause),
+      .where(eq(ideas.status, "published")),
+
+    db.select({ id: ideas.id }).from(ideas).where(whereClause),
   ]);
 
   const likedIds = likedRows.map((l) => l.ideaId);
-  const bookmarkedIds = bookmarkedRows.map((b) => b.ideaId);
   const categories = categoryRows.map((c) => c.category).filter(Boolean) as string[];
   const totalCount = totalRow.length;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -84,7 +82,6 @@ export default async function FeedPage({
   const ideaOfTheDay =
     sort !== "new" && !category ? pickIdeaOfTheDay(rawIdeas) : null;
 
-  // FIX #10: editorsPick only on page 1
   const editorsPick = page === 1 ? sorted.find((r) => r.idea.editorsPick) : null;
 
   const buildUrl = (p: number) => {
@@ -135,12 +132,12 @@ export default async function FeedPage({
         </div>
       </div>
 
-      {/* 💡 Idea of the Day — only page 1 */}
+      {/* Idea of the Day — only page 1 */}
       {page === 1 && ideaOfTheDay && (
         <IdeaOfTheDay idea={ideaOfTheDay.idea} author={ideaOfTheDay.author} />
       )}
 
-      {/* ⭐ Editor's Pick — only page 1 */}
+      {/* Editor's Pick — only page 1, hot sort */}
       {editorsPick && sort !== "new" && page === 1 && (
         <Link
           href={`/idea/${editorsPick.idea.id}`}
@@ -165,7 +162,6 @@ export default async function FeedPage({
         </Link>
       )}
 
-      {/* FIX #24: Wrap FeedFilter in Suspense — useSearchParams requires it */}
       <Suspense fallback={<div className="h-10 mb-8" />}>
         <FeedFilter categories={categories} />
       </Suspense>
@@ -178,10 +174,10 @@ export default async function FeedPage({
           </p>
         )}
         {sorted
-          // FIX #10: Filter out BOTH ideaOfTheDay AND editorsPick from main list
-          .filter((r) =>
-            r.idea.id !== ideaOfTheDay?.idea.id &&
-            r.idea.id !== editorsPick?.idea.id
+          .filter(
+            (r) =>
+              r.idea.id !== ideaOfTheDay?.idea.id &&
+              r.idea.id !== editorsPick?.idea.id
           )
           .map(({ idea, author }) => (
             <IdeaCard
@@ -194,7 +190,7 @@ export default async function FeedPage({
           ))}
       </div>
 
-      {/* FIX #29: Pagination controls */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (

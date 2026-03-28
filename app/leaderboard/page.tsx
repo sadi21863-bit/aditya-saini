@@ -2,12 +2,12 @@ import { db } from "@/db";
 import { users, ideas } from "@/db/schema";
 import { desc, eq, sql, and, gt } from "drizzle-orm";
 import {
-  Trophy, Zap, Clock, Calendar, Infinity,
-  Lightbulb, Users, TrendingUp,
+  Trophy, Zap, Clock, Calendar, Lightbulb, Users, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { getTierFromXp } from "@/lib/tier-engine";
 
+// v12: Infinity icon removed (not in lucide set used here) — replaced with text
 type Tab = "creators" | "ideas";
 type Range = "alltime" | "monthly" | "weekly" | "daily";
 
@@ -28,65 +28,66 @@ export default async function LeaderboardPage({
   };
   const interval = intervalMap[range] ?? null;
 
-  // FIX #33: Use INNER JOIN + HAVING to exclude users with zero published ideas
-  const topCreators = tab === "creators"
-    ? await db
-      .select({
-        id: users.id,
-        name: users.name,
-        handle: users.handle,
-        xp: users.xp,
-        tier: users.tier,
-        ideaCount: sql<number>`cast(count(${ideas.id}) as int)`,
-        totalLikes: sql<number>`cast(coalesce(sum(${ideas.totalLikes}), 0) as int)`,
-      })
-      .from(users)
-      .innerJoin(
-        ideas,
-        and(
-          eq(ideas.userId, users.id),
-          eq(ideas.status, "public"),
-          interval
-            ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
-            : undefined,
-        ),
-      )
-      .groupBy(users.id)
-      // FIX #33: HAVING ensures only users with ≥1 public idea appear
-      .having(gt(sql<number>`cast(count(${ideas.id}) as int)`, 0))
-      .orderBy(desc(sql`coalesce(sum(${ideas.totalLikes}), 0)`))
-      .limit(20)
-    : [];
+  // v12: status = "published" (not "public")
+  const topCreators =
+    tab === "creators"
+      ? await db
+          .select({
+            id: users.id,
+            name: users.name,
+            handle: users.handle,
+            xp: users.xp,
+            tier: users.tier,
+            ideaCount: sql<number>`cast(count(${ideas.id}) as int)`,
+            totalLikes: sql<number>`cast(coalesce(sum(${ideas.totalLikes}), 0) as int)`,
+          })
+          .from(users)
+          .innerJoin(
+            ideas,
+            and(
+              eq(ideas.userId, users.id),
+              eq(ideas.status, "published"),
+              interval
+                ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
+                : undefined
+            )
+          )
+          .groupBy(users.id)
+          .having(gt(sql<number>`cast(count(${ideas.id}) as int)`, 0))
+          .orderBy(desc(sql`coalesce(sum(${ideas.totalLikes}), 0)`))
+          .limit(20)
+      : [];
 
-  const topIdeas = tab === "ideas"
-    ? await db
-      .select({
-        id: ideas.id,
-        title: ideas.title,
-        category: ideas.category,
-        flair: ideas.flair,
-        totalLikes: ideas.totalLikes,
-        views: ideas.views,
-        createdAt: ideas.createdAt,
-        editorsPick: ideas.editorsPick,
-        userId: ideas.userId,
-        userName: users.name,
-        userHandle: users.handle,
-        userXp: users.xp,
-      })
-      .from(ideas)
-      .leftJoin(users, eq(ideas.userId, users.id))
-      .where(
-        and(
-          eq(ideas.status, "public"),
-          interval
-            ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
-            : undefined,
-        ),
-      )
-      .orderBy(desc(ideas.totalLikes))
-      .limit(20)
-    : [];
+  // v12: flair column removed — select without it
+  const topIdeas =
+    tab === "ideas"
+      ? await db
+          .select({
+            id: ideas.id,
+            title: ideas.title,
+            category: ideas.category,
+            totalLikes: ideas.totalLikes,
+            views: ideas.views,
+            createdAt: ideas.createdAt,
+            editorsPick: ideas.editorsPick,
+            userId: ideas.userId,
+            userName: users.name,
+            userHandle: users.handle,
+            userXp: users.xp,
+          })
+          .from(ideas)
+          .leftJoin(users, eq(ideas.userId, users.id))
+          .where(
+            and(
+              eq(ideas.status, "published"),
+              interval
+                ? sql`${ideas.createdAt} > now() - interval '${sql.raw(interval)}'`
+                : undefined
+            )
+          )
+          .orderBy(desc(ideas.totalLikes))
+          .limit(20)
+      : [];
 
   const mainTabs = [
     { key: "creators", label: "Creators", icon: <Users size={13} /> },
@@ -94,71 +95,60 @@ export default async function LeaderboardPage({
   ];
 
   const rangeTabs: { key: Range; label: string; icon: React.ReactNode }[] = [
-    { key: "alltime", label: "All-Time", icon: <Infinity size={13} /> },
+    { key: "alltime", label: "All-Time", icon: <span className="text-xs">∞</span> },
     { key: "monthly", label: "Monthly", icon: <TrendingUp size={13} /> },
     { key: "weekly", label: "Weekly", icon: <Calendar size={13} /> },
     { key: "daily", label: "Daily", icon: <Clock size={13} /> },
   ];
 
   return (
-    // FIX #23: Use bg-slate-950 to match global dark theme — was bg-[#f8fafb] (light)
-    <div className="min-h-screen bg-slate-950 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-slate-950 text-white px-6 py-10">
+      <div className="max-w-5xl mx-auto">
 
-        <header className="mb-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-[#0d9488]/10 rounded-xl">
-              <Trophy className="text-[#0d9488]" size={22} />
-            </div>
-            <p className="text-sm font-semibold text-[#0d9488] uppercase tracking-widest">
-              Rankings
-            </p>
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Trophy size={20} className="text-amber-400" />
           </div>
-          <h1
-            className="text-4xl font-bold text-white tracking-tight"
-            style={{ fontFamily: "var(--font-playfair)" }}
-          >
-            Leaderboard
-          </h1>
-          <p className="text-slate-400 mt-1">
-            The Genesis Registry&apos;s most impactful creators and ideas.
-          </p>
-        </header>
-
-        {/* MAIN TABS */}
-        <div className="flex gap-2 mb-4 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 w-fit">
-          {mainTabs.map((t) => (
-            <Link
-              key={t.key}
-              href={`/leaderboard?tab=${t.key}&range=${range}`}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                tab === t.key
-                  ? "bg-[#0d9488] text-white shadow-md"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              }`}
-            >
-              {t.icon}
-              {t.label}
-            </Link>
-          ))}
+          <div>
+            <h1 className="text-2xl font-bold">The Architect&apos;s Podium</h1>
+            <p className="text-slate-400 text-sm">XP unified across Genesis Vault and Idea Commons</p>
+          </div>
         </div>
 
-        {/* RANGE TABS */}
-        <div className="flex gap-2 mb-8 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 w-fit">
-          {rangeTabs.map((t) => (
-            <Link
-              key={t.key}
-              href={`/leaderboard?tab=${tab}&range=${t.key}`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                range === t.key
-                  ? "bg-slate-700 text-white shadow-md"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-              }`}
-            >
-              {t.icon}
-              {t.label}
-            </Link>
-          ))}
+        {/* Tab + Range controls */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
+            {mainTabs.map((t) => (
+              <Link
+                key={t.key}
+                href={`/leaderboard?tab=${t.key}&range=${range}`}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all
+                  ${tab === t.key
+                    ? "bg-[#0d9488] text-white"
+                    : "text-slate-400 hover:text-white"
+                  }`}
+              >
+                {t.icon} {t.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
+            {rangeTabs.map((t) => (
+              <Link
+                key={t.key}
+                href={`/leaderboard?tab=${tab}&range=${t.key}`}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all
+                  ${range === t.key
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-500 hover:text-white"
+                  }`}
+              >
+                {t.icon} {t.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* CREATORS TABLE */}
@@ -266,18 +256,11 @@ export default async function LeaderboardPage({
                       </td>
                       <td className="p-5">
                         <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            {idea.editorsPick && (
-                              <span className="text-[10px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-800">
-                                Editor&apos;s Pick
-                              </span>
-                            )}
-                            {idea.flair && (
-                              <span className="text-[10px] bg-teal-900/40 text-teal-400 px-2 py-0.5 rounded-full font-bold uppercase border border-teal-800">
-                                {idea.flair}
-                              </span>
-                            )}
-                          </div>
+                          {idea.editorsPick && (
+                            <span className="text-[10px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full font-bold uppercase border border-amber-800 w-fit">
+                              Editor&apos;s Pick
+                            </span>
+                          )}
                           <Link
                             href={`/idea/${idea.id}`}
                             className="font-semibold text-white hover:text-[#0d9488] transition-colors line-clamp-1"
@@ -319,6 +302,7 @@ export default async function LeaderboardPage({
           </div>
         )}
 
+        {/* XP info panel */}
         <div className="mt-8 p-6 bg-slate-900 border border-slate-800 rounded-2xl">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={16} className="text-[#0d9488]" />
@@ -326,9 +310,9 @@ export default async function LeaderboardPage({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-400 mt-3">
             {[
-              { action: "Launch idea", xp: "+10 XP" },
+              { action: "Launch vault idea", xp: "+50 XP" },
+              { action: "Post commons idea", xp: "+30 XP" },
               { action: "Receive a spark", xp: "+5 XP" },
-              { action: "Peer review given", xp: "+3 XP" },
               { action: "Delete idea", xp: "−10 XP" },
             ].map((row) => (
               <div key={row.action} className="bg-slate-800 rounded-xl p-3 border border-slate-700">
@@ -339,10 +323,10 @@ export default async function LeaderboardPage({
           </div>
           <p className="text-xs text-slate-500 mt-4">
             Tier ladder:{" "}
-            <span className="font-semibold text-slate-400">Dreamer (0)</span> →{" "}
-            <span className="font-semibold text-teal-400">Visionary (500)</span> →{" "}
-            <span className="font-semibold text-violet-400">Architect (2000)</span> →{" "}
-            <span className="font-semibold text-amber-400">Oracle (5000)</span>
+            <span className="font-semibold text-slate-400">Starter (0)</span> →{" "}
+            <span className="font-semibold text-teal-400">Builder (1,000)</span> →{" "}
+            <span className="font-semibold text-violet-400">Architect (5,000)</span> →{" "}
+            <span className="font-semibold text-amber-400">Grand Architect (15,000)</span>
           </p>
         </div>
 
@@ -353,7 +337,7 @@ export default async function LeaderboardPage({
 
 function EmptyState() {
   return (
-    <div className="p-16 text-center text-slate-500 italic" style={{ fontFamily: "var(--font-playfair)" }}>
+    <div className="p-16 text-center text-slate-500 italic">
       No data for this period yet. Be the first to launch an idea!
     </div>
   );

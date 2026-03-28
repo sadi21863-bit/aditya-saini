@@ -1,210 +1,245 @@
 "use server";
 
 import { db } from "@/db";
-import { peerReviews, comments, users, ideas } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { ideaComments, communityComments, ideas, communityIdeas, users } from "@/db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { getTierFromXp, XP_EVENTS, TIER_WEIGHTS } from "@/lib/tier-engine";
+import { XP_EVENTS } from "@/lib/tier-engine";
 import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
-// FIX #8: Import awardXp from the canonical lib/xp — not from ideaActions
 import { awardXp } from "@/lib/xp";
 
-function getTierWeight(xp: number): number {
-    const tier = getTierFromXp(xp);
-    return TIER_WEIGHTS[tier.name] ?? 1;
-}
+// ─── VAULT IDEA COMMENTS (ideaComments table) ─────────────────────────────────
 
-const PeerReviewSchema = z.object({
-    ideaId: z.string().uuid(),
-    feasibility: z.number().min(1).max(5),
-    originality: z.number().min(1).max(5),
-    impact: z.number().min(1).max(5),
-    comment: z.string().max(1000).optional(),
-});
-
-export async function submitPeerReview(
-    ideaId: string,
-    ratings: { feasibility: number; originality: number; impact: number },
-    comment?: string
+export async function addComment(
+  ideaId: string,
+  content: string,
+  parentId?: string
 ) {
-    const callerId = await getAuthenticatedUserId();
-    if (!callerId) return { success: false, error: "Not authenticated" };
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
 
-    const { success } = await writeLimiter.limit(callerId);
-    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
-    const parsed = PeerReviewSchema.safeParse({ ideaId, ...ratings, comment });
-    if (!parsed.success)
-        return { success: false, error: parsed.error.flatten().fieldErrors };
+  const trimmed = content?.trim();
+  if (!trimmed) return { success: false, error: "Comment cannot be empty" };
+  if (trimmed.length > 1000) return { success: false, error: "Too long" };
 
-    const [idea] = await db
-        .select({ userId: ideas.userId, title: ideas.title })
-        .from(ideas)
-        .where(eq(ideas.id, ideaId));
-    if (!idea) return { success: false, error: "Idea not found" };
-    if (idea.userId === callerId)
-        return { success: false, error: "Cannot review your own idea" };
+  // Verify the vault idea exists and is published
+  const [idea] = await db
+    .select({ id: ideas.id, userId: ideas.userId, title: ideas.title, totalComments: ideas.totalComments })
+    .from(ideas)
+    .where(and(eq(ideas.id, ideaId), eq(ideas.status, "published")));
+  if (!idea) return { success: false, error: "Idea not found or not published" };
 
-    const existing = await db
-        .select({ id: peerReviews.id })
-        .from(peerReviews)
-        .where(and(eq(peerReviews.ideaId, ideaId), eq(peerReviews.reviewerId, callerId)));
-    if (existing.length > 0)
-        return { success: false, error: "You have already reviewed this idea" };
+  await db.insert(ideaComments).values({
+    ideaId,
+    userId: callerId,
+    content: trimmed,
+    parentId: parentId ?? null,
+  });
 
-    const [reviewer] = await db
-        .select({ xp: users.xp })
-        .from(users)
-        .where(eq(users.id, callerId));
-    const tierWeight = getTierWeight(reviewer?.xp ?? 0);
+  // Increment comment count on idea
+  await db
+    .update(ideas)
+    .set({ totalComments: sql`${ideas.totalComments} + 1`, updatedAt: new Date() })
+    .where(eq(ideas.id, ideaId));
 
-    const rawAvg = (ratings.feasibility + ratings.originality + ratings.impact) / 3;
-    const avgScore = parseFloat((rawAvg * tierWeight).toFixed(2));
-
-    await db.insert(peerReviews).values({
-        ideaId,
-        reviewerId: callerId,
-        ratings,
-        comment: comment?.trim() || null,
-        tierWeight,
-        avgScore,
+  // Award XP to idea owner and notify them
+  if (idea.userId && idea.userId !== callerId) {
+    await awardXp(idea.userId, XP_EVENTS.RECEIVE_COMMENT ?? 10);
+    await createNotification({
+      userId: idea.userId,
+      type: "comment",
+      body: `Someone commented on your idea "${idea.title}"`,
+      link: `/idea/${ideaId}`,
     });
+  }
 
-    await awardXp(callerId, XP_EVENTS.PEER_REVIEW_GIVEN);
-
-    if (idea.userId) {
-        await createNotification({
-            userId: idea.userId,
-            type: "comment",
-            body: `Your idea "${idea.title}" received a peer review (Score: ${avgScore.toFixed(1)})`,
-            link: `/idea/${ideaId}`,
-        });
-    }
-
-    revalidatePath(`/idea/${ideaId}`);
-    return { success: true, avgScore };
-}
-
-export async function getPeerReviews(ideaId: string) {
-    const rows = await db
-        .select({
-            id: peerReviews.id,
-            ratings: peerReviews.ratings,
-            comment: peerReviews.comment,
-            tierWeight: peerReviews.tierWeight,
-            avgScore: peerReviews.avgScore,
-            createdAt: peerReviews.createdAt,
-            reviewerId: peerReviews.reviewerId,
-            reviewerName: users.name,
-            reviewerHandle: users.handle,
-            reviewerImage: users.image,
-            reviewerXp: users.xp,
-        })
-        .from(peerReviews)
-        .leftJoin(users, eq(peerReviews.reviewerId, users.id))
-        .where(eq(peerReviews.ideaId, ideaId))
-        .orderBy(desc(peerReviews.avgScore));
-
-    return rows.map((r) => ({
-        id: r.id,
-        ratings: r.ratings as { feasibility: number; originality: number; impact: number },
-        comment: r.comment,
-        tierWeight: r.tierWeight,
-        avgScore: r.avgScore,
-        createdAt: r.createdAt,
-        reviewer: {
-            id: r.reviewerId,
-            name: r.reviewerName,
-            handle: r.reviewerHandle,
-            image: r.reviewerImage,
-            tier: getTierFromXp(r.reviewerXp ?? 0).name,
-            xp: r.reviewerXp ?? 0,
-        },
-    }));
-}
-
-export async function deletePeerReview(reviewId: string, ideaId: string) {
-    const callerId = await getAuthenticatedUserId();
-    if (!callerId) return { success: false, error: "Not authenticated" };
-
-    const { success } = await lightLimiter.limit(callerId);
-    if (!success) return { success: false, error: "Too many requests. Please slow down." };
-
-    const [review] = await db
-        .select({ reviewerId: peerReviews.reviewerId })
-        .from(peerReviews)
-        .where(eq(peerReviews.id, reviewId));
-
-    if (!review) return { success: false, error: "Review not found" };
-    if (review.reviewerId !== callerId) return { success: false, error: "Forbidden" };
-
-    await db.delete(peerReviews).where(eq(peerReviews.id, reviewId));
-    revalidatePath(`/idea/${ideaId}`);
-    return { success: true };
-}
-
-export async function addComment(ideaId: string, content: string) {
-    const callerId = await getAuthenticatedUserId();
-    if (!callerId) return { success: false, error: "Not authenticated" };
-
-    const { success } = await writeLimiter.limit(callerId);
-    if (!success) return { success: false, error: "Too many requests. Please slow down." };
-
-    const trimmed = content?.trim();
-    if (!trimmed) return { success: false, error: "Comment cannot be empty" };
-    if (trimmed.length > 1000) return { success: false, error: "Too long" };
-
-    // FIX #5: Verify the idea exists and is publicly visible before inserting
-    const [idea] = await db
-        .select({ id: ideas.id })
-        .from(ideas)
-        .where(and(eq(ideas.id, ideaId), eq(ideas.status, "public")));
-    if (!idea) return { success: false, error: "Idea not found or not public" };
-
-    await db.insert(comments).values({ ideaId, userId: callerId, content: trimmed });
-    revalidatePath(`/idea/${ideaId}`);
-    return { success: true };
+  revalidatePath(`/idea/${ideaId}`);
+  return { success: true };
 }
 
 export async function deleteComment(commentId: string, ideaId: string) {
-    const callerId = await getAuthenticatedUserId();
-    if (!callerId) return { success: false, error: "Not authenticated" };
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
 
-    const { success } = await lightLimiter.limit(callerId);
-    if (!success) return { success: false, error: "Too many requests. Please slow down." };
+  const { success } = await lightLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
-    const [comment] = await db
-        .select({ userId: comments.userId })
-        .from(comments)
-        .where(eq(comments.id, commentId));
-    if (!comment) return { success: false, error: "Not found" };
-    if (comment.userId !== callerId) return { success: false, error: "Forbidden" };
+  const [comment] = await db
+    .select({ userId: ideaComments.userId })
+    .from(ideaComments)
+    .where(eq(ideaComments.id, commentId));
+  if (!comment) return { success: false, error: "Not found" };
+  if (comment.userId !== callerId) return { success: false, error: "Forbidden" };
 
-    await db.delete(comments).where(eq(comments.id, commentId));
-    revalidatePath(`/idea/${ideaId}`);
-    return { success: true };
+  await db.delete(ideaComments).where(eq(ideaComments.id, commentId));
+
+  // Decrement comment count
+  await db
+    .update(ideas)
+    .set({ totalComments: sql`GREATEST(${ideas.totalComments} - 1, 0)`, updatedAt: new Date() })
+    .where(eq(ideas.id, ideaId));
+
+  revalidatePath(`/idea/${ideaId}`);
+  return { success: true };
 }
 
 export async function getComments(ideaId: string) {
-    const rows = await db
-        .select({
-            id: comments.id, content: comments.content, createdAt: comments.createdAt,
-            userId: comments.userId, userName: users.name, userHandle: users.handle,
-            userImage: users.image, userTier: users.tier, userXp: users.xp,
-        })
-        .from(comments)
-        .leftJoin(users, eq(comments.userId, users.id))
-        .where(eq(comments.ideaId, ideaId))
-        .orderBy(desc(comments.createdAt));
+  const rows = await db
+    .select({
+      id: ideaComments.id,
+      content: ideaComments.content,
+      createdAt: ideaComments.createdAt,
+      parentId: ideaComments.parentId,
+      userId: ideaComments.userId,
+      userName: users.name,
+      userHandle: users.handle,
+      userImage: users.image,
+      userTier: users.tier,
+      userXp: users.xp,
+    })
+    .from(ideaComments)
+    .leftJoin(users, eq(ideaComments.userId, users.id))
+    .where(eq(ideaComments.ideaId, ideaId))
+    .orderBy(desc(ideaComments.createdAt));
 
-    return rows.map((r) => ({
-        id: r.id, content: r.content, createdAt: r.createdAt,
-        user: {
-            id: r.userId, name: r.userName, handle: r.userHandle,
-            image: r.userImage, tier: r.userTier, xp: r.userXp ?? 0,
-        },
-    }));
+  return rows.map((r) => ({
+    id: r.id,
+    content: r.content,
+    createdAt: r.createdAt,
+    parentId: r.parentId,
+    user: {
+      id: r.userId,
+      name: r.userName,
+      handle: r.userHandle,
+      image: r.userImage,
+      tier: r.userTier,
+      xp: r.userXp ?? 0,
+    },
+  }));
+}
+
+// ─── COMMONS IDEA COMMENTS (communityComments table) ──────────────────────────
+
+export async function addCommunityComment(
+  communityIdeaId: string,
+  content: string,
+  parentId?: string
+) {
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
+  const trimmed = content?.trim();
+  if (!trimmed) return { success: false, error: "Comment cannot be empty" };
+  if (trimmed.length > 1000) return { success: false, error: "Too long" };
+
+  const [idea] = await db
+    .select({
+      id: communityIdeas.id,
+      userId: communityIdeas.userId,
+      title: communityIdeas.title,
+      totalComments: communityIdeas.totalComments,
+    })
+    .from(communityIdeas)
+    .where(and(eq(communityIdeas.id, communityIdeaId), eq(communityIdeas.status, "published")));
+  if (!idea) return { success: false, error: "Idea not found or not published" };
+
+  await db.insert(communityComments).values({
+    communityIdeaId,
+    userId: callerId,
+    content: trimmed,
+    parentId: parentId ?? null,
+  });
+
+  await db
+    .update(communityIdeas)
+    .set({ totalComments: sql`${communityIdeas.totalComments} + 1`, updatedAt: new Date() })
+    .where(eq(communityIdeas.id, communityIdeaId));
+
+  if (idea.userId && idea.userId !== callerId) {
+    await awardXp(idea.userId, XP_EVENTS.RECEIVE_COMMENT ?? 10);
+    await createNotification({
+      userId: idea.userId,
+      type: "comment",
+      body: `Someone commented on your Commons idea "${idea.title}"`,
+      link: `/idea/${communityIdeaId}`,
+    });
+  }
+
+  revalidatePath(`/idea/${communityIdeaId}`);
+  return { success: true };
+}
+
+export async function deleteCommunityComment(
+  commentId: string,
+  communityIdeaId: string
+) {
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
+  const { success } = await lightLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
+  const [comment] = await db
+    .select({ userId: communityComments.userId })
+    .from(communityComments)
+    .where(eq(communityComments.id, commentId));
+  if (!comment) return { success: false, error: "Not found" };
+  if (comment.userId !== callerId) return { success: false, error: "Forbidden" };
+
+  await db.delete(communityComments).where(eq(communityComments.id, commentId));
+
+  await db
+    .update(communityIdeas)
+    .set({
+      totalComments: sql`GREATEST(${communityIdeas.totalComments} - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(communityIdeas.id, communityIdeaId));
+
+  revalidatePath(`/idea/${communityIdeaId}`);
+  return { success: true };
+}
+
+export async function getCommunityComments(communityIdeaId: string) {
+  const rows = await db
+    .select({
+      id: communityComments.id,
+      content: communityComments.content,
+      createdAt: communityComments.createdAt,
+      parentId: communityComments.parentId,
+      userId: communityComments.userId,
+      userName: users.name,
+      userHandle: users.handle,
+      userImage: users.image,
+      userTier: users.tier,
+      userXp: users.xp,
+    })
+    .from(communityComments)
+    .leftJoin(users, eq(communityComments.userId, users.id))
+    .where(eq(communityComments.communityIdeaId, communityIdeaId))
+    .orderBy(desc(communityComments.createdAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    content: r.content,
+    createdAt: r.createdAt,
+    parentId: r.parentId,
+    user: {
+      id: r.userId,
+      name: r.userName,
+      handle: r.userHandle,
+      image: r.userImage,
+      tier: r.userTier,
+      xp: r.userXp ?? 0,
+    },
+  }));
 }

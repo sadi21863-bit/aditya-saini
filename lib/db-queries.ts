@@ -1,12 +1,12 @@
-// lib/db-queries.ts
+// lib/db-queries.ts — v12
 import { db } from "@/db";
 import { ideas, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 /**
- * lib/db-queries.ts  — v11-justice
  * Shared read-only query helpers.
- * Fixed: removed stale contributorIds + blurLevel refs (schema v10+)
+ * v12: removed protectionLevel, flair, viewerIds (deleted columns).
+ * status filter changed from "public" → "published".
  */
 export async function getFeedData() {
   try {
@@ -20,11 +20,10 @@ export async function getFeedData() {
         status: ideas.status,
         totalLikes: ideas.totalLikes,
         views: ideas.views,
-        protectionLevel: ideas.protectionLevel,
         genesisHash: ideas.genesisHash,
-        flair: ideas.flair,
         editorsPick: ideas.editorsPick,
-        viewerIds: ideas.viewerIds,
+        ipProtected: ideas.ipProtected,
+        domain: ideas.domain,
         createdAt: ideas.createdAt,
         user: {
           id: users.id,
@@ -35,7 +34,7 @@ export async function getFeedData() {
       })
       .from(ideas)
       .leftJoin(users, eq(ideas.userId, users.id))
-      .where(eq(ideas.status, "public"))
+      .where(eq(ideas.status, "published"))
       .orderBy(desc(ideas.createdAt));
   } catch (error) {
     console.error("DB Fetch Error:", error);
