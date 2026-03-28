@@ -16,6 +16,13 @@ const NAV = [
   { href: "/new", label: "✦ New Idea" },
 ];
 
+// Pages where sidebar should NOT appear
+const NO_SIDEBAR_PREFIXES = [
+  "/sign-in",
+  "/sign-up",
+  "/onboarding",
+];
+
 export default function Sidebar({
   currentUserId,
   currentHandle,
@@ -26,16 +33,34 @@ export default function Sidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
+  // ── Hide sidebar on landing page and auth pages ──────────────────
+  const isLanding = pathname === "/";
+  const isAuthPage = NO_SIDEBAR_PREFIXES.some((p) =>
+    pathname.startsWith(p)
+  );
+  if (isLanding || isAuthPage) return null;
+
+  // ── Active state: startsWith so nested routes also highlight ─────
+  function isActive(href: string) {
+    if (href === "/feed") return pathname === "/feed" || pathname.startsWith("/idea");
+    if (href === "/dashboard") return pathname.startsWith("/dashboard");
+    if (href === "/new") return pathname === "/new";
+    return pathname.startsWith(href);
+  }
+
   return (
     <>
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
+      {/* ── Sidebar ───────────────────────────────────────────────── */}
       <aside
         className={`fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-800
           flex flex-col py-6 z-50 transition-all duration-300
           ${collapsed ? "w-16 px-2" : "w-64 px-4"}`}
       >
         {/* Logo */}
-        <div className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
+        <div
+          className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between"
+            }`}
+        >
           {!collapsed && (
             <Link href="/feed" className="block">
               <h2 className="text-xl font-bold text-teal-400 tracking-tight">
@@ -51,33 +76,28 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* Nav */}
+        {/* Nav Links */}
         <nav className="flex flex-col gap-1 flex-1">
-          {NAV.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-2 rounded-lg text-sm font-medium transition
-                  ${collapsed ? "px-2 py-2 justify-center" : "px-3 py-2"}
-                  ${isActive
-                    ? "bg-teal-700 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                  }`}
-              >
-                {/* Emoji icon always shown */}
-                <span className="text-base leading-none shrink-0">
-                  {item.label.split(" ")[0]}
-                </span>
-                {/* Label only when expanded */}
-                {!collapsed && (
-                  <span>{item.label.split(" ").slice(1).join(" ")}</span>
-                )}
-              </Link>
-            );
-          })}
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              title={collapsed ? item.label : undefined}
+              className={`flex items-center gap-2 rounded-lg text-sm font-medium transition
+                ${collapsed ? "px-2 py-2 justify-center" : "px-3 py-2"}
+                ${isActive(item.href)
+                  ? "bg-teal-700 text-white"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+            >
+              <span className="text-base leading-none shrink-0">
+                {item.label.split(" ")[0]}
+              </span>
+              {!collapsed && (
+                <span>{item.label.split(" ").slice(1).join(" ")}</span>
+              )}
+            </Link>
+          ))}
 
           {/* Profile link */}
           {currentHandle && (
@@ -86,7 +106,7 @@ export default function Sidebar({
               title={collapsed ? "My Profile" : undefined}
               className={`flex items-center gap-2 rounded-lg text-sm font-medium transition
                 ${collapsed ? "px-2 py-2 justify-center" : "px-3 py-2"}
-                ${pathname === `/profile/${currentHandle}`
+                ${pathname.startsWith("/profile")
                   ? "bg-teal-700 text-white"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
@@ -98,18 +118,19 @@ export default function Sidebar({
         </nav>
 
         {/* Bottom: Notifications + User */}
-        <div className={`mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3
-          ${collapsed ? "items-center" : ""}`}>
-
-          {/* Notification Bell */}
+        <div
+          className={`mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3
+            ${collapsed ? "items-center" : ""}`}
+        >
           {currentUserId && (
             <div className={collapsed ? "" : "px-1"}>
               <NotificationCenter userId={currentUserId} />
             </div>
           )}
-
-          {/* User row */}
-          <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+          <div
+            className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""
+              }`}
+          >
             <UserButton />
             {!collapsed && currentHandle && (
               <span className="text-slate-400 text-sm truncate">
@@ -119,7 +140,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Collapse Toggle Button */}
+        {/* Collapse Toggle */}
         <button
           onClick={() => setCollapsed((v) => !v)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -127,15 +148,19 @@ export default function Sidebar({
             border border-slate-600 flex items-center justify-center
             hover:bg-slate-600 transition-colors z-10 shadow"
         >
-          {collapsed
-            ? <ChevronRight size={12} className="text-slate-300" />
-            : <ChevronLeft size={12} className="text-slate-300" />
-          }
+          {collapsed ? (
+            <ChevronRight size={12} className="text-slate-300" />
+          ) : (
+            <ChevronLeft size={12} className="text-slate-300" />
+          )}
         </button>
       </aside>
 
-      {/* ── Spacer so main content shifts with sidebar ──────────────── */}
-      <div className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} shrink-0`} />
+      {/* ── Spacer so main content shifts right ───────────────────── */}
+      <div
+        className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"
+          } shrink-0`}
+      />
     </>
   );
 }

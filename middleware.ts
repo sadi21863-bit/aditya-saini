@@ -2,21 +2,12 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 
-const isPublicRoute = createRouteMatcher([
-    "/",
-    "/sign-in(.*)",
-    "/sign-up(.*)",
-    "/onboarding(.*)",
-    "/feed",
-    "/registry",
-]);
-
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
 export default clerkMiddleware(async (auth, request) => {
     const { userId } = await auth();
 
-    // Protect admin routes using single isAdmin() source of truth from lib/auth
+    // Only protect admin routes during development
     if (isAdminRoute(request)) {
         if (!userId) {
             await auth.protect();
@@ -28,10 +19,10 @@ export default clerkMiddleware(async (auth, request) => {
         }
     }
 
-    // Protect all non-public routes
-    if (!isPublicRoute(request)) {
-        await auth.protect();
-    }
+    // TODO: Re-enable auth protection before deployment
+    // if (!isPublicRoute(request)) {
+    //   await auth.protect();
+    // }
 
     return NextResponse.next();
 });

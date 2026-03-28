@@ -12,7 +12,9 @@ import {
 import { sql } from "drizzle-orm";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. USERS
+// 1. USERS — shared across both domains
+// tier: starter | builder | architect | grand_architect
+// xp: unified pool from both Vault and Commons activity
 // ─────────────────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -23,8 +25,11 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
 
-  tier: text("tier").default("dreamer").notNull(),
+  // v12: ONE unified xp + ONE tier field
   xp: integer("xp").default(0).notNull(),
+  tier: text("tier").default("starter").notNull(), // starter | builder | architect | grand_architect
+
+  // Legacy score kept for migration compatibility
   score: integer("score").default(0).notNull(),
 
   pinnedIdeaIds: text("pinned_idea_ids")
@@ -38,82 +43,256 @@ export const users = pgTable("users", {
     .default(sql`ARRAY[]::text[]`),
 
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. IDEAS
+// 2. IDEAS — Genesis Vault only (domain: "vault")
+// genesisHash: auto-generated on submission, unique fingerprint
+// ipProtected: whether IP Protection toggle was enabled
+// aiSummary: cached AI analysis JSON — null until owner requests it
+// aiStatus: null | "queued" | "processing" | "done" | "failed"
+// aiQueuedAt: timestamp when queued (for wait-time estimation)
 // ─────────────────────────────────────────────────────────────────────────────
 export const ideas = pgTable("ideas", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  // ✅ Fixed: FK to users with SET NULL on delete (tombstone-safe)
   userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+
+  domain: text("domain").default("vault").notNull(), // always "vault" for this table
 
   title: text("title").notNull(),
   context: text("context"),
   content: text("content"),
   category: text("category"),
-  status: text("status").default("draft").notNull(),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  status: text("status").default("draft").notNull(), // draft | published
 
-  collaborationMode: text("collaboration_mode").default("open").notNull(),
+  ipProtected: boolean("ip_protected").default(false).notNull(),
+  genesisHash: text("genesis_hash"), // auto-generated on submit, nullable
 
   totalLikes: integer("total_likes").default(0).notNull(),
+  totalComments: integer("total_comments").default(0).notNull(),
   views: integer("views").default(0).notNull(),
 
-  protectionLevel: text("protection_level").default("open").notNull(),
-
-  genesisHash: text("genesis_hash"),
-  simHash: text("sim_hash"),
-
-  viewerIds: text("viewer_ids")
-    .array()
-    .notNull()
-    .default(sql`ARRAY[]::text[]`),
-
   aiMetadata: jsonb("ai_metadata"),
+  editorsPick: boolean("editors_pick").default(false).notNull(),
 
-  flair: text("flair"),
+  // ── AI Summary fields (Change 2) ──────────────────────────────────────────
+  // Opt-in only, Vault ideas only, owner-triggered, cached permanently once set
+  aiSummary: text("ai_summary"),          // null | JSON string of AIAnalysisResult
+  aiStatus: text("ai_status"),            // null | "queued" | "processing" | "done" | "failed"
+  aiQueuedAt: timestamp("ai_queued_at"),  // null until queued
 
-  // ✅ Fixed: FK to self (remix chain integrity)
   remixedFromId: uuid("remixed_from_id").references((): any => ideas.id, {
     onDelete: "set null",
   }),
-
-  editorsPick: boolean("editors_pick").default(false).notNull(),
-
-  hasCriticalNote: boolean("has_critical_note").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. LIKES
+// 3. IDEA COMMENTS — Genesis Vault comments
 // ─────────────────────────────────────────────────────────────────────────────
-export const likes = pgTable(
-  "likes",
+export const ideaComments = pgTable("idea_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ideaId: uuid("idea_id")
+    .notNull()
+    .references(() => ideas.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  parentId: uuid("parent_id"), // for threaded replies
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. IDEA LIKES — Genesis Vault likes
+// ─────────────────────────────────────────────────────────────────────────────
+export const ideaLikes = pgTable(
+  "idea_likes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-
-    // ✅ Fixed: FK to users with cascade delete
-    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
-    ideaId: uuid("idea_id").references(() => ideas.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ideaId: uuid("idea_id")
+      .notNull()
+      .references(() => ideas.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
-    uniqueLike: uniqueIndex("unique_user_like").on(table.userId, table.ideaId),
+    uniqueIdeaLike: uniqueIndex("unique_user_idea_like").on(
+      table.userId,
+      table.ideaId
+    ),
   })
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. FOLLOWS
+// 5. COMMUNITY IDEAS — Idea Commons only (domain: "commons")
+// No genesisHash, no IP protection — open collaboration
+// ─────────────────────────────────────────────────────────────────────────────
+export const communityIdeas = pgTable("community_ideas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+
+  domain: text("domain").default("commons").notNull(), // always "commons"
+
+  title: text("title").notNull(),
+  context: text("context"),
+  content: text("content"),
+  category: text("category"),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  status: text("status").default("draft").notNull(), // draft | published
+
+  topic: text("topic"), // optional thread/topic context for Commons
+  challengeId: uuid("challenge_id"), // nullable, linked to challenge if submitted
+
+  totalLikes: integer("total_likes").default(0).notNull(),
+  totalComments: integer("total_comments").default(0).notNull(),
+  views: integer("views").default(0).notNull(),
+
+  aiMetadata: jsonb("ai_metadata"),
+  editorsPick: boolean("editors_pick").default(false).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. COMMUNITY COMMENTS — Idea Commons comments (Discourse)
+// ─────────────────────────────────────────────────────────────────────────────
+export const communityComments = pgTable("community_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  communityIdeaId: uuid("community_idea_id")
+    .notNull()
+    .references(() => communityIdeas.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  parentId: uuid("parent_id"), // for threaded replies
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. COMMUNITY LIKES — Idea Commons likes
+// ─────────────────────────────────────────────────────────────────────────────
+export const communityLikes = pgTable(
+  "community_likes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    communityIdeaId: uuid("community_idea_id")
+      .notNull()
+      .references(() => communityIdeas.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueCommunityLike: uniqueIndex("unique_user_community_like").on(
+      table.userId,
+      table.communityIdeaId
+    ),
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. CHALLENGES — weekly/monthly admin-set challenges (Commons only)
+// ─────────────────────────────────────────────────────────────────────────────
+export const challenges = pgTable("challenges", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  topic: text("topic").notNull(),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  status: text("status").default("active").notNull(), // active | closed | judged
+  winnerId: uuid("winner_id"), // set after judging, references communityIdeas.id
+  bonusXp: integer("bonus_xp").default(100).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. CHALLENGE SUBMISSIONS — join: user → challenge → community idea
+// ─────────────────────────────────────────────────────────────────────────────
+export const challengeSubmissions = pgTable(
+  "challenge_submissions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    challengeId: uuid("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    communityIdeaId: uuid("community_idea_id")
+      .notNull()
+      .references(() => communityIdeas.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    uniqueSubmission: uniqueIndex("unique_challenge_submission").on(
+      table.challengeId,
+      table.userId
+    ),
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. REPORTS — shared across both domains
+// ─────────────────────────────────────────────────────────────────────────────
+export const reports = pgTable("reports", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  reporterId: text("reporter_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  domain: text("domain").notNull(), // "vault" | "commons"
+  targetId: uuid("target_id").notNull(), // ideaId or communityIdeaId
+  reason: text("reason").notNull(),
+  details: text("details"),
+  status: text("status").default("pending").notNull(), // pending | reviewed | dismissed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. NOTIFICATIONS — shared across both domains
+// ─────────────────────────────────────────────────────────────────────────────
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  // Types: like | comment | access_request | access_approved | access_declined
+  //        idea_of_day | challenge_update | tier_up | follower | ai_ready
+  body: text("body").notNull(),
+  link: text("link"),
+  domain: text("domain"), // "vault" | "commons" | null (system)
+  read: boolean("read").default(false).notNull(),
+  actionable: boolean("actionable").default(false).notNull(),
+  actionPayload: jsonb("action_payload"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. FOLLOWS — shared
 // ─────────────────────────────────────────────────────────────────────────────
 export const follows = pgTable(
   "follows",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    followerId: text("follower_id").notNull(),
-    followingId: text("following_id").notNull(),
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followingId: text("following_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -125,167 +304,50 @@ export const follows = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. COMMENTS
+// 13. AI QUEUE — rate-limit queue for Vault idea AI analysis (Change 3)
+// Entries are created when Groq returns 429. The cron worker processes them.
 // ─────────────────────────────────────────────────────────────────────────────
-export const comments = pgTable("comments", {
+export const aiQueue = pgTable("ai_queue", {
   id: uuid("id").defaultRandom().primaryKey(),
   ideaId: uuid("idea_id")
     .notNull()
     .references(() => ideas.id, { onDelete: "cascade" }),
-  userId: text("user_id").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. SIMILARITY FLAGS
-// ─────────────────────────────────────────────────────────────────────────────
-export const similarityFlags = pgTable("similarity_flags", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  idea1Id: uuid("idea1_id").notNull().references(() => ideas.id),
-  idea2Id: uuid("idea2_id").notNull().references(() => ideas.id),
-  similarityScore: integer("similarity_score").notNull(),
-  detectedAt: timestamp("detected_at").defaultNow(),
-  status: text("status").default("silent").notNull(),
-  adminNotes: text("admin_notes"),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. IDEA REVISIONS
-// ─────────────────────────────────────────────────────────────────────────────
-export const ideaRevisions = pgTable("idea_revisions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  ideaId: uuid("idea_id")
-    .notNull()
-    .references(() => ideas.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  versionNumber: integer("version_number").notNull(),
-  editedAt: timestamp("edited_at").defaultNow(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 8. BOOKMARKS
-// ─────────────────────────────────────────────────────────────────────────────
-export const bookmarks = pgTable(
-  "bookmarks",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id").notNull(),
-    ideaId: uuid("idea_id")
-      .notNull()
-      .references(() => ideas.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-  (table) => ({
-    uniqueBookmark: uniqueIndex("unique_user_bookmark").on(
-      table.userId,
-      table.ideaId
-    ),
-  })
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 9. NOTIFICATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-export const notifications = pgTable("notifications", {
-  id: uuid("id").defaultRandom().primaryKey(),
-
-  // ✅ Fixed: FK to users with cascade delete (no ghost notifications)
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-
-  type: text("type").notNull(),
-  body: text("body").notNull(),
-  link: text("link"),
-  read: boolean("read").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  position: integer("position").notNull(),           // queue position (1-based)
+  requestedAt: timestamp("requested_at").defaultNow(),
+  estimatedAt: timestamp("estimated_at"),            // calculated ETA shown to user
+  status: text("status").default("waiting").notNull(), // waiting | processing | done
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 10. COMMUNITY NOTES
-// ─────────────────────────────────────────────────────────────────────────────
-export const communityNotes = pgTable("community_notes", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  ideaId: uuid("idea_id")
-    .notNull()
-    .references(() => ideas.id, { onDelete: "cascade" }),
-  authorId: text("author_id")
-    .notNull()
-    .references(() => users.id),
-
-  note: text("note").notNull(),
-  supportingEvidence: jsonb("supporting_evidence"),
-
-  voteCount: integer("vote_count").default(0).notNull(),
-  threshold: integer("threshold").default(5).notNull(),
-
-  status: text("status").default("pending").notNull(),
-  severity: text("severity").default("informational").notNull(),
-
-  acknowledgedByCreator: boolean("acknowledged_by_creator")
-    .default(false)
-    .notNull(),
-
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 11. PEER REVIEWS
-// ─────────────────────────────────────────────────────────────────────────────
-export const peerReviews = pgTable(
-  "peer_reviews",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    ideaId: uuid("idea_id")
-      .notNull()
-      .references(() => ideas.id, { onDelete: "cascade" }),
-    reviewerId: text("reviewer_id")
-      .notNull()
-      .references(() => users.id),
-
-    ratings: jsonb("ratings")
-      .$type<{ feasibility: number; originality: number; impact: number }>()
-      .notNull(),
-
-    comment: text("comment"),
-
-    tierWeight: real("tier_weight").notNull(),
-    avgScore: real("avg_score").notNull(),
-
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-  },
-  (table) => ({
-    uniqueReview: uniqueIndex("unique_peer_review").on(
-      table.ideaId,
-      table.reviewerId
-    ),
-  })
-);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INFERRED TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Idea = typeof ideas.$inferSelect;
-export type Like = typeof likes.$inferSelect;
-export type Follow = typeof follows.$inferSelect;
-export type Comment = typeof comments.$inferSelect;
-export type SimilarityFlag = typeof similarityFlags.$inferSelect;
-export type IdeaRevision = typeof ideaRevisions.$inferSelect;
-export type Bookmark = typeof bookmarks.$inferSelect;
+export type IdeaComment = typeof ideaComments.$inferSelect;
+export type IdeaLike = typeof ideaLikes.$inferSelect;
+export type CommunityIdea = typeof communityIdeas.$inferSelect;
+export type CommunityComment = typeof communityComments.$inferSelect;
+export type CommunityLike = typeof communityLikes.$inferSelect;
+export type Challenge = typeof challenges.$inferSelect;
+export type ChallengeSubmission = typeof challengeSubmissions.$inferSelect;
+export type Report = typeof reports.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
-export type CommunityNote = typeof communityNotes.$inferSelect;
-export type PeerReview = typeof peerReviews.$inferSelect;
+export type Follow = typeof follows.$inferSelect;
+export type AiQueue = typeof aiQueue.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewIdea = typeof ideas.$inferInsert;
-export type NewComment = typeof comments.$inferInsert;
-export type NewFollow = typeof follows.$inferInsert;
-export type NewBookmark = typeof bookmarks.$inferInsert;
+export type NewIdeaComment = typeof ideaComments.$inferInsert;
+export type NewIdeaLike = typeof ideaLikes.$inferInsert;
+export type NewCommunityIdea = typeof communityIdeas.$inferInsert;
+export type NewCommunityComment = typeof communityComments.$inferInsert;
+export type NewCommunityLike = typeof communityLikes.$inferInsert;
+export type NewChallenge = typeof challenges.$inferInsert;
+export type NewChallengeSubmission = typeof challengeSubmissions.$inferInsert;
+export type NewReport = typeof reports.$inferInsert;
 export type NewNotification = typeof notifications.$inferInsert;
-export type NewCommunityNote = typeof communityNotes.$inferInsert;
-export type NewPeerReview = typeof peerReviews.$inferInsert;
+export type NewFollow = typeof follows.$inferInsert;
+export type NewAiQueue = typeof aiQueue.$inferInsert;
