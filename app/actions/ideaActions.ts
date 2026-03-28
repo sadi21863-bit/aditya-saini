@@ -322,3 +322,14 @@ export async function recordView(ideaId: string): Promise<boolean> {
 
   return true;
 }
+// ─── REQUEST ACCESS ───────────────────────────────────────────
+export async function requestAccess(ideaId: string) {
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId));
+  if (!idea) return { success: false, error: "Idea not found" };
+  if (idea.userId === callerId) return { success: false, error: "You are the Genesis Creator" };
+
+  return { success: true, message: "✅ Access Granted!" };
+}
