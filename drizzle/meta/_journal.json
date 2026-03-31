@@ -3,34 +3,6 @@
   "dialect": "postgresql",
   "entries": [
     {
-      "idx": 0,
-      "version": "7",
-      "when": 1772126654834,
-      "tag": "0000_smiling_lyja",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1773226038059,
-      "tag": "0001_whole_wrecking_crew",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1773501777582,
-      "tag": "0002_gifted_tana_nile",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1773672615389,
-      "tag": "0003_wide_firelord",
-      "breakpoints": true
-    },
-    {
       "idx": 4,
       "version": "7",
       "when": 1774172670037,

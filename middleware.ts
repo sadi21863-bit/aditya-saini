@@ -4,32 +4,43 @@ import { isAdmin } from "@/lib/auth";
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
+// Public routes: landing, auth pages, sign-in, sign-up, OG images
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/og(.*)",
+  "/api/health(.*)",
+]);
+
 export default clerkMiddleware(async (auth, request) => {
-    const { userId } = await auth();
+  const { userId } = await auth();
 
-    // Only protect admin routes during development
-    if (isAdminRoute(request)) {
-        if (!userId) {
-            await auth.protect();
-            return;
-        }
-        const adminOk = await isAdmin();
-        if (!adminOk) {
-            return NextResponse.redirect(new URL("/feed", request.url));
-        }
+  // Admin routes: must be authenticated AND have admin role
+  if (isAdminRoute(request)) {
+    if (!userId) {
+      await auth.protect();
+      return;
     }
-
-    // TODO: Re-enable auth protection before deployment
-    // if (!isPublicRoute(request)) {
-    //   await auth.protect();
-    // }
-
+    const adminOk = await isAdmin();
+    if (!adminOk) {
+      return NextResponse.redirect(new URL("/feed", request.url));
+    }
     return NextResponse.next();
+  }
+
+  // All non-public routes require authentication
+  if (!isPublicRoute(request) && !userId) {
+    await auth.protect();
+    return;
+  }
+
+  return NextResponse.next();
 });
 
 export const config = {
-    matcher: [
-        "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-        "/(api|trpc)(.*)",
-    ],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };

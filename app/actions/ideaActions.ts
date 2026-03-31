@@ -8,12 +8,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { XP_EVENTS } from "@/lib/tier-engine";
-import { generateGenesisHash } from "@/lib/hash";
+import { generateGenesisHash } from "@/lib/genesis-hash";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
-import { awardXp } from "@/lib/xp";
+import { awardXpForDomain, awardXp } from "@/lib/xp";
 import { createNotification } from "@/app/actions/notificationActions";
+import { canSubmitPrivate } from "@/lib/tier-engine";
 
-// v12: categories remain the same
 const VALID_CATEGORIES = [
   "Tech",
   "Design",
@@ -28,9 +28,9 @@ const IdeaWriteSchema = z.object({
   category: z.enum(VALID_CATEGORIES),
   context: z.string().max(280).optional().default(""),
   content: z.string().min(1, "Content is required").max(10000),
-  // v12: ipProtected is a boolean (not a string protectionLevel enum)
   ipProtected: z.boolean().optional().default(false),
   tags: z.array(z.string().max(30)).max(10).optional().default([]),
+  domain: z.enum(["private", "public"]).optional().default("private"),
 });
 
 async function assertOwnership(ideaId: string, callerId: string) {
@@ -48,15 +48,20 @@ export async function addIdea(formData: FormData) {
   const { success } = await writeLimiter.limit(callerId);
   if (!success) return { success: false, errors: { form: ["Too many requests. Please slow down."] } };
 
-  // Parse tags from comma-separated string or JSON array field
+  // Tier gate: private ideas require Tier 1 (builder+)
+  const domain = (formData.get("domain") as string) === "public" ? "public" : "private";
+
+  if (domain === "private") {
+    const [user] = await db.select({ tier: users.tier }).from(users).where(eq(users.id, callerId));
+    if (!canSubmitPrivate(user?.tier ?? "explorer")) {
+      return { success: false, errors: { form: ["Private submissions require Builder tier (100 XP)"] } };
+    }
+  }
+
   let parsedTags: string[] = [];
   const tagsRaw = formData.get("tags");
   if (tagsRaw && typeof tagsRaw === "string") {
-    parsedTags = tagsRaw
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, 10);
+    parsedTags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 10);
   }
 
   const ipProtectedRaw = formData.get("ipProtected");
@@ -70,6 +75,7 @@ export async function addIdea(formData: FormData) {
     content: formData.get("content"),
     ipProtected,
     tags: parsedTags,
+    domain,
   });
 
   if (!parsed.success) {
@@ -86,7 +92,7 @@ export async function addIdea(formData: FormData) {
     ipProtected: ip,
     tags,
     status: "draft",
-    domain: "vault",
+    domain,
     totalLikes: 0,
     totalComments: 0,
     views: 0,
@@ -114,11 +120,7 @@ export async function updateIdea(id: string, formData: FormData) {
   let parsedTags: string[] = [];
   const tagsRaw = formData.get("tags");
   if (tagsRaw && typeof tagsRaw === "string") {
-    parsedTags = tagsRaw
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, 10);
+    parsedTags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 10);
   }
 
   const ipProtectedRaw = formData.get("ipProtected");
@@ -142,15 +144,7 @@ export async function updateIdea(id: string, formData: FormData) {
 
   await db
     .update(ideas)
-    .set({
-      title,
-      category,
-      context,
-      content,
-      ipProtected: ip,
-      tags,
-      updatedAt: new Date(),
-    })
+    .set({ title, category, context, content, ipProtected: ip, tags, updatedAt: new Date() })
     .where(eq(ideas.id, id));
 
   revalidatePath("/dashboard");
@@ -163,16 +157,22 @@ export async function deleteIdea(id: string) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
+  let idea: Awaited<ReturnType<typeof assertOwnership>>;
   try {
-    await assertOwnership(id, callerId);
+    idea = await assertOwnership(id, callerId);
   } catch {
     return { success: false, error: "Forbidden" };
   }
 
-  const { success } = await writeLimiter.limit(callerId);
-  if (!success) return { success: false, error: "Too many requests. Please slow down." };
+  // Guard: don't re-delete an already soft-deleted idea (prevents XP drain exploit)
+  if (idea.title === "[deleted]") {
+    return { success: false, error: "Idea already deleted" };
+  }
 
-  // Soft-delete: blank the content, mark status=draft so it falls off feed
+  // Soft-delete: blank content, mark as draft
   await db
     .update(ideas)
     .set({
@@ -184,6 +184,7 @@ export async function deleteIdea(id: string) {
     })
     .where(eq(ideas.id, id));
 
+  // XP penalty — floor enforced inside awardXp
   await awardXp(callerId, XP_EVENTS.DELETE_IDEA);
 
   revalidatePath("/dashboard");
@@ -207,24 +208,44 @@ export async function launchIdea(id: string) {
   if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
   const launchedAt = new Date();
+  const domain = (idea.domain ?? "private") as "private" | "public";
 
-  // Genesis hash: generate once, never overwrite
-  const genesisHash = idea.genesisHash
-    ? idea.genesisHash
-    : await generateGenesisHash(idea.title, idea.content ?? "", callerId, launchedAt);
+  // Genesis hash: only for private ideas, generated once, never overwritten
+  let genesisHash = idea.genesisHash ?? null;
+  if (domain === "private" && !genesisHash) {
+    genesisHash = await generateGenesisHash(
+      idea.title,
+      idea.content ?? "",
+      callerId,
+      launchedAt
+    );
+  }
 
   await db
     .update(ideas)
     .set({
       status: "published",
-      genesisHash,
+      ...(domain === "private" && genesisHash ? { genesisHash } : {}),
       updatedAt: launchedAt,
     })
     .where(eq(ideas.id, id));
 
-  // Award XP only on first launch (when genesisHash was just created)
-  if (!idea.genesisHash) {
-    await awardXp(callerId, XP_EVENTS.LAUNCH_IDEA);
+  // Award XP only on first launch (idempotent by eventType + ideaId)
+  const eventType =
+    domain === "private" ? "SUBMIT_PRIVATE_IDEA" : "SUBMIT_PUBLIC_IDEA";
+  const xpDelta =
+    domain === "private" ? XP_EVENTS.SUBMIT_PRIVATE_IDEA : XP_EVENTS.SUBMIT_PUBLIC_IDEA;
+
+  await awardXpForDomain(callerId, xpDelta, domain, eventType, id, true);
+
+  // Kick off Genesis Hash pipeline for private ideas asynchronously
+  if (domain === "private" && genesisHash) {
+    try {
+      const { initiateGenesisHash } = await import("@/lib/genesis-hash-pipeline");
+      await initiateGenesisHash(id, genesisHash);
+    } catch {
+      // OTS pipeline failure must not block idea publish
+    }
   }
 
   revalidatePath("/dashboard");
@@ -253,35 +274,33 @@ export async function recallIdea(id: string) {
   return { success: true };
 }
 
-// ─── SPARK (like a vault idea) ────────────────────────────────────────────────
-export async function sparkIdea(ideaId: string, viewerId: string) {
+// ─── SPARK (like an idea) ─────────────────────────────────────────────────────
+// FIX v12: viewerId is no longer accepted from the caller.
+// Identity is always derived server-side from Clerk auth().
+export async function sparkIdea(ideaId: string) {
+  const viewerId = await getAuthenticatedUserId();
+  if (!viewerId) return { success: false, error: "Not authenticated" };
+
   try {
     const { success } = await lightLimiter.limit(viewerId);
     if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
     const [idea] = await db
-      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes, title: ideas.title })
+      .select({ userId: ideas.userId, totalLikes: ideas.totalLikes, title: ideas.title, domain: ideas.domain })
       .from(ideas)
       .where(eq(ideas.id, ideaId));
 
     if (!idea) return { success: false, error: "Idea not found" };
+    if (idea.userId === viewerId) return { success: false, error: "Cannot spark your own idea" };
 
-    if (idea.userId === viewerId) {
-      return { success: false, error: "Cannot spark your own idea" };
-    }
-
-    // v12: use ideaLikes table (not the old likes table)
     const existing = await db
       .select({ id: ideaLikes.id })
       .from(ideaLikes)
       .where(and(eq(ideaLikes.userId, viewerId), eq(ideaLikes.ideaId, ideaId)));
 
-    if (existing.length > 0) {
-      return { success: false, error: "Already liked" };
-    }
+    if (existing.length > 0) return { success: false, error: "Already liked" };
 
     await db.insert(ideaLikes).values({ userId: viewerId, ideaId });
-
     await db
       .update(ideas)
       .set({ totalLikes: sql`${ideas.totalLikes} + 1` })
@@ -289,7 +308,6 @@ export async function sparkIdea(ideaId: string, viewerId: string) {
 
     if (idea.userId) {
       await awardXp(idea.userId, XP_EVENTS.RECEIVE_LIKE);
-
       await createNotification({
         userId: idea.userId,
         type: "spark",
@@ -322,14 +340,81 @@ export async function recordView(ideaId: string): Promise<boolean> {
 
   return true;
 }
-// ─── REQUEST ACCESS ───────────────────────────────────────────
-export async function requestAccess(ideaId: string) {
+
+// ─── REMIX (public ideas only) ────────────────────────────────────────────────
+export async function remixIdea(parentIdeaId: string) {
   const callerId = await getAuthenticatedUserId();
   if (!callerId) return { success: false, error: "Not authenticated" };
 
-  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId));
-  if (!idea) return { success: false, error: "Idea not found" };
-  if (idea.userId === callerId) return { success: false, error: "You are the Genesis Creator" };
+  const { success } = await writeLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
 
-  return { success: true, message: "✅ Access Granted!" };
+  // Fetch parent idea
+  const [parent] = await db
+    .select({
+      id: ideas.id,
+      userId: ideas.userId,
+      domain: ideas.domain,
+      status: ideas.status,
+      remixedFromId: ideas.remixedFromId,
+      title: ideas.title,
+      category: ideas.category,
+      tags: ideas.tags,
+    })
+    .from(ideas)
+    .where(eq(ideas.id, parentIdeaId));
+
+  if (!parent) return { success: false, error: "Idea not found" };
+  if (parent.domain !== "public") return { success: false, error: "Only public ideas can be remixed" };
+  if (parent.status !== "published") return { success: false, error: "Idea is not published" };
+  if (parent.remixedFromId !== null) return { success: false, error: "Cannot remix a remix (max depth 1)" };
+
+  // Check creator opt-out
+  if (parent.userId) {
+    const [creator] = await db
+      .select({ allowRemix: users.allowRemix })
+      .from(users)
+      .where(eq(users.id, parent.userId));
+    if (creator && !creator.allowRemix) {
+      return { success: false, error: "Creator has disabled remixing for this idea" };
+    }
+  }
+
+  // Create draft remix
+  const [inserted] = await db
+    .insert(ideas)
+    .values({
+      userId: callerId,
+      domain: "public",
+      title: `Remix: ${parent.title}`,
+      category: parent.category,
+      tags: parent.tags,
+      status: "draft",
+      remixedFromId: parentIdeaId,
+      totalLikes: 0,
+      totalComments: 0,
+      views: 0,
+    })
+    .returning({ id: ideas.id });
+
+  // Award XP to original creator
+  if (parent.userId) {
+    await awardXpForDomain(
+      parent.userId,
+      XP_EVENTS.IDEA_GETS_REMIXED,
+      "public",
+      "IDEA_GETS_REMIXED",
+      parentIdeaId,
+      true
+    );
+    await createNotification({
+      userId: parent.userId,
+      type: "remix",
+      body: `Your idea "${parent.title}" was remixed!`,
+      link: `/idea/${inserted.id}`,
+    });
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true, remixId: inserted.id };
 }
