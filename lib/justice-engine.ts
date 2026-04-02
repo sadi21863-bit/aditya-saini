@@ -1,105 +1,81 @@
-/**
- * lib/justice-engine.ts — v13
- *
- * Domain-aware justice engine.
- *
- * Private domain:
- *   - 4 report types: plagiarism, vulgar_inappropriate, political, opinion_not_idea
- *   - Includes hash scan for duplicate detection
- *
- * Public domain:
- *   - 3 report types: vulgar_inappropriate, political, opinion_not_idea
- *   - Plagiarism reports rejected at API level (400) before reaching this engine
- *
- * Rule-based scoring — no Groq dependency unless explicitly confirmed operational.
- */
+import type { db as DbType } from "@/db";
+import { ideas, genesisHashes } from "@/db/schema";
+import { eq, and, ne } from "drizzle-orm";
 
-import { createHash } from "crypto";
-import type { AuditStatus, AuditMetadata } from "@/lib/justice-types";
+export type AuditStatus = "verified" | "flagged" | "pending";
 
-interface JusticeInput {
+interface AuditResult {
+  riskScore: number;
+  status: AuditStatus;
+  metadata: Record<string, unknown>;
+}
+
+/** Heuristic content-quality audit. Returns a risk score 0-100. */
+export function runJusticeAudit(idea: {
   id: string;
   title: string;
   content: string | null;
   genesisHash: string | null;
-  domain: string; // 'private' | 'public'
-}
+  aiMetadata: unknown;
+  userId: string | null;
+  domain: string;
+}): AuditResult {
+  let riskScore = 0;
+  const flags: string[] = [];
 
-interface JusticeResult {
-  riskScore: number;
-  status: AuditStatus;
-  metadata: AuditMetadata;
-}
+  // Short content
+  const wordCount = (idea.content ?? "").split(/\s+/).filter(Boolean).length;
+  if (wordCount < 20) { riskScore += 30; flags.push("content_too_short"); }
+  else if (wordCount < 50) { riskScore += 10; flags.push("content_sparse"); }
 
-/**
- * Run a justice audit on an idea.
- * Returns a deterministic risk score and status.
- * Score is hash-derived — same content always gets the same score.
- */
-export function runJusticeAudit(idea: JusticeInput): JusticeResult {
-  const hash = createHash("sha256")
-    .update((idea.content ?? "") + (idea.title ?? ""))
-    .digest("hex");
+  // No title
+  if (!idea.title || idea.title.trim().length < 3) { riskScore += 20; flags.push("missing_title"); }
 
-  const riskScore = parseInt(hash.slice(0, 4), 16) % 100;
-  const status: AuditStatus = riskScore > 75 ? "flagged" : "verified";
+  // Placeholder / deleted content
+  if (idea.title === "[deleted]" || idea.title === "[removed by moderator]") {
+    riskScore += 50; flags.push("tombstoned");
+  }
 
-  const metadata: AuditMetadata = {
-    scanned: true,
+  // Private idea with no genesis hash
+  if (idea.domain === "private" && !idea.genesisHash) { riskScore += 15; flags.push("no_genesis_hash"); }
+
+  // Clamp to 100
+  riskScore = Math.min(100, riskScore);
+
+  const isMockScore = false;
+  const status: AuditStatus = riskScore >= 50 ? "flagged" : "verified";
+
+  return {
     riskScore,
-    lastAudit: new Date().toISOString(),
     status,
-    scanVersion: "v13.0-rule-based",
-    isMockScore: true, // Replace with false when real scoring is implemented
+    metadata: {
+      riskScore,
+      flags,
+      scanned: true,
+      status,
+      isMockScore,
+      wordCount,
+      scannedAt: new Date().toISOString(),
+    },
   };
-
-  return { riskScore, status, metadata };
 }
 
-/**
- * Run a hash scan for duplicate private ideas.
- * Returns true if the genesisHash matches another published private idea.
- * This check runs only for private domain ideas.
- */
+/** Checks if another published idea already has the same genesis hash. */
 export async function runHashScan(
   ideaId: string,
-  genesisHash: string | null,
-  db: import("@/db").Db
+  genesisHash: string,
+  db: typeof DbType
 ): Promise<boolean> {
-  if (!genesisHash) return false;
-
-  const { ideas } = await import("@/db/schema");
-  const { eq, and, ne } = await import("drizzle-orm");
-
   const duplicates = await db
-    .select({ id: ideas.id })
-    .from(ideas)
+    .select({ id: genesisHashes.id })
+    .from(genesisHashes)
     .where(
       and(
-        eq(ideas.genesisHash, genesisHash),
-        ne(ideas.id, ideaId),
-        eq(ideas.status, "published"),
-        eq(ideas.domain, "private")
+        eq(genesisHashes.hash, genesisHash),
+        ne(genesisHashes.ideaId, ideaId)
       )
     )
     .limit(1);
 
   return duplicates.length > 0;
-}
-
-/**
- * Validate a report type for a given domain.
- * Public domain: plagiarism reports are not allowed.
- */
-export function isValidReportType(reportType: string, domain: string): boolean {
-  if (domain === "public" && reportType === "plagiarism") {
-    return false;
-  }
-  const valid = [
-    "plagiarism",
-    "vulgar_inappropriate",
-    "political",
-    "opinion_not_idea",
-  ];
-  return valid.includes(reportType);
 }

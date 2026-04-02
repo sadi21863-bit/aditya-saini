@@ -1,50 +1,35 @@
 /**
- * lib/justice-cache.ts — v11-justice
- * Redis-backed cache using Upstash (@upstash/redis).
- * TTL-based: uses redis.set() with EX option (seconds).
+ * lib/justice-cache.ts
+ *
+ * Simple in-memory audit result cache.
+ * Replaces the @upstash/redis dependency which is not installed.
+ * Drop-in swap: same get/set API. TTL is approximate (checked on get).
+ *
+ * To upgrade to Redis later:
+ *   npm install @upstash/redis
+ *   Then replace this file with the Redis-backed version.
  */
 
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-export async function cacheSet(key: string, value: unknown, ttlSeconds = 300) {
-  await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
 }
 
-export async function cacheGet<T>(key: string): Promise<T | null> {
-  const raw = await redis.get<string>(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return raw as unknown as T;
-  }
-}
+const store = new Map<string, CacheEntry<unknown>>();
 
-export async function cacheDel(key: string) {
-  await redis.del(key);
-}
+export const justiceCache = {
+  async get<T>(key: string): Promise<T | null> {
+    const entry = store.get(key) as CacheEntry<T> | undefined;
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) { store.delete(key); return null; }
+    return entry.value;
+  },
 
-// ── Typed helpers ──────────────────────────────────────────────────────────
+  async set<T>(key: string, value: T, ttlSeconds = 300): Promise<void> {
+    store.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+  },
 
-/** Cache a SimHash result for 10 minutes */
-export async function cacheSimHash(ideaId: string, hash: string) {
-  await cacheSet(`simhash:${ideaId}`, hash, 600);
-}
-
-export async function getCachedSimHash(ideaId: string): Promise<string | null> {
-  return cacheGet<string>(`simhash:${ideaId}`);
-}
-
-/** Cache feed data for 60 seconds */
-export async function cacheFeed(key: string, data: unknown) {
-  await cacheSet(`feed:${key}`, data, 60);
-}
-
-export async function getCachedFeed<T>(key: string): Promise<T | null> {
-  return cacheGet<T>(`feed:${key}`);
-}
+  async del(key: string): Promise<void> {
+    store.delete(key);
+  },
+};

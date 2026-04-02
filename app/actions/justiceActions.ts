@@ -15,11 +15,7 @@ import type { AuditStatus, AdminAction } from "@/lib/justice-types";
 export async function performJusticeAudit(ideaId: string) {
   try {
     await requireAdmin();
-    const [idea] = await db
-      .select({ id: ideas.id, title: ideas.title, content: ideas.content, genesisHash: ideas.genesisHash, aiMetadata: ideas.aiMetadata, userId: ideas.userId, domain: ideas.domain })
-      .from(ideas)
-      .where(eq(ideas.id, ideaId));
-
+    const [idea] = await db.select({ id: ideas.id, title: ideas.title, content: ideas.content, genesisHash: ideas.genesisHash, aiMetadata: ideas.aiMetadata, userId: ideas.userId, domain: ideas.domain }).from(ideas).where(eq(ideas.id, ideaId));
     if (!idea) return { success: false, error: "Idea not found" };
 
     const { riskScore, status, metadata } = runJusticeAudit(idea);
@@ -28,9 +24,7 @@ export async function performJusticeAudit(ideaId: string) {
       hashDuplicate = await runHashScan(ideaId, idea.genesisHash, db);
     }
 
-    await db.update(ideas)
-      .set({ aiMetadata: jsonbMerge(ideas.aiMetadata, { ...metadata, hashDuplicate }), updatedAt: new Date() })
-      .where(eq(ideas.id, ideaId));
+    await db.update(ideas).set({ aiMetadata: jsonbMerge(ideas.aiMetadata, { ...metadata, hashDuplicate }), updatedAt: new Date() }).where(eq(ideas.id, ideaId));
 
     if (status === "flagged" && idea.userId && !metadata.isMockScore) {
       await createNotification({ userId: idea.userId, type: "milestone", body: `⚠️ Your idea "${idea.title}" was flagged (risk: ${riskScore}/100).`, link: `/idea/${ideaId}` });
@@ -49,8 +43,7 @@ export async function performJusticeAudit(ideaId: string) {
 export async function batchAuditUnscanned() {
   try {
     await requireAdmin();
-    const unscanned = await db.select({ id: ideas.id }).from(ideas)
-      .where(and(eq(ideas.status, "published"), sql`(${ideas.aiMetadata}->>'scanned')::boolean IS NOT TRUE`));
+    const unscanned = await db.select({ id: ideas.id }).from(ideas).where(and(eq(ideas.status, "published"), sql`(${ideas.aiMetadata}->>'scanned')::boolean IS NOT TRUE`));
     let scannedCount = 0, flaggedCount = 0;
     for (const idea of unscanned) {
       const result = await performJusticeAudit(idea.id);
@@ -67,9 +60,7 @@ export async function batchAuditUnscanned() {
 export async function manualOverride(ideaId: string, status: AuditStatus, adminNote?: string) {
   try {
     await requireAdmin();
-    await db.update(ideas)
-      .set({ aiMetadata: jsonbMerge(ideas.aiMetadata, { status, manualOverride: true, overrideTimestamp: new Date().toISOString(), adminNote: adminNote ?? "Manual review", isMockScore: false }), updatedAt: new Date() })
-      .where(eq(ideas.id, ideaId));
+    await db.update(ideas).set({ aiMetadata: jsonbMerge(ideas.aiMetadata, { status, manualOverride: true, overrideTimestamp: new Date().toISOString(), adminNote: adminNote ?? "Manual review", isMockScore: false }), updatedAt: new Date() }).where(eq(ideas.id, ideaId));
     revalidatePath("/admin/justice");
     revalidatePath("/feed");
     revalidatePath(`/idea/${ideaId}`);
@@ -100,9 +91,11 @@ export async function resolveReport(reportId: string, action: AdminAction, admin
     if (action === "dismiss") {
       await db.update(reports).set({ status: "dismissed", adminNote: adminNote ?? "Dismissed" }).where(eq(reports.id, reportId));
       if (report.reporterId) await createNotification({ userId: report.reporterId, type: "report_resolved", body: "Your report was reviewed and dismissed." });
+
     } else if (action === "warn_user") {
       await db.update(reports).set({ status: "reviewed", adminNote: adminNote ?? "User warned" }).where(eq(reports.id, reportId));
       if (idea?.userId) await createNotification({ userId: idea.userId, type: "warning", body: `⚠️ Your idea "${idea.title}" received a moderation warning.`, link: `/idea/${idea.id}` });
+
     } else if (action === "remove_idea") {
       await db.update(reports).set({ status: "reviewed", adminNote: adminNote ?? "Idea removed" }).where(eq(reports.id, reportId));
       if (idea) {
@@ -110,9 +103,22 @@ export async function resolveReport(reportId: string, action: AdminAction, admin
         if (idea.userId) await createNotification({ userId: idea.userId, type: "removal", body: "Your idea was removed following a moderation review." });
       }
       if (report.reporterId) await awardXp(report.reporterId, XP_EVENTS.VALID_REPORT_RESOLVED);
+
     } else if (action === "ban_user") {
+      // P0.2 FIX v14: previously this just updated the DB report row and did nothing to the Clerk account.
+      // Now it actually calls clerk.users.banUser() to enforce the ban.
       await db.update(reports).set({ status: "reviewed", adminNote: adminNote ?? "User banned" }).where(eq(reports.id, reportId));
-      if (idea?.userId) await createNotification({ userId: idea.userId, type: "ban", body: "Your account has been suspended." });
+      if (idea?.userId) {
+        await createNotification({ userId: idea.userId, type: "ban", body: "Your account has been suspended." });
+        try {
+          const { clerkClient } = await import("@clerk/nextjs/server");
+          const clerk = await clerkClient();
+          await clerk.users.banUser(idea.userId);
+        } catch (banError) {
+          console.error("Clerk banUser failed:", banError);
+          return { success: false, error: "Report updated but Clerk ban failed — check server logs" };
+        }
+      }
     }
 
     revalidatePath("/admin/justice");

@@ -20,9 +20,13 @@ export default function SparkButton({
   onSuccess,
   disabled = false,
 }: SparkProps) {
-  const [count, setCount] = useState(initialLikes);
+  const [count, setCount]     = useState(initialLikes);
   const [isActive, setIsActive] = useState(false);
   const [hasLiked, setHasLiked] = useState(false);
+
+  // viewerId is kept as a prop so the parent can disable the button when
+  // viewerId === idea.userId — the prop is NOT forwarded to the server action.
+  void viewerId;
 
   const handleSpark = async () => {
     if (hasLiked || isActive || disabled) return;
@@ -30,10 +34,9 @@ export default function SparkButton({
     setIsActive(true);
     setCount((prev) => prev + 1);
 
-    const result = await sparkIdea(ideaId, viewerId);
+    // sparkIdea is a server action — it reads the caller from auth internally.
+    const result = await sparkIdea(ideaId);
 
-    // FIX #25: Show a toast on failure — previously failed silently with a
-    // confusing count flicker and no user feedback
     if (!result.success) {
       setCount((prev) => prev - 1);
       setIsActive(false);

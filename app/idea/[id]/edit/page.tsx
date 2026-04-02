@@ -5,14 +5,7 @@ import { updateIdea, deleteIdea } from "@/app/actions/ideaActions";
 import { CATEGORIES } from "@/lib/categories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Shield, ShieldCheck, ShieldOff, Lock } from "lucide-react";
-
-const PROTECTION_OPTIONS = [
-  { value: "open", label: "Open", description: "Fully visible to everyone", Icon: ShieldOff },
-  { value: "guarded", label: "Guarded", description: "Text cannot be selected/highlighted", Icon: Shield },
-  { value: "shielded", label: "Shielded", description: "Copy, right-click & select-all blocked", Icon: ShieldCheck },
-  { value: "vault", label: "Vault", description: "Content blurred until viewer Likes it", Icon: Lock },
-] as const;
+import { ShieldCheck } from "lucide-react";
 
 export default async function EditIdea({
   params,
@@ -25,7 +18,6 @@ export default async function EditIdea({
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, id));
   if (!idea) notFound();
 
-  // ── Wrap in void-returning server actions so <form action> is happy ──
   async function handleUpdate(formData: FormData): Promise<void> {
     "use server";
     await updateIdea(id, formData);
@@ -118,39 +110,34 @@ export default async function EditIdea({
               />
             </div>
 
-            {/* IP Protection Level */}
+            {/* IP Protection — schema uses ipProtected (boolean) */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
-                IP Protection Level
+                IP Protection
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {PROTECTION_OPTIONS.map(({ value, label, description, Icon }) => (
-                  <label
-                    key={value}
-                    className="relative flex items-start gap-3 p-4 rounded-2xl border
-                      border-slate-200 bg-slate-50 cursor-pointer hover:border-[#0d9488]/40
-                      has-[:checked]:border-[#0d9488] has-[:checked]:bg-teal-50 transition-all"
-                  >
-                    <input
-                      type="radio"
-                      name="protectionLevel"
-                      value={value}
-                      defaultChecked={(idea.protectionLevel ?? "open") === value}
-                      className="mt-0.5 accent-[#0d9488]"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <Icon size={13} className="text-slate-500 shrink-0" />
-                        <span className="text-sm font-bold text-slate-900">{label}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
+              <label className="flex items-center gap-3 p-4 rounded-2xl border border-slate-200
+                bg-slate-50 cursor-pointer hover:border-[#0d9488]/40 has-[:checked]:border-[#0d9488]
+                has-[:checked]:bg-teal-50 transition-all">
+                <input
+                  type="checkbox"
+                  name="ipProtected"
+                  value="true"
+                  defaultChecked={idea.ipProtected ?? false}
+                  className="accent-[#0d9488] w-4 h-4"
+                />
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck size={13} className="text-slate-500 shrink-0" />
+                    <span className="text-sm font-bold text-slate-900">Mark as IP Protected</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                    Signals this idea is timestamped and protected under IdeaConnect&apos;s genesis system.
+                  </p>
+                </div>
+              </label>
               {idea.genesisHash && (
                 <p className="text-[11px] text-emerald-600 mt-2 italic">
-                  ✓ Genesis hash locked — protection level is independent of your timestamp proof.
+                  ✓ Genesis hash locked — IP flag is independent of your timestamp proof.
                 </p>
               )}
             </div>
