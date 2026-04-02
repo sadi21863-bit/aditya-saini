@@ -79,3 +79,13 @@ export async function runHashScan(
 
   return duplicates.length > 0;
 }
+
+
+const PRIVATE_ONLY_REPORT_TYPES = ["plagiarism"];
+
+export function isValidReportType(reportType: string, domain: string): boolean {
+  if (PRIVATE_ONLY_REPORT_TYPES.includes(reportType) && domain === "public") {
+    return false;
+  }
+  return true;
+}
