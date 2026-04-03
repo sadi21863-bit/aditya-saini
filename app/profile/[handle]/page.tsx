@@ -1,14 +1,12 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { ideas, users, follows } from "@/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { ideas, users, follows, rooms, roomMembers } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { getTierFromXp, tierProgress, xpToNextTier } from "@/lib/tier-engine";
 import FollowButton from "@/components/FollowButton";
 import IdeaCard from "@/components/IdeaCard";
-import PinButton from "@/components/PinButton";
 import Link from "next/link";
-import { Pin } from "lucide-react";
+import { Globe, Lock } from "lucide-react";
 
 export default async function ProfilePage({
   params,
@@ -20,24 +18,16 @@ export default async function ProfilePage({
   let currentUserId: string | null = null;
   try {
     currentUserId = await getAuthenticatedUserId();
-  } catch {
-    // guest — no auth required for reading profiles
-  }
+  } catch { /* guest */ }
 
   const profileUser = await db.query.users.findFirst({
     where: eq(users.handle, handle),
   });
-
   if (!profileUser) notFound();
 
-  const tier = getTierFromXp(profileUser.xp);
-  const progress = tierProgress(profileUser.xp);
-  const xpLeft = xpToNextTier(profileUser.xp);
   const isOwnProfile = currentUserId === profileUser.id;
-  const pinnedIds = profileUser.pinnedIdeaIds ?? [];
 
-  // v12: status = "published" (not "public")
-  const [userIdeas, pinnedIdeas, followState, followerRows, followingRows] =
+  const [userIdeas, userRooms, followState, followerRows, followingRows] =
     await Promise.all([
       db
         .select()
@@ -45,9 +35,16 @@ export default async function ProfilePage({
         .where(and(eq(ideas.userId, profileUser.id), eq(ideas.status, "published")))
         .orderBy(desc(ideas.createdAt)),
 
-      pinnedIds.length > 0
-        ? db.select().from(ideas).where(inArray(ideas.id, pinnedIds))
-        : Promise.resolve([]),
+      db
+        .select({
+          roomId: roomMembers.roomId,
+          role: roomMembers.role,
+          roomName: rooms.name,
+          roomVisibility: rooms.visibility,
+        })
+        .from(roomMembers)
+        .innerJoin(rooms, eq(roomMembers.roomId, rooms.id))
+        .where(eq(roomMembers.userId, profileUser.id)),
 
       currentUserId && !isOwnProfile
         ? db.query.follows.findFirst({
@@ -73,22 +70,18 @@ export default async function ProfilePage({
   const followerCount = followerRows.length;
   const followingCount = followingRows.length;
 
-  const orderedPinned = pinnedIds
-    .map((id) => pinnedIdeas.find((i) => i.id === id))
-    .filter(Boolean) as typeof pinnedIdeas;
-
-  const unpinnedIdeas = userIdeas.filter((i) => !pinnedIds.includes(i.id));
+  // Only show public rooms to non-owners
+  const visibleRooms = isOwnProfile
+    ? userRooms
+    : userRooms.filter((r) => r.roomVisibility === "public");
 
   const authorMeta = {
     handle: profileUser.handle,
     name: profileUser.name,
-    tier: profileUser.tier,
-    xp: profileUser.xp,
   };
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
@@ -100,15 +93,10 @@ export default async function ProfilePage({
             <p className="text-slate-300 mt-2 text-sm">{profileUser.bio}</p>
           )}
           <div className="flex gap-4 mt-3 text-sm text-slate-400">
-            <span>
-              <strong className="text-white">{followerCount}</strong> followers
-            </span>
-            <span>
-              <strong className="text-white">{followingCount}</strong> following
-            </span>
-            <span>
-              <strong className="text-white">{userIdeas.length}</strong> ideas
-            </span>
+            <span><strong className="text-white">{followerCount}</strong> followers</span>
+            <span><strong className="text-white">{followingCount}</strong> following</span>
+            <span><strong className="text-white">{userIdeas.length}</strong> ideas</span>
+            <span><strong className="text-white">{visibleRooms.length}</strong> rooms</span>
           </div>
         </div>
 
@@ -133,80 +121,53 @@ export default async function ProfilePage({
         </div>
       </div>
 
-      {/* Tier Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full
-        text-sm font-semibold mb-4 ${tier.bg} ${tier.color}`}>
-        {tier.label} · {profileUser.xp} XP
-        {xpLeft !== null && (
-          <span className="text-xs font-normal opacity-70">
-            ({xpLeft} to next tier)
-          </span>
-        )}
-      </div>
-
-      {/* XP Progress Bar */}
-      <div className="w-full bg-slate-800 rounded-full h-2 mb-8">
-        <div
-          className={`h-2 rounded-full ${tier.bg} transition-all`}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Pinned Ideas */}
-      {orderedPinned.length > 0 && (
+      {/* Rooms */}
+      {visibleRooms.length > 0 && (
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <Pin size={14} className="text-[#0d9488]" />
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">
-              Pinned
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3">
-            {orderedPinned.map((idea) => (
-              <div key={idea.id} className="relative">
-                <IdeaCard
-                  idea={idea}
-                  author={authorMeta}
-                  viewerId={currentUserId ?? ""}
-                  hasLiked={false}
-                />
-                {isOwnProfile && (
-                  <div className="absolute top-3 right-3">
-                    <PinButton ideaId={idea.id} initialPinned={true} />
-                  </div>
-                )}
-              </div>
+          <h2 className="text-xl font-bold text-white mb-4">Rooms</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {visibleRooms.map((r) => (
+              <Link
+                key={r.roomId}
+                href={`/rooms/${r.roomId}`}
+                className="bg-slate-900 border border-slate-800 rounded-xl p-4
+                  hover:border-teal-700/50 transition-colors group"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white group-hover:text-teal-400 transition-colors truncate">
+                    {r.roomName}
+                  </h3>
+                  {r.roomVisibility === "private" ? (
+                    <Lock size={12} className="text-slate-500 shrink-0" />
+                  ) : (
+                    <Globe size={12} className="text-teal-500 shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1 capitalize">{r.role}</p>
+              </Link>
             ))}
           </div>
         </div>
       )}
 
-      {/* All Ideas */}
+      {/* Ideas */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">
-          {orderedPinned.length > 0 ? "All Ideas" : "Anchored Ideas"}
-        </h2>
+        <h2 className="text-xl font-bold text-white">Ideas</h2>
         <span className="text-xs text-slate-500">{userIdeas.length} total</span>
       </div>
 
-      {unpinnedIdeas.length === 0 && orderedPinned.length === 0 ? (
+      {userIdeas.length === 0 ? (
         <p className="text-slate-500 text-sm">No published ideas yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {unpinnedIdeas.map((idea) => (
-            <div key={idea.id} className="relative">
-              <IdeaCard
-                idea={idea}
-                author={authorMeta}
-                viewerId={currentUserId ?? ""}
-                hasLiked={false}
-              />
-              {isOwnProfile && pinnedIds.length < 3 && (
-                <div className="absolute top-3 right-3">
-                  <PinButton ideaId={idea.id} initialPinned={false} />
-                </div>
-              )}
-            </div>
+          {userIdeas.map((idea) => (
+            <IdeaCard
+              key={idea.id}
+              idea={idea}
+              author={authorMeta}
+              viewerId={currentUserId ?? ""}
+              hasLiked={false}
+            />
           ))}
         </div>
       )}

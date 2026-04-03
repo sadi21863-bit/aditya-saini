@@ -20,16 +20,13 @@ export async function getFeedData() {
         status: ideas.status,
         totalLikes: ideas.totalLikes,
         views: ideas.views,
-        genesisHash: ideas.genesisHash,
-        editorsPick: ideas.editorsPick,
-        ipProtected: ideas.ipProtected,
-        domain: ideas.domain,
+        roomId: ideas.roomId,
         createdAt: ideas.createdAt,
         user: {
           id: users.id,
           name: users.name,
-          tier: users.tier,
-          xp: users.xp,
+          handle: users.handle,
+          avatarUrl: users.avatarUrl,
         },
       })
       .from(ideas)

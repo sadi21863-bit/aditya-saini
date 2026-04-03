@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/queue/process",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/leaderboard",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/ots-confirm",
-      "schedule": "0 2 * * *"
-    }
-  ]
-}
+{}

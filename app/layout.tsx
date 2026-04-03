@@ -24,7 +24,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "IdeaConnect",
-  description: "Anchor your ideas. Protect your genius.",
+  description: "Build ideas together in collaborative rooms.",
 };
 
 export default async function RootLayout({

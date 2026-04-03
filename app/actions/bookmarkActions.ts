@@ -1,24 +1,72 @@
 "use server";
 
-/**
- * app/actions/bookmarkActions.ts — v12
- *
- * The `bookmarks` table was removed from the v12 schema.
- * These functions are kept as stubs so any existing UI imports don't break.
- * Bookmarks can be re-introduced in a future migration if needed.
- */
+import { db } from "@/db";
+import { bookmarks } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { getAuthenticatedUserId } from "@/lib/auth";
+import { lightLimiter } from "@/lib/ratelimit";
 
-export async function toggleBookmark(_ideaId: string): Promise<{
-  success: boolean;
-  bookmarked?: boolean;
-  error?: string;
-}> {
-  return { success: false, error: "Bookmarks are not available in this version." };
+export async function toggleBookmark(
+  targetId: string,
+  targetType: "idea" | "room" = "idea"
+): Promise<{ success: boolean; bookmarked?: boolean; error?: string }> {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) return { success: false, error: "Not authenticated" };
+
+  const { success } = await lightLimiter.limit(userId);
+  if (!success) return { success: false, error: "Too many requests" };
+
+  const existing = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(
+      and(
+        eq(bookmarks.userId, userId),
+        eq(bookmarks.targetType, targetType),
+        eq(bookmarks.targetId, targetId)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.delete(bookmarks).where(eq(bookmarks.id, existing[0].id));
+    return { success: true, bookmarked: false };
+  }
+
+  await db.insert(bookmarks).values({ userId, targetType, targetId });
+  return { success: true, bookmarked: true };
 }
 
 export async function isBookmarked(
-  _userId: string,
-  _ideaId: string
+  userId: string,
+  targetId: string,
+  targetType: "idea" | "room" = "idea"
 ): Promise<boolean> {
-  return false;
+  const existing = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(
+      and(
+        eq(bookmarks.userId, userId),
+        eq(bookmarks.targetType, targetType),
+        eq(bookmarks.targetId, targetId)
+      )
+    )
+    .limit(1);
+
+  return existing.length > 0;
+}
+
+export async function getBookmarks(targetType?: "idea" | "room") {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) return [];
+
+  const conditions = [eq(bookmarks.userId, userId)];
+  if (targetType) conditions.push(eq(bookmarks.targetType, targetType));
+
+  return db
+    .select()
+    .from(bookmarks)
+    .where(and(...conditions))
+    .orderBy(bookmarks.createdAt);
 }

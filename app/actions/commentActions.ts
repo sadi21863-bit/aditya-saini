@@ -1,23 +1,15 @@
 "use server";
 
-// v13: communityIdeas + communityComments tables are GONE.
-// All ideas (private + public) live in the unified `ideas` table.
-// All comments live in `ideaComments` table.
-// addCommunityComment / deleteCommunityComment / getCommunityComments
-// now just call the same unified functions below.
-
 import { db } from "@/db";
 import { ideaComments, ideas, users } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { XP_EVENTS } from "@/lib/tier-engine";
 import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
-import { awardXp } from "@/lib/xp";
 
-// ─── ADD COMMENT (unified — works for both private and public ideas) ──────────
+// ─── ADD COMMENT ────────────────────────────────────────────────────
 
 export async function addComment(ideaId: string, content: string, parentId?: string) {
   const callerId = await getAuthenticatedUserId();
@@ -31,7 +23,7 @@ export async function addComment(ideaId: string, content: string, parentId?: str
   if (trimmed.length > 1000) return { success: false, error: "Too long" };
 
   const [idea] = await db
-    .select({ id: ideas.id, userId: ideas.userId, title: ideas.title, totalComments: ideas.totalComments })
+    .select({ id: ideas.id, userId: ideas.userId, title: ideas.title })
     .from(ideas)
     .where(and(eq(ideas.id, ideaId), eq(ideas.status, "published")));
   if (!idea) return { success: false, error: "Idea not found or not published" };
@@ -49,7 +41,6 @@ export async function addComment(ideaId: string, content: string, parentId?: str
     .where(eq(ideas.id, ideaId));
 
   if (idea.userId && idea.userId !== callerId) {
-    await awardXp(idea.userId, XP_EVENTS.RECEIVE_COMMENT);
     await createNotification({
       userId: idea.userId,
       type: "comment",
@@ -62,7 +53,7 @@ export async function addComment(ideaId: string, content: string, parentId?: str
   return { success: true };
 }
 
-// ─── DELETE COMMENT ───────────────────────────────────────────────────────────
+// ─── DELETE COMMENT ─────────────────────────────────────────────────
 
 export async function deleteComment(commentId: string, ideaId: string) {
   const callerId = await getAuthenticatedUserId();
@@ -89,7 +80,7 @@ export async function deleteComment(commentId: string, ideaId: string) {
   return { success: true };
 }
 
-// ─── GET COMMENTS ─────────────────────────────────────────────────────────────
+// ─── GET COMMENTS ───────────────────────────────────────────────────
 
 export async function getComments(ideaId: string) {
   const rows = await db
@@ -102,8 +93,6 @@ export async function getComments(ideaId: string) {
       userName: users.name,
       userHandle: users.handle,
       userImage: users.image,
-      userTier: users.tier,
-      userXp: users.xp,
     })
     .from(ideaComments)
     .leftJoin(users, eq(ideaComments.userId, users.id))
@@ -120,16 +109,6 @@ export async function getComments(ideaId: string) {
       name: r.userName,
       handle: r.userHandle,
       image: r.userImage,
-      tier: r.userTier,
-      xp: r.userXp ?? 0,
     },
   }));
 }
-
-// ─── ALIASES — public/commons comments now use the same unified functions ──────
-// Any component still calling addCommunityComment / deleteCommunityComment
-// will continue to work unchanged.
-
-export const addCommunityComment = addComment;
-export const deleteCommunityComment = deleteComment;
-export const getCommunityComments = getComments;

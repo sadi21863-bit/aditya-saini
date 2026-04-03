@@ -5,7 +5,6 @@ import { updateIdea, deleteIdea } from "@/app/actions/ideaActions";
 import { CATEGORIES } from "@/lib/categories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
 
 export default async function EditIdea({
   params,
@@ -29,27 +28,21 @@ export default async function EditIdea({
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafb] p-8">
+    <main className="min-h-screen bg-slate-950 p-8">
       <div className="max-w-2xl mx-auto">
         <Link
-          href="/dashboard"
+          href={idea.roomId ? `/rooms/${idea.roomId}` : "/dashboard"}
           className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488]
             font-semibold text-sm mb-8 transition-colors group"
         >
           <span className="group-hover:-translate-x-1 transition-transform">←</span>
-          Back to Dashboard
+          Back
         </Link>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <h1
-            className="text-3xl font-bold text-slate-900 mb-8"
-            style={{ fontFamily: "var(--font-playfair)" }}
-          >
-            Edit Idea
-          </h1>
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8">
+          <h1 className="text-3xl font-bold text-white mb-8">Edit Idea</h1>
 
           <form action={handleUpdate} className="flex flex-col gap-6">
-
             {/* Title */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
@@ -58,8 +51,8 @@ export default async function EditIdea({
               <input
                 name="title"
                 defaultValue={idea.title}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200
-                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
+                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700
+                  text-white focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
                 required
               />
             </div>
@@ -72,8 +65,8 @@ export default async function EditIdea({
               <select
                 name="category"
                 defaultValue={idea.category ?? CATEGORIES[0]}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200
-                  focus:border-[#0d9488] outline-none"
+                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700
+                  text-white focus:border-[#0d9488] outline-none"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -84,15 +77,15 @@ export default async function EditIdea({
             {/* Context */}
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
-                Public Pitch
-                <span className="normal-case text-slate-400 font-normal ml-1">(always visible)</span>
+                Pitch
+                <span className="normal-case text-slate-400 font-normal ml-1">(short summary)</span>
               </label>
               <input
                 name="context"
                 defaultValue={idea.context ?? ""}
                 placeholder="One-sentence essence of your idea..."
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 italic
-                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
+                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 italic
+                  text-white focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
               />
             </div>
 
@@ -104,42 +97,24 @@ export default async function EditIdea({
               <textarea
                 name="content"
                 defaultValue={idea.content ?? ""}
-                className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-200 h-48
-                  focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none resize-none"
+                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 h-48
+                  text-white focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none resize-none"
                 required
               />
             </div>
 
-            {/* IP Protection — schema uses ipProtected (boolean) */}
+            {/* Tags */}
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
-                IP Protection
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+                Tags <span className="normal-case text-slate-400 font-normal ml-1">(comma-separated)</span>
               </label>
-              <label className="flex items-center gap-3 p-4 rounded-2xl border border-slate-200
-                bg-slate-50 cursor-pointer hover:border-[#0d9488]/40 has-[:checked]:border-[#0d9488]
-                has-[:checked]:bg-teal-50 transition-all">
-                <input
-                  type="checkbox"
-                  name="ipProtected"
-                  value="true"
-                  defaultChecked={idea.ipProtected ?? false}
-                  className="accent-[#0d9488] w-4 h-4"
-                />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <ShieldCheck size={13} className="text-slate-500 shrink-0" />
-                    <span className="text-sm font-bold text-slate-900">Mark as IP Protected</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                    Signals this idea is timestamped and protected under IdeaConnect&apos;s genesis system.
-                  </p>
-                </div>
-              </label>
-              {idea.genesisHash && (
-                <p className="text-[11px] text-emerald-600 mt-2 italic">
-                  ✓ Genesis hash locked — IP flag is independent of your timestamp proof.
-                </p>
-              )}
+              <input
+                name="tags"
+                defaultValue={idea.tags?.join(", ") ?? ""}
+                placeholder="ai, productivity, saas..."
+                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700
+                  text-white focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
+              />
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -152,7 +127,7 @@ export default async function EditIdea({
               </button>
               <Link
                 href={`/idea/${id}`}
-                className="px-6 py-4 text-slate-400 font-medium hover:text-slate-600 transition-colors"
+                className="px-6 py-4 text-slate-400 font-medium hover:text-slate-300 transition-colors"
               >
                 Cancel
               </Link>
@@ -160,11 +135,10 @@ export default async function EditIdea({
           </form>
 
           {/* Danger zone */}
-          <form action={handleDelete} className="mt-6 pt-6 border-t border-slate-100">
+          <form action={handleDelete} className="mt-6 pt-6 border-t border-slate-800">
             <button
               type="submit"
-              className="w-full text-red-400 text-sm font-semibold hover:text-red-600
-                transition-colors py-2"
+              className="w-full text-red-400 text-sm font-semibold hover:text-red-600 transition-colors py-2"
             >
               Delete this Idea
             </button>

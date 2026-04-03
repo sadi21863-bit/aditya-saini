@@ -1,6 +1,6 @@
 {
   "name": "ideaconnect",
-  "version": "12.0.0",
+  "version": "15.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,14 +14,10 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
-    "@vercel/blob": "^2.3.2",
     "@vercel/og": "^0.11.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
-    "framer-motion": "^12.34.3",
-    "groq-sdk": "^0.9.1",
-    "lottie-react": "^2.4.1",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "postgres": "^3.4.8",

@@ -8,15 +8,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
 
 const NAV = [
-  { href: "/feed", label: "🌐 Feed" },
-  { href: "/registry", label: "🔍 Registry" },
-  { href: "/leaderboard", label: "🏆 Leaderboard" },
-  { href: "/bookmarks", label: "🔖 Bookmarks" },
-  { href: "/dashboard", label: "⚡ My Workspace" },
-  { href: "/new", label: "✦ New Idea" },
+  { href: "/feed",      label: "🏠 Home Feed" },
+  { href: "/dashboard", label: "🚀 My Rooms" },
+  { href: "/explore",   label: "🔍 Explore" },
+  { href: "/bookmarks", label: "📌 Bookmarks" },
+  { href: "/rooms/new", label: "✦ New Room" },
 ];
 
-// Pages where sidebar should NOT appear
 const NO_SIDEBAR_PREFIXES = [
   "/sign-in",
   "/sign-up",
@@ -33,50 +31,39 @@ export default function Sidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  // ── Hide sidebar on landing page and auth pages ──────────────────
   const isLanding = pathname === "/";
-  const isAuthPage = NO_SIDEBAR_PREFIXES.some((p) =>
-    pathname.startsWith(p)
-  );
+  const isAuthPage = NO_SIDEBAR_PREFIXES.some((p) => pathname.startsWith(p));
   if (isLanding || isAuthPage) return null;
 
-  // ── Active state: startsWith so nested routes also highlight ─────
   function isActive(href: string) {
     if (href === "/feed") return pathname === "/feed" || pathname.startsWith("/idea");
-    if (href === "/dashboard") return pathname.startsWith("/dashboard");
-    if (href === "/new") return pathname === "/new";
+    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/rooms/new") return pathname === "/rooms/new";
+    if (href === "/explore") return pathname === "/explore";
     return pathname.startsWith(href);
   }
 
   return (
     <>
-      {/* ── Sidebar ───────────────────────────────────────────────── */}
       <aside
         className={`fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-800
           flex flex-col py-6 z-50 transition-all duration-300
           ${collapsed ? "w-16 px-2" : "w-64 px-4"}`}
       >
         {/* Logo */}
-        <div
-          className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between"
-            }`}
-        >
+        <div className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
           {!collapsed && (
             <Link href="/feed" className="block">
-              <h2 className="text-xl font-bold text-teal-400 tracking-tight">
-                IdeaConnect
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Genesis Registry</p>
+              <h2 className="text-xl font-bold text-teal-400 tracking-tight">IdeaConnect</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Build ideas together</p>
             </Link>
           )}
           {collapsed && (
-            <Link href="/feed" className="text-teal-400 font-black text-lg">
-              IC
-            </Link>
+            <Link href="/feed" className="text-teal-400 font-black text-lg">IC</Link>
           )}
         </div>
 
-        {/* Nav Links */}
+        {/* Nav */}
         <nav className="flex flex-col gap-1 flex-1">
           {NAV.map((item) => (
             <Link
@@ -99,7 +86,6 @@ export default function Sidebar({
             </Link>
           ))}
 
-          {/* Profile link */}
           {currentHandle && (
             <Link
               href={`/profile/${currentHandle}`}
@@ -117,25 +103,17 @@ export default function Sidebar({
           )}
         </nav>
 
-        {/* Bottom: Notifications + User */}
-        <div
-          className={`mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3
-            ${collapsed ? "items-center" : ""}`}
-        >
+        {/* Bottom */}
+        <div className={`mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
           {currentUserId && (
             <div className={collapsed ? "" : "px-1"}>
               <NotificationCenter userId={currentUserId} />
             </div>
           )}
-          <div
-            className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""
-              }`}
-          >
+          <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <UserButton />
             {!collapsed && currentHandle && (
-              <span className="text-slate-400 text-sm truncate">
-                @{currentHandle}
-              </span>
+              <span className="text-slate-400 text-sm truncate">@{currentHandle}</span>
             )}
           </div>
         </div>
@@ -156,11 +134,7 @@ export default function Sidebar({
         </button>
       </aside>
 
-      {/* ── Spacer so main content shifts right ───────────────────── */}
-      <div
-        className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"
-          } shrink-0`}
-      />
+      <div className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} shrink-0`} />
     </>
   );
 }

@@ -7,8 +7,6 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { lightLimiter } from "@/lib/ratelimit";
-import { XP_EVENTS } from "@/lib/tier-engine";
-import { awardXp } from "@/lib/xp";
 
 // FIX #1: Remove client-supplied followerId — derive it server-side from Clerk auth()
 export async function followUser(targetId: string) {
@@ -38,8 +36,6 @@ export async function followUser(targetId: string) {
         }
 
         await db.insert(follows).values({ followerId, followingId: targetId });
-
-        await awardXp(targetId, XP_EVENTS.GAIN_FOLLOWER);
 
         revalidatePath(`/profile/${targetId}`);
         return { success: true };
@@ -83,8 +79,6 @@ export async function getFollowers(userId: string) {
                 name: users.name,
                 handle: users.handle,
                 image: users.image,
-                tier: users.tier,
-                xp: users.xp,
                 createdAt: follows.createdAt,
             })
             .from(follows)
@@ -106,8 +100,6 @@ export async function getFollowing(userId: string) {
                 name: users.name,
                 handle: users.handle,
                 image: users.image,
-                tier: users.tier,
-                xp: users.xp,
                 createdAt: follows.createdAt,
             })
             .from(follows)
