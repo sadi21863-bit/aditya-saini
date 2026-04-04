@@ -16,6 +16,11 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
 
+  // Forward pathname so layout can guard unenrolled users → /onboarding
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  const next = () => NextResponse.next({ request: { headers: requestHeaders } });
+
   // Admin routes: must be authenticated AND have admin role
   if (isAdminRoute(request)) {
     if (!userId) {
@@ -26,7 +31,7 @@ export default clerkMiddleware(async (auth, request) => {
     if (!adminOk) {
       return NextResponse.redirect(new URL("/feed", request.url));
     }
-    return NextResponse.next();
+    return next();
   }
 
   // All non-public routes require authentication
@@ -35,7 +40,7 @@ export default clerkMiddleware(async (auth, request) => {
     return;
   }
 
-  return NextResponse.next();
+  return next();
 });
 
 export const config = {

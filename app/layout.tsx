@@ -10,6 +10,10 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+const ONBOARDING_EXEMPT = ["/onboarding", "/sign-in", "/sign-up", "/api"];
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -41,6 +45,15 @@ export default async function RootLayout({
       columns: { handle: true },
     });
     handle = user?.handle ?? null;
+
+    // Guard: Clerk session exists but no users table row → force onboarding
+    if (!user) {
+      const heads = await headers();
+      const pathname = heads.get("x-pathname") ?? "/";
+      if (!ONBOARDING_EXEMPT.some((p) => pathname.startsWith(p))) {
+        redirect("/onboarding");
+      }
+    }
   }
 
   return (
