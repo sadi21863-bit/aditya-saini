@@ -33,7 +33,7 @@ export default async function NewIdeaPage({
       >
         <ArrowLeft size={14} /> {room.name}
       </Link>
-      <IdeaForm roomId={roomId} />
+      <IdeaForm roomId={roomId} roomCategory={room.category} />
     </div>
   );
 }

@@ -3,21 +3,18 @@
 import { addIdea } from "@/app/actions/ideaActions";
 import { useRef, useState } from "react";
 import { Lightbulb, Send } from "lucide-react";
-import { CATEGORIES } from "@/lib/categories";
 import IdeaTextEditor from "@/components/IdeaTextEditor";
 
 export default function IdeaForm({
   roomId,
-  existingCategories = [],
+  roomCategory,
 }: {
   roomId: string;
-  existingCategories?: string[];
+  roomCategory?: string | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [content, setContent] = useState("");
-
-  const allCategories = Array.from(new Set([...CATEGORIES, ...existingCategories]));
 
   return (
     <form
@@ -25,6 +22,7 @@ export default function IdeaForm({
       action={async (formData) => {
         setIsPending(true);
         formData.set("roomId", roomId);
+        if (roomCategory) formData.set("category", roomCategory);
         await addIdea(formData);
         formRef.current?.reset();
         setContent("");
@@ -53,23 +51,6 @@ export default function IdeaForm({
               focus:ring-[#0d9488]/20 outline-none transition-all"
             required
           />
-        </div>
-
-        {/* Category */}
-        <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
-            Category
-          </label>
-          <select
-            name="category"
-            defaultValue={CATEGORIES[0]}
-            className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 text-white
-              focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none transition-all"
-          >
-            {allCategories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
         </div>
 
         {/* Pitch */}

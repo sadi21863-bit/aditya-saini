@@ -2,7 +2,6 @@ import { db } from "@/db";
 import { ideas } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateIdea, deleteIdea } from "@/app/actions/ideaActions";
-import { CATEGORIES } from "@/lib/categories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -55,23 +54,6 @@ export default async function EditIdea({
                   text-white focus:border-[#0d9488] focus:ring-2 focus:ring-[#0d9488]/20 outline-none"
                 required
               />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
-                Category
-              </label>
-              <select
-                name="category"
-                defaultValue={idea.category ?? CATEGORIES[0]}
-                className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700
-                  text-white focus:border-[#0d9488] outline-none"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
             </div>
 
             {/* Context */}

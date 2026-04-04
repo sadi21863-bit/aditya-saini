@@ -7,7 +7,7 @@ import { Globe, Lock, Loader2 } from "lucide-react";
 
 const CATEGORIES = [
   "Technology", "Design", "Business", "Science", "Education",
-  "Art", "Health", "Finance", "Social Impact", "Other",
+  "Art", "Health", "Finance", "Social Impact",
 ];
 
 export default function CreateRoomForm() {
@@ -16,12 +16,17 @@ export default function CreateRoomForm() {
   const [isPending, startTransition] = useTransition();
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [error, setError] = useState<string | null>(null);
+  const [categoryMode, setCategoryMode] = useState<"preset" | "custom">("preset");
+  const [customCategory, setCustomCategory] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formRef.current) return;
     const data = new FormData(formRef.current);
     data.set("visibility", visibility);
+    if (categoryMode === "custom" && customCategory.trim()) {
+      data.set("category", customCategory.trim());
+    }
     setError(null);
 
     startTransition(async () => {
@@ -76,16 +81,52 @@ export default function CreateRoomForm() {
         <label className="block text-sm font-semibold text-slate-300 mb-1.5">
           Category
         </label>
-        <select
-          name="category"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white
-            text-sm focus:outline-none focus:border-teal-600 transition"
-        >
-          <option value="">— Select a category —</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <div className="flex gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setCategoryMode("preset")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              categoryMode === "preset"
+                ? "bg-teal-600 text-white"
+                : "bg-slate-800 text-slate-400 border border-slate-700 hover:text-white"
+            }`}
+          >
+            Pick a category
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategoryMode("custom")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              categoryMode === "custom"
+                ? "bg-teal-600 text-white"
+                : "bg-slate-800 text-slate-400 border border-slate-700 hover:text-white"
+            }`}
+          >
+            Custom
+          </button>
+        </div>
+        {categoryMode === "preset" ? (
+          <select
+            name="category"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white
+              text-sm focus:outline-none focus:border-teal-600 transition"
+          >
+            <option value="">— Select a category —</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            name="category"
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+            maxLength={50}
+            placeholder="e.g. Robotics, Music Production, Urban Farming..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white
+              placeholder-slate-500 text-sm focus:outline-none focus:border-teal-600 transition"
+          />
+        )}
       </div>
 
       {/* Visibility toggle */}
