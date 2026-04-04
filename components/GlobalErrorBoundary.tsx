@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
     children: React.ReactNode;
@@ -32,9 +33,11 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                 this.props.fallback ?? (
                     <div className="min-h-screen flex items-center justify-center bg-background">
                         <div className="text-center space-y-4 p-8 max-w-md">
-                            <div className="text-4xl">⚖️</div>
+                            <div className="flex justify-center text-slate-400">
+                                <AlertTriangle size={40} />
+                            </div>
                             <h2 className="text-xl font-semibold text-foreground">
-                                Justice Engine Fault
+                                Something went wrong
                             </h2>
                             <p className="text-muted-foreground text-sm">
                                 Something went wrong. Your ideas and data are safe.
