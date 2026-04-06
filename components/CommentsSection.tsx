@@ -153,7 +153,7 @@ export default function CommentsSection({
     return (
       <div className="flex gap-3">
         <div className={`${isReply ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs"} rounded-full
-          bg-gradient-to-br from-[#0d9488] to-teal-300 flex items-center justify-center
+          bg-linear-to-br from-[#0d9488] to-teal-300 flex items-center justify-center
           shrink-0 mt-0.5 text-white font-bold`}>
           {init}
         </div>

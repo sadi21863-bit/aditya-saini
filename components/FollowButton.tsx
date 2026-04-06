@@ -85,7 +85,7 @@ export default function FollowButton({
             className={`flex items-center gap-2 rounded-xl font-bold transition-all ${sizeClasses[size]
                 } ${isFollowing
                     ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-slate-200"
-                    : "bg-gradient-to-r from-[#0d9488] to-teal-600 text-white hover:from-[#0f766e] hover:to-teal-700 shadow-md hover:shadow-lg"
+                    : "bg-linear-to-r from-[#0d9488] to-teal-600 text-white hover:from-[#0f766e] hover:to-teal-700 shadow-md hover:shadow-lg"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
             {isFollowing ? (

@@ -23,7 +23,7 @@ export default function IdeaDetailClient({
   return (
     <div className="space-y-6">
       <article className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-[#0d9488] via-teal-400 to-violet-500" />
+        <div className="h-1 w-full bg-linear-to-r from-[#0d9488] via-teal-400 to-violet-500" />
 
         <div className="px-8 pt-8 pb-6">
           {/* Badges row */}
@@ -63,7 +63,7 @@ export default function IdeaDetailClient({
 
           {author && (
             <div className="flex items-center gap-3 py-4 border-b border-slate-800/60">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0d9488] to-teal-300 flex items-center justify-center text-white font-bold text-sm border-2 border-slate-700 shadow">
+              <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#0d9488] to-teal-300 flex items-center justify-center text-white font-bold text-sm border-2 border-slate-700 shadow">
                 {(author.name ?? author.id)[0].toUpperCase()}
               </div>
               <div>
