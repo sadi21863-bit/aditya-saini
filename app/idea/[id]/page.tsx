@@ -148,6 +148,7 @@ export default async function IdeaPage({
         <div className="mt-8 bg-slate-900 border border-slate-800 rounded-3xl px-8 py-8">
           <CommentsSection
             ideaId={ideaId}
+            ideaOwnerId={idea.userId ?? undefined}
             viewerId={viewerId}
             initialComments={initialComments}
             viewerName={viewerProfile?.name ?? null}

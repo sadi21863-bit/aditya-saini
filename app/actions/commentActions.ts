@@ -5,7 +5,6 @@ import { ideaComments, ideas, users } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
-import { z } from "zod";
 import { createNotification } from "./notificationActions";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
 
@@ -40,6 +39,7 @@ export async function addComment(ideaId: string, content: string, parentId?: str
     .set({ totalComments: sql`${ideas.totalComments} + 1`, updatedAt: new Date() })
     .where(eq(ideas.id, ideaId));
 
+  // Notify idea owner (skip if commenter IS the owner)
   if (idea.userId && idea.userId !== callerId) {
     await createNotification({
       userId: idea.userId,
@@ -48,6 +48,52 @@ export async function addComment(ideaId: string, content: string, parentId?: str
       link: `/idea/${ideaId}`,
     });
   }
+
+  // Notify parent comment author on replies (skip double-notify if same as idea owner)
+  if (parentId) {
+    const [parent] = await db
+      .select({ userId: ideaComments.userId })
+      .from(ideaComments)
+      .where(eq(ideaComments.id, parentId));
+
+    if (parent?.userId && parent.userId !== callerId && parent.userId !== idea.userId) {
+      await createNotification({
+        userId: parent.userId,
+        type: "comment",
+        body: `Someone replied to your comment on "${idea.title}"`,
+        link: `/idea/${ideaId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/idea/${ideaId}`);
+  return { success: true };
+}
+
+// ─── UPDATE COMMENT ─────────────────────────────────────────────────
+
+export async function updateComment(commentId: string, ideaId: string, content: string) {
+  const callerId = await getAuthenticatedUserId();
+  if (!callerId) return { success: false, error: "Not authenticated" };
+
+  const { success } = await lightLimiter.limit(callerId);
+  if (!success) return { success: false, error: "Too many requests. Please slow down." };
+
+  const trimmed = content?.trim();
+  if (!trimmed) return { success: false, error: "Comment cannot be empty" };
+  if (trimmed.length > 1000) return { success: false, error: "Too long" };
+
+  const [comment] = await db
+    .select({ userId: ideaComments.userId })
+    .from(ideaComments)
+    .where(eq(ideaComments.id, commentId));
+  if (!comment) return { success: false, error: "Not found" };
+  if (comment.userId !== callerId) return { success: false, error: "Forbidden" };
+
+  await db
+    .update(ideaComments)
+    .set({ content: trimmed, updatedAt: new Date() })
+    .where(eq(ideaComments.id, commentId));
 
   revalidatePath(`/idea/${ideaId}`);
   return { success: true };
@@ -85,14 +131,15 @@ export async function deleteComment(commentId: string, ideaId: string) {
 export async function getComments(ideaId: string) {
   const rows = await db
     .select({
-      id: ideaComments.id,
-      content: ideaComments.content,
-      createdAt: ideaComments.createdAt,
-      parentId: ideaComments.parentId,
-      userId: ideaComments.userId,
-      userName: users.name,
+      id:         ideaComments.id,
+      content:    ideaComments.content,
+      createdAt:  ideaComments.createdAt,
+      updatedAt:  ideaComments.updatedAt,
+      parentId:   ideaComments.parentId,
+      userId:     ideaComments.userId,
+      userName:   users.name,
       userHandle: users.handle,
-      userImage: users.image,
+      userImage:  users.image,
     })
     .from(ideaComments)
     .leftJoin(users, eq(ideaComments.userId, users.id))
@@ -100,15 +147,16 @@ export async function getComments(ideaId: string) {
     .orderBy(desc(ideaComments.createdAt));
 
   return rows.map((r) => ({
-    id: r.id,
-    content: r.content,
+    id:        r.id,
+    content:   r.content,
     createdAt: r.createdAt,
-    parentId: r.parentId,
+    updatedAt: r.updatedAt,
+    parentId:  r.parentId,
     user: {
-      id: r.userId,
-      name: r.userName,
+      id:     r.userId,
+      name:   r.userName,
       handle: r.userHandle,
-      image: r.userImage,
+      image:  r.userImage,
     },
   }));
 }
