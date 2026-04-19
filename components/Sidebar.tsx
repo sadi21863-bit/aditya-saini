@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { signOut } from "next-auth/react";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
 
 const NAV = [
@@ -111,7 +111,13 @@ export default function Sidebar({
             </div>
           )}
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-            <UserButton />
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              title="Sign out"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <LogOut size={16} />
+            </button>
             {!collapsed && currentHandle && (
               <span className="text-slate-400 text-sm truncate">@{currentHandle}</span>
             )}

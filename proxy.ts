@@ -1,43 +1,42 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/auth";
 
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
-
-// Public routes: landing, auth pages, sign-in, sign-up, OG images
-const isPublicRoute = createRouteMatcher([
+const PUBLIC_PATHS = [
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/og(.*)",
-  "/api/health(.*)",
-]);
+  "/sign-in",
+  "/sign-up",
+  "/api/og",
+  "/api/health",
+  "/api/auth",
+];
 
-export default clerkMiddleware(async (auth, request) => {
-  const { userId } = await auth();
+function isPublic(pathname: string) {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + "?"));
+}
+
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
 
   // Forward pathname so layout can guard unenrolled users → /onboarding
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
   const next = () => NextResponse.next({ request: { headers: requestHeaders } });
 
-  // Admin routes: must be authenticated AND have admin role
-  if (isAdminRoute(request)) {
-    if (!userId) {
-      await auth.protect();
-      return;
-    }
-    const adminOk = await isAdmin();
-    if (!adminOk) {
-      return NextResponse.redirect(new URL("/feed", request.url));
+  const isLoggedIn = !!req.auth;
+
+  // Admin routes: must be authenticated
+  if (pathname.startsWith("/admin")) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
     }
     return next();
   }
 
-  // All non-public routes require authentication
-  if (!isPublicRoute(request) && !userId) {
-    await auth.protect();
-    return;
+  // Non-public routes require authentication
+  if (!isPublic(pathname) && !isLoggedIn) {
+    return NextResponse.redirect(
+      new URL(`/sign-in?redirect_url=${encodeURIComponent(req.url)}`, req.url)
+    );
   }
 
   return next();

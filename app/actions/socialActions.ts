@@ -5,12 +5,12 @@ import { db } from "@/db";
 import { follows, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { lightLimiter } from "@/lib/ratelimit";
 
-// FIX #1: Remove client-supplied followerId — derive it server-side from Clerk auth()
 export async function followUser(targetId: string) {
-    const { userId: followerId } = await auth();
+    const session = await auth();
+    const followerId = session?.user?.id ?? null;
     if (!followerId) return { success: false, error: "Unauthenticated" };
 
     try {
@@ -45,9 +45,9 @@ export async function followUser(targetId: string) {
     }
 }
 
-// FIX #1: Same pattern for unfollowUser — no client-supplied followerId
 export async function unfollowUser(targetId: string) {
-    const { userId: followerId } = await auth();
+    const session = await auth();
+    const followerId = session?.user?.id ?? null;
     if (!followerId) return { success: false, error: "Unauthenticated" };
 
     try {

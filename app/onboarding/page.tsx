@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import OnboardingForm from "./OnboardingForm";
 
 export default async function OnboardingPage() {
-    const { userId } = await auth();
+    const session = await auth();
+    const userId  = session?.user?.id;
     if (!userId) redirect("/sign-in");
 
     const existing = await db.query.users.findFirst({
@@ -15,9 +16,7 @@ export default async function OnboardingPage() {
 
     if (existing?.handle) redirect("/feed");
 
-    // Get email from Clerk
-    const clerkUser = await currentUser();
-    const email = clerkUser?.emailAddresses[0]?.emailAddress ?? "";
+    const email = session?.user?.email ?? "";
 
     return (
         <main className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
