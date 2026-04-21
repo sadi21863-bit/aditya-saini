@@ -10,10 +10,15 @@ export default function SignInPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl  = searchParams.get("redirect_url") ?? "/feed";
+  const oauthError   = searchParams.get("error");
 
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
+  const [error, setError]       = useState(
+    oauthError === "OAuthAccountNotLinked"
+      ? "This email is already registered. Sign in with your password instead."
+      : ""
+  );
   const [isPending, start]      = useTransition();
 
   async function handleCredentials(e: React.FormEvent) {
