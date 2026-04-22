@@ -47,8 +47,8 @@ export default async function RootLayout({
     });
     handle = user?.handle ?? null;
 
-    // Guard: session exists but no users table row → force onboarding
-    if (!user) {
+    // Guard: signed-in but no handle (new user or OAuth user) → force onboarding
+    if (!user?.handle) {
       const heads = await headers();
       const pathname = heads.get("x-pathname") ?? "/";
       if (!ONBOARDING_EXEMPT.some((p) => pathname.startsWith(p))) {
