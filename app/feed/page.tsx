@@ -40,8 +40,8 @@ export default async function FeedPage({
     }
   }
 
-  // Base filter: published + in visible rooms
-  const baseConditions = [eq(ideas.status, "published")];
+  // Base filter: published + feed-visible + in visible rooms
+  const baseConditions = [eq(ideas.status, "published"), eq(ideas.feedVisible, true)];
   if (visibleRoomIds.length > 0) {
     baseConditions.push(inArray(ideas.roomId, visibleRoomIds));
   }

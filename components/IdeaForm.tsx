@@ -15,6 +15,7 @@ export default function IdeaForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [content, setContent] = useState("");
+  const [feedVisible, setFeedVisible] = useState(true);
 
   return (
     <form
@@ -23,6 +24,7 @@ export default function IdeaForm({
         setIsPending(true);
         formData.set("roomId", roomId);
         if (roomCategory) formData.set("category", roomCategory);
+        formData.set("feedVisible", feedVisible ? "true" : "false");
         await addIdea(formData);
         formRef.current?.reset();
         setContent("");
@@ -96,6 +98,21 @@ export default function IdeaForm({
               focus:ring-[#0d9488]/20 outline-none transition-all"
           />
         </div>
+
+        {/* Feed visibility */}
+        <label className="flex items-center gap-3 cursor-pointer group select-none">
+          <div
+            onClick={() => setFeedVisible((v) => !v)}
+            className={`w-10 h-5 rounded-full transition-colors relative shrink-0
+              ${feedVisible ? "bg-[#0d9488]" : "bg-slate-700"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
+              transition-transform ${feedVisible ? "translate-x-5" : "translate-x-0"}`} />
+          </div>
+          <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+            Show in global feed
+          </span>
+        </label>
 
         <button
           type="submit"

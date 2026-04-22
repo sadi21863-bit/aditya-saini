@@ -82,6 +82,7 @@ export const ideas = pgTable("ideas", {
   totalLikes:    integer("total_likes").default(0).notNull(),
   totalComments: integer("total_comments").default(0).notNull(),
   views:         integer("views").default(0).notNull(),
+  feedVisible:   boolean("feed_visible").default(true).notNull(),
   createdAt:     timestamp("created_at").defaultNow(),
   updatedAt:     timestamp("updated_at").defaultNow(),
 });

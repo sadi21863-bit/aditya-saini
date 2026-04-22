@@ -12,12 +12,13 @@ import { createNotification } from "@/app/actions/notificationActions";
 
 // ─── Validation ─────────────────────────────────────────────────────
 const IdeaWriteSchema = z.object({
-  title:    z.string().min(1).max(120),
-  context:  z.string().max(280).optional().default(""),
-  content:  z.string().min(1).max(10000),
-  tags:     z.array(z.string().max(30)).max(10).optional().default([]),
-  category: z.string().max(50).optional(),
-  roomId:   z.string().uuid(),
+  title:       z.string().min(1).max(120),
+  context:     z.string().max(280).optional().default(""),
+  content:     z.string().min(1).max(10000),
+  tags:        z.array(z.string().max(30)).max(10).optional().default([]),
+  category:    z.string().max(50).optional(),
+  roomId:      z.string().uuid(),
+  feedVisible: z.boolean().optional().default(true),
 });
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -64,12 +65,13 @@ export async function addIdea(formData: FormData) {
     content: formData.get("content"),
     tags: parsedTags,
     roomId,
+    feedVisible: formData.get("feedVisible") !== "false",
   });
   if (!parsed.success) return { success: false, errors: parsed.error.flatten().fieldErrors };
 
-  const { title, category, context, content, tags } = parsed.data;
+  const { title, category, context, content, tags, feedVisible } = parsed.data;
   await db.insert(ideas).values({
-    title, category, context, content, tags, roomId,
+    title, category, context, content, tags, roomId, feedVisible,
     status: "published", totalLikes: 0, totalComments: 0, views: 0, userId: callerId,
   });
 
