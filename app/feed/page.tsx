@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ideas, users, ideaLikes, rooms, roomMembers } from "@/db/schema";
-import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import IdeaCard from "@/components/IdeaCard";
 import FeedFilter from "@/components/FeedFilter";
@@ -22,23 +22,21 @@ export default async function FeedPage({
   const currentUserId = await getAuthenticatedUserId();
 
   // Get public room IDs + rooms the user is a member of
-  const visibleRoomIds: string[] = [];
-
   const publicRooms = await db
     .select({ id: rooms.id })
     .from(rooms)
     .where(eq(rooms.visibility, "public"));
-  visibleRoomIds.push(...publicRooms.map((r) => r.id));
+  const visibleSet = new Set(publicRooms.map((r) => r.id));
 
   if (currentUserId) {
     const myRooms = await db
       .select({ roomId: roomMembers.roomId })
       .from(roomMembers)
       .where(eq(roomMembers.userId, currentUserId));
-    for (const r of myRooms) {
-      if (!visibleRoomIds.includes(r.roomId)) visibleRoomIds.push(r.roomId);
-    }
+    for (const r of myRooms) visibleSet.add(r.roomId);
   }
+
+  const visibleRoomIds = [...visibleSet];
 
   // Base filter: published + feed-visible + in visible rooms
   const baseConditions = [eq(ideas.status, "published"), eq(ideas.feedVisible, true)];
