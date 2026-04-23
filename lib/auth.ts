@@ -66,6 +66,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 // ─── Helper functions (same signatures as Clerk version) ────────────
 
+let adminEmailsWarningShown = false;
+
 export async function getAuthenticatedUserId(): Promise<string | null> {
   try {
     const session = await auth();
@@ -83,6 +85,10 @@ export async function requireAuth(): Promise<string> {
 
 export async function isAdmin(): Promise<boolean> {
   try {
+    if (!process.env.ADMIN_EMAILS && !adminEmailsWarningShown) {
+      console.warn("[auth] ADMIN_EMAILS env var is not set — admin access is disabled for all users.");
+      adminEmailsWarningShown = true;
+    }
     const session = await auth();
     const adminEmails = (process.env.ADMIN_EMAILS ?? "")
       .split(",")
