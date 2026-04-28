@@ -1,6 +1,5 @@
 {
   "crons": [
-    { "path": "/api/cron/agents/tick",           "schedule": "*/5 * * * *"   },
     { "path": "/api/cron/agents/theme",          "schedule": "30 2 * * *"    },
     { "path": "/api/cron/agents/seed-ideas",     "schedule": "30 3 * * *"    },
     { "path": "/api/cron/agents/archive",        "schedule": "30 17 * * *"   },
