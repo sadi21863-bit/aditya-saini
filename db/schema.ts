@@ -286,10 +286,12 @@ export const aiThemes = pgTable("ai_themes", {
 });
 
 // ─── AI MODERATION LOG (Phase 2) ─────────────────────────────────────
+// moderatorAgentId is intentionally plain text (no FK) so system audit events
+// can use the reserved value 'system' without requiring a users table row.
+// See lib/agents/executor.ts for the privacy isolation audit log convention.
 export const aiModerationLog = pgTable("ai_moderation_log", {
   id:               uuid("id").defaultRandom().primaryKey(),
-  moderatorAgentId: text("moderator_agent_id").notNull()
-                      .references(() => users.id),
+  moderatorAgentId: text("moderator_agent_id").notNull(),
   targetType:       text("target_type").notNull(),
   targetId:         text("target_id").notNull(),
   verdict:          text("verdict").notNull(),
@@ -297,27 +299,48 @@ export const aiModerationLog = pgTable("ai_moderation_log", {
   reviewedAt:       timestamp("reviewed_at").defaultNow().notNull(),
 });
 
-// ─── AI LAB ARCHIVES (Phase 2) ───────────────────────────────────────
+// ─── AI LAB ARCHIVES (Phase 2 + Week 4) ─────────────────────────────
 export const aiLabArchives = pgTable("ai_lab_archives", {
   id:                  uuid("id").defaultRandom().primaryKey(),
   date:                date("date").notNull().unique(),
   theme:               text("theme").notNull(),
+  // summaryMarkdown kept for backward compat; new rows also populate narrative_arc
   summaryMarkdown:     text("summary_markdown").notNull(),
   topDiscussionIdeaId: uuid("top_discussion_idea_id")
                          .references(() => ideas.id),
   stats:               jsonb("stats"),
   generatedAt:         timestamp("generated_at").defaultNow().notNull(),
+  // ── Week 4 additions ──────────────────────────────────────────────
+  status:              text("status").default("draft").notNull(),  // 'draft'|'published'|'flagged'|'rejected'
+  narrativeArc:        text("narrative_arc"),
+  keyDisagreements:    jsonb("key_disagreements"),  // [{between, topic, resolution}]
+  keyQuestions:        jsonb("key_questions"),      // string[]
+  memorableQuotes:     jsonb("memorable_quotes"),   // [{agent, text, context}]
+  publishedAt:         timestamp("published_at"),
+  flaggedReason:       text("flagged_reason"),
+  reviewedByAgentId:   text("reviewed_by_agent_id"),
+  reviewedAt:          timestamp("reviewed_at"),
 });
 
-// ─── AI LAB ROLLUPS (Phase 2) ────────────────────────────────────────
+// ─── AI LAB ROLLUPS (Phase 2 + Week 4) ──────────────────────────────
 export const aiLabRollups = pgTable("ai_lab_rollups", {
   id:              uuid("id").defaultRandom().primaryKey(),
-  periodType:      text("period_type").notNull(),
+  periodType:      text("period_type").notNull(),   // 'weekly' | 'monthly'
   periodStart:     date("period_start").notNull(),
   periodEnd:       date("period_end").notNull(),
   title:           text("title").notNull(),
   summaryMarkdown: text("summary_markdown").notNull(),
   generatedAt:     timestamp("generated_at").defaultNow().notNull(),
+  // ── Week 4 additions ──────────────────────────────────────────────
+  status:              text("status").default("draft").notNull(),
+  narrativeArc:        text("narrative_arc"),
+  keyDisagreements:    jsonb("key_disagreements"),
+  keyQuestions:        jsonb("key_questions"),
+  memorableQuotes:     jsonb("memorable_quotes"),
+  publishedAt:         timestamp("published_at"),
+  flaggedReason:       text("flagged_reason"),
+  reviewedByAgentId:   text("reviewed_by_agent_id"),
+  reviewedAt:          timestamp("reviewed_at"),
 }, (table) => ({
   uniqueRollup: uniqueIndex("unique_ai_lab_rollup")
     .on(table.periodType, table.periodStart),
