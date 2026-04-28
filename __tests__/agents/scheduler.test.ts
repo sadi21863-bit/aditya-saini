@@ -41,8 +41,11 @@ import {
   queueDailyIdeas,
   queueCommentsOnIdea,
   queueMentionResponse,
+  queueLabDiscussion,
   queueQualityReview,
   queueDailyArchive,
+  queueWeeklyRollup,
+  queueMonthlyRollup,
 } from "@/lib/agents/scheduler";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -242,7 +245,21 @@ describe("queueCommentsOnIdea", () => {
   });
 });
 
-// ─── Mention response ─────────────────────────────────────────────────
+// ─── Mention response (Week 3 shape) ─────────────────────────────────
+
+const MENTION_CTX = {
+  agentId:          "ai_llama",
+  agentHandle:      "llama",
+  roomId:           "room-uuid",
+  ideaId:           "idea-uuid",
+  mentionUserId:    "user-1",
+  mentionText:      "@llama what do you think?",
+  isPrivateRoom:    false,
+  isRandomSelection: false,
+  echoToLab:        false,
+  ideaTitle:        "Test idea",
+  ideaContent:      "Test content",
+};
 
 describe("queueMentionResponse", () => {
   beforeEach(() => {
@@ -254,52 +271,101 @@ describe("queueMentionResponse", () => {
   });
 
   it("queues one row", async () => {
-    await queueMentionResponse({
-      agentId:          "ai_llama",
-      ideaId:           "idea-uuid",
-      mentioningUserId: "user-1",
-      isRandomSelection: false,
-      authorHandle:     "some-user",
-      ideaTitle:        "Title",
-      ideaContent:      "Content",
-    });
+    await queueMentionResponse(MENTION_CTX);
     expect(capturedInserts).toHaveLength(1);
   });
 
-  it("sets actionType to comment (mention responses are comments)", async () => {
-    await queueMentionResponse({
-      agentId: "ai_llama", ideaId: "id", mentioningUserId: "u",
-      isRandomSelection: false, authorHandle: "a", ideaTitle: "t", ideaContent: "c",
-    });
+  it("sets actionType to comment", async () => {
+    await queueMentionResponse(MENTION_CTX);
     expect(lastInsert().actionType).toBe("comment");
   });
 
-  it("sets priority to 5 (higher than regular Lab comments)", async () => {
-    await queueMentionResponse({
-      agentId: "ai_qwen", ideaId: "id", mentioningUserId: "u",
-      isRandomSelection: true, authorHandle: "a", ideaTitle: "t", ideaContent: "c",
-    });
+  it("sets priority to 5", async () => {
+    await queueMentionResponse(MENTION_CTX);
     expect(lastInsert().priority).toBe(5);
   });
 
-  it("sets isFromMention=true in promptContext", async () => {
-    await queueMentionResponse({
-      agentId: "ai_gpt_oss", ideaId: "id", mentioningUserId: "u",
-      isRandomSelection: false, authorHandle: "a", ideaTitle: "t", ideaContent: "c",
-    });
+  it("sets kind='mention_response' in promptContext", async () => {
+    await queueMentionResponse(MENTION_CTX);
     const ctx = lastInsert().promptContext as Record<string, unknown>;
-    expect(ctx.isFromMention).toBe(true);
+    expect(ctx.kind).toBe("mention_response");
+  });
+
+  it("sets roomId to the ORIGINAL room (not AI Lab room)", async () => {
+    await queueMentionResponse(MENTION_CTX);
+    expect(lastInsert().roomId).toBe("room-uuid");
   });
 
   it("schedules in the 10–30 min window", async () => {
-    await queueMentionResponse({
-      agentId: "ai_llama", ideaId: "id", mentioningUserId: "u",
-      isRandomSelection: false, authorHandle: "a", ideaTitle: "t", ideaContent: "c",
-    });
+    await queueMentionResponse(MENTION_CTX);
     const now = Date.now();
     const delayMin = ((lastInsert().scheduledFor as Date).getTime() - now) / 60_000;
     expect(delayMin).toBeGreaterThanOrEqual(9.9);
     expect(delayMin).toBeLessThanOrEqual(30.1);
+  });
+
+  it("forces echo_to_lab=false for private rooms even if echoToLab=true was passed", async () => {
+    await queueMentionResponse({ ...MENTION_CTX, isPrivateRoom: true, echoToLab: true });
+    const ctx = lastInsert().promptContext as Record<string, unknown>;
+    expect(ctx.echo_to_lab).toBe(false);
+  });
+});
+
+// ─── Lab discussion (Week 3) ──────────────────────────────────────────
+
+describe("queueLabDiscussion", () => {
+  beforeEach(() => {
+    resetCaptures();
+    mockInsertValues.mockImplementation((data) => {
+      capturedInserts.push(data);
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("throws when is_private_room=true (Layer 3 isolation)", async () => {
+    await expect(
+      queueLabDiscussion({
+        agentId: "ai_llama", sourceRoomId: "r", sourceIdeaId: "i",
+        sourceIdeasummary: "s", isPrivateRoom: true,
+      })
+    ).rejects.toThrow("privacy_isolation");
+    expect(capturedInserts).toHaveLength(0);  // no DB write
+  });
+
+  it("queues one row when is_private_room=false", async () => {
+    await queueLabDiscussion({
+      agentId: "ai_llama", sourceRoomId: "r", sourceIdeaId: "i",
+      sourceIdeasummary: "s", isPrivateRoom: false,
+    });
+    expect(capturedInserts).toHaveLength(1);
+  });
+
+  it("sets actionType to lab_discussion", async () => {
+    await queueLabDiscussion({
+      agentId: "ai_llama", sourceRoomId: "r", sourceIdeaId: "i",
+      sourceIdeasummary: "s", isPrivateRoom: false,
+    });
+    expect(lastInsert().actionType).toBe("lab_discussion");
+  });
+
+  it("sets is_private_room=false in promptContext", async () => {
+    await queueLabDiscussion({
+      agentId: "ai_llama", sourceRoomId: "r", sourceIdeaId: "i",
+      sourceIdeasummary: "s", isPrivateRoom: false,
+    });
+    const ctx = lastInsert().promptContext as Record<string, unknown>;
+    expect(ctx.is_private_room).toBe(false);
+  });
+
+  it("schedules in the 1–3 hour window", async () => {
+    await queueLabDiscussion({
+      agentId: "ai_llama", sourceRoomId: "r", sourceIdeaId: "i",
+      sourceIdeasummary: "s", isPrivateRoom: false,
+    });
+    const now = Date.now();
+    const delayMin = ((lastInsert().scheduledFor as Date).getTime() - now) / 60_000;
+    expect(delayMin).toBeGreaterThanOrEqual(59);
+    expect(delayMin).toBeLessThanOrEqual(181);
   });
 });
 
@@ -382,5 +448,73 @@ describe("queueDailyArchive", () => {
     const ts = (lastInsert().scheduledFor as Date).getTime();
     expect(ts).toBeGreaterThanOrEqual(before);
     expect(ts).toBeLessThanOrEqual(after + 100);
+  });
+});
+
+// ─── Weekly rollup ────────────────────────────────────────────────────
+
+describe("queueWeeklyRollup", () => {
+  beforeEach(() => {
+    resetCaptures();
+    mockInsertValues.mockImplementation((data) => {
+      capturedInserts.push(data);
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("queues one row with actionType='rollup_week' and agentId='ai_archivist'", async () => {
+    await queueWeeklyRollup();
+    expect(capturedInserts).toHaveLength(1);
+    expect(lastInsert().actionType).toBe("rollup_week");
+    expect(lastInsert().agentId).toBe("ai_archivist");
+  });
+
+  it("sets priority=1 and schedules for now", async () => {
+    const before = Date.now();
+    await queueWeeklyRollup();
+    expect(lastInsert().priority).toBe(1);
+    expect((lastInsert().scheduledFor as Date).getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it("sets periodEnd to yesterday and periodStart to 7 days ago", async () => {
+    const before = new Date();
+    await queueWeeklyRollup();
+    const ctx       = lastInsert().promptContext as Record<string, string>;
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const sevenAgo  = new Date();
+    sevenAgo.setUTCDate(sevenAgo.getUTCDate() - 7);
+    expect(ctx.periodEnd).toBe(yesterday.toISOString().slice(0, 10));
+    expect(ctx.periodStart).toBe(sevenAgo.toISOString().slice(0, 10));
+    void before;
+  });
+});
+
+// ─── Monthly rollup ───────────────────────────────────────────────────
+
+describe("queueMonthlyRollup", () => {
+  beforeEach(() => {
+    resetCaptures();
+    mockInsertValues.mockImplementation((data) => {
+      capturedInserts.push(data);
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("queues one row with actionType='rollup_month' and agentId='ai_archivist'", async () => {
+    await queueMonthlyRollup();
+    expect(capturedInserts).toHaveLength(1);
+    expect(lastInsert().actionType).toBe("rollup_month");
+    expect(lastInsert().agentId).toBe("ai_archivist");
+  });
+
+  it("sets period to the previous calendar month", async () => {
+    await queueMonthlyRollup();
+    const ctx = lastInsert().promptContext as Record<string, string>;
+    const now = new Date();
+    const expectedEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+    const expectedStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    expect(ctx.periodEnd).toBe(expectedEnd.toISOString().slice(0, 10));
+    expect(ctx.periodStart).toBe(expectedStart.toISOString().slice(0, 10));
   });
 });

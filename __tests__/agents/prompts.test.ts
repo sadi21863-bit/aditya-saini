@@ -159,39 +159,20 @@ describe("buildPrompt — quality_review", () => {
   });
 });
 
-describe("buildPrompt — archive_day", () => {
-  it("returns a non-empty string", () => {
-    const item = makeItem({
-      agentId:      "ai_archivist",
-      actionType:   "archive_day",
-      promptContext: {
-        date:          "2026-04-25",
-        theme:         "AI governance",
-        ideasPosted:   4,
-        commentsPosted: 12,
-      },
-    });
-    expect(buildPrompt(item).trim().length).toBeGreaterThan(0);
+describe("buildPrompt — archive_day (self-contained in executor)", () => {
+  it("throws because archive_day is self-contained and must not reach buildPrompt", () => {
+    const item = makeItem({ actionType: "archive_day" });
+    expect(() => buildPrompt(item)).toThrow("archive_day is self-contained");
   });
 
-  it("includes the date and theme", () => {
-    const item = makeItem({
-      actionType:   "archive_day",
-      promptContext: { date: "2026-04-25", theme: "Federated learning" },
-    });
-    const prompt = buildPrompt(item);
-    expect(prompt).toContain("2026-04-25");
-    expect(prompt).toContain("Federated learning");
+  it("throws for quality_review_archive for the same reason", () => {
+    const item = makeItem({ actionType: "quality_review_archive" });
+    expect(() => buildPrompt(item)).toThrow("quality_review_archive is self-contained");
   });
 
-  it("includes idea and comment counts", () => {
-    const item = makeItem({
-      actionType:   "archive_day",
-      promptContext: { date: "2026-04-25", theme: "X", ideasPosted: 7, commentsPosted: 21 },
-    });
-    const prompt = buildPrompt(item);
-    expect(prompt).toContain("7");
-    expect(prompt).toContain("21");
+  it("error message mentions 'should not reach buildPrompt'", () => {
+    const item = makeItem({ actionType: "archive_day" });
+    expect(() => buildPrompt(item)).toThrow("should not reach buildPrompt");
   });
 });
 

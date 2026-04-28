@@ -1,10 +1,12 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 // Mock executor and scheduler before importing routes
-const mockProcessQueue       = vi.hoisted(() => vi.fn().mockResolvedValue({ processed: 1, failed: 0 }));
+const mockProcessQueue        = vi.hoisted(() => vi.fn().mockResolvedValue({ processed: 1, failed: 0 }));
 const mockQueueThemeSelection = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockQueueDailyIdeas     = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockQueueDailyArchive   = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockQueueWeeklyRollup   = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockQueueMonthlyRollup  = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/lib/agents/executor", () => ({
   processQueue: mockProcessQueue,
@@ -14,12 +16,16 @@ vi.mock("@/lib/agents/scheduler", () => ({
   queueThemeSelection: mockQueueThemeSelection,
   queueDailyIdeas:     mockQueueDailyIdeas,
   queueDailyArchive:   mockQueueDailyArchive,
+  queueWeeklyRollup:   mockQueueWeeklyRollup,
+  queueMonthlyRollup:  mockQueueMonthlyRollup,
 }));
 
-import { POST as tickPOST }      from "@/app/api/cron/agents/tick/route";
-import { POST as themePOST }     from "@/app/api/cron/agents/theme/route";
-import { POST as seedIdeasPOST } from "@/app/api/cron/agents/seed-ideas/route";
-import { POST as archivePOST }   from "@/app/api/cron/agents/archive/route";
+import { POST as tickPOST }         from "@/app/api/cron/agents/tick/route";
+import { POST as themePOST }        from "@/app/api/cron/agents/theme/route";
+import { POST as seedIdeasPOST }    from "@/app/api/cron/agents/seed-ideas/route";
+import { POST as archivePOST }      from "@/app/api/cron/agents/archive/route";
+import { POST as rollupWeeklyPOST } from "@/app/api/cron/agents/rollup-weekly/route";
+import { POST as rollupMonthlyPOST} from "@/app/api/cron/agents/rollup-monthly/route";
 
 // ─── Test helpers ─────────────────────────────────────────────────────
 
@@ -170,5 +176,55 @@ describe("POST /api/cron/agents/archive", () => {
   it("calls queueDailyArchive", async () => {
     await archivePOST(auth());
     expect(mockQueueDailyArchive).toHaveBeenCalledOnce();
+  });
+});
+
+// ─── /api/cron/agents/rollup-weekly ──────────────────────────────────
+
+describe("POST /api/cron/agents/rollup-weekly", () => {
+  const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
+
+  it("returns 200 with success=true and queued='rollup_week'", async () => {
+    const res  = await rollupWeeklyPOST(auth());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.queued).toBe("rollup_week");
+  });
+
+  it("calls queueWeeklyRollup", async () => {
+    await rollupWeeklyPOST(auth());
+    expect(mockQueueWeeklyRollup).toHaveBeenCalledOnce();
+  });
+
+  it("returns 500 when queueWeeklyRollup throws", async () => {
+    mockQueueWeeklyRollup.mockRejectedValueOnce(new Error("DB error"));
+    const res = await rollupWeeklyPOST(auth());
+    expect(res.status).toBe(500);
+  });
+});
+
+// ─── /api/cron/agents/rollup-monthly ─────────────────────────────────
+
+describe("POST /api/cron/agents/rollup-monthly", () => {
+  const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
+
+  it("returns 200 with success=true and queued='rollup_month'", async () => {
+    const res  = await rollupMonthlyPOST(auth());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.queued).toBe("rollup_month");
+  });
+
+  it("calls queueMonthlyRollup", async () => {
+    await rollupMonthlyPOST(auth());
+    expect(mockQueueMonthlyRollup).toHaveBeenCalledOnce();
+  });
+
+  it("returns 500 when queueMonthlyRollup throws", async () => {
+    mockQueueMonthlyRollup.mockRejectedValueOnce(new Error("DB error"));
+    const res = await rollupMonthlyPOST(auth());
+    expect(res.status).toBe(500);
   });
 });
