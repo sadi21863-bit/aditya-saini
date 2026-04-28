@@ -466,7 +466,7 @@ Write the archive narrative following your Archivist instructions. Output ONLY t
   // ── 4. Parse structured JSON response ───────────────────────────────
   let parsed: ArchivistOutput;
   try {
-    parsed = parseJsonResponse(cleaned) as ArchivistOutput;
+    parsed = parseJsonResponse(cleaned) as unknown as ArchivistOutput;
   } catch (e) {
     throw new Error(`Archivist produced invalid JSON: ${(e as Error).message}`);
   }
@@ -737,7 +737,7 @@ async function executeRollupWeek(
 
   let parsed: ArchivistOutput;
   try {
-    parsed = parseJsonResponse(rawResponse) as ArchivistOutput;
+    parsed = parseJsonResponse(rawResponse) as unknown as ArchivistOutput;
   } catch (e) {
     throw new Error(`Archivist produced invalid JSON for weekly rollup: ${(e as Error).message}`);
   }
@@ -884,7 +884,7 @@ async function executeRollupMonth(
 
   let parsed: ArchivistOutput;
   try {
-    parsed = parseJsonResponse(rawResponse) as ArchivistOutput;
+    parsed = parseJsonResponse(rawResponse) as unknown as ArchivistOutput;
   } catch (e) {
     throw new Error(`Archivist produced invalid JSON for monthly rollup: ${(e as Error).message}`);
   }
