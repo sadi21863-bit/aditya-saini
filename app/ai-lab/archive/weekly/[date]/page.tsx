@@ -132,7 +132,7 @@ export default async function WeeklyRollupPage({ params }: { params: Promise<Par
               <blockquote key={i} className="border-l-2 border-teal-600 pl-4">
                 <p className="text-slate-200 text-sm leading-relaxed mb-2">{String(q.text ?? "")}</p>
                 <footer className="text-teal-400 text-xs font-semibold">— @{String(q.agent ?? "")}</footer>
-                {q.context && <p className="text-slate-500 text-xs italic mt-1">{String(q.context)}</p>}
+                {!!q.context && <p className="text-slate-500 text-xs italic mt-1">{String(q.context)}</p>}
               </blockquote>
             ))}
           </div>
