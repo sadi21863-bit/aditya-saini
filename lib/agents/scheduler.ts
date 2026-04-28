@@ -124,42 +124,116 @@ export async function queueCommentsOnIdea(
   }
 }
 
-// ─── @Mention responses ───────────────────────────────────────────────
+// ─── Human @Mention responses (Week 3) ───────────────────────────────
+//
+// prompt_context contract for kind='mention_response':
+//   kind             "mention_response"
+//   mention_room_id  UUID of the room where the mention happened
+//   mention_idea_id  UUID of the idea being discussed (null if no specific idea)
+//   mention_user_id  Clerk/auth user ID of the human who wrote the mention
+//   mention_text     The raw comment text containing the @mention
+//   target_handles   Array of agent handles being addressed (["llama"] etc.)
+//   echo_to_lab      Boolean — whether a lab_discussion follow-up is queued
+//   is_private_room  Boolean — whether the source room is private
+//   ideaTitle        Idea title (for prompt building; avoid extra DB lookup in executor)
+//   ideaContent      Idea content (same reason)
+//
+// Privacy isolation guarantee (Layer 3 of 4):
+//   queueMentionResponse refuses to set echo_to_lab=true for private rooms.
+//   queueLabDiscussion throws if is_private_room is true.
+//   See app/actions/ai-mention-actions.ts for Layers 1-2,
+//   and lib/agents/executor.ts for Layer 4.
 
-export interface MentionContext {
+export interface HumanMentionContext {
   agentId:          string;
+  agentHandle:      string;
+  roomId:           string;
   ideaId:           string;
-  mentioningUserId: string;
+  mentionUserId:    string;
+  mentionText:      string;
+  isPrivateRoom:    boolean;
   isRandomSelection: boolean;
-  authorHandle:     string;
+  echoToLab:        boolean;  // already resolved by submitMentionWithChoice (Layer 2)
   ideaTitle:        string;
   ideaContent:      string;
 }
 
 /**
  * Queues a comment action in response to a human @mention.
+ * Response is written to the ORIGINAL room (not the AI Lab room).
  * Priority=5 (higher than regular Lab comments). Delayed 10–30 min.
- * The "comment" action type is used; isFromMention in promptContext
- * signals the executor to use the mention-response prompt style.
  */
-export async function queueMentionResponse(context: MentionContext): Promise<void> {
+export async function queueMentionResponse(ctx: HumanMentionContext): Promise<void> {
+  // Layer 3 safety: never set echo_to_lab=true for private rooms, even if caller
+  // somehow sends it. Treat this as a bug in the caller and correct silently.
+  const safeEchoToLab = ctx.echoToLab && !ctx.isPrivateRoom;
+
   const delayMs = (10 + Math.random() * 20) * 60 * 1000; // 10–30 min
 
   await db.insert(aiQueue).values({
-    agentId:      context.agentId,
+    agentId:      ctx.agentId,
     actionType:   "comment",
-    roomId:       AI_LAB_ROOM_ID,
-    targetIdeaId: context.ideaId,
+    roomId:       ctx.roomId,
+    targetIdeaId: ctx.ideaId,
     promptContext: {
-      authorHandle:     context.authorHandle,
-      ideaTitle:        context.ideaTitle,
-      ideaContent:      context.ideaContent,
+      kind:             "mention_response",
+      mention_room_id:  ctx.roomId,
+      mention_idea_id:  ctx.ideaId,
+      mention_user_id:  ctx.mentionUserId,
+      mention_text:     ctx.mentionText,
+      target_handles:   [ctx.agentHandle],
+      echo_to_lab:      safeEchoToLab,
+      is_private_room:  ctx.isPrivateRoom,
+      // Pre-fetched for prompt building — avoids a DB lookup in the executor
+      ideaTitle:        ctx.ideaTitle,
+      ideaContent:      ctx.ideaContent,
       isFromMention:    true,
-      mentioningUserId: context.mentioningUserId,
-      isRandomSelection: context.isRandomSelection,
+      isRandomSelection: ctx.isRandomSelection,
     },
     scheduledFor: new Date(Date.now() + delayMs),
     priority:     5,
+    status:       "pending",
+  });
+}
+
+export interface LabDiscussionContext {
+  agentId:           string;
+  sourceRoomId:      string;
+  sourceIdeaId:      string;
+  sourceIdeasummary: string;
+  isPrivateRoom:     boolean;  // must always be false — Layer 3 enforces this
+}
+
+/**
+ * Queues a lab_discussion action — the AI echoes the topic publicly in the Lab.
+ * Delayed 1–3 hours after the mention response.
+ * THROWS if is_private_room is true (Layer 3 of private-room isolation).
+ */
+export async function queueLabDiscussion(ctx: LabDiscussionContext): Promise<void> {
+  // Layer 3: refuse to create a lab_discussion from a private room entirely
+  if (ctx.isPrivateRoom) {
+    throw new Error(
+      `privacy_isolation: queueLabDiscussion called with is_private_room=true ` +
+      `(source idea: ${ctx.sourceIdeaId}). Lab discussion blocked at scheduler.`
+    );
+  }
+
+  const delayMs = (60 + Math.random() * 120) * 60 * 1000; // 1–3 hours
+
+  await db.insert(aiQueue).values({
+    agentId:      ctx.agentId,
+    actionType:   "lab_discussion",
+    roomId:       AI_LAB_ROOM_ID,
+    targetIdeaId: ctx.sourceIdeaId,
+    promptContext: {
+      kind:               "lab_discussion",
+      source_room_id:     ctx.sourceRoomId,
+      source_idea_id:     ctx.sourceIdeaId,
+      source_idea_summary: ctx.sourceIdeasummary,
+      is_private_room:    false,
+    },
+    scheduledFor: new Date(Date.now() + delayMs),
+    priority:     7,
     status:       "pending",
   });
 }
@@ -219,6 +293,65 @@ export async function queueQualityReview(
     },
     scheduledFor: new Date(Date.now() + 30_000), // 30 seconds
     priority:     2,
+    status:       "pending",
+  });
+}
+
+// ─── Weekly rollup ────────────────────────────────────────────────────
+
+/**
+ * Queues a rollup_week action for the Archivist (priority=1, run immediately).
+ * Period covers the 7 days ending yesterday (rolling window, not calendar week).
+ */
+export async function queueWeeklyRollup(): Promise<void> {
+  const archivist = ALL_AGENTS.find((a) => a.role === "archivist");
+  if (!archivist) throw new Error("Archivist agent not found");
+
+  const periodEnd   = new Date();
+  periodEnd.setUTCDate(periodEnd.getUTCDate() - 1);
+  const periodStart = new Date();
+  periodStart.setUTCDate(periodStart.getUTCDate() - 7);
+
+  await db.insert(aiQueue).values({
+    agentId:      archivist.id,
+    actionType:   "rollup_week",
+    roomId:       AI_LAB_ROOM_ID,
+    promptContext: {
+      periodStart: periodStart.toISOString().slice(0, 10),
+      periodEnd:   periodEnd.toISOString().slice(0, 10),
+    },
+    scheduledFor: new Date(),
+    priority:     1,
+    status:       "pending",
+  });
+}
+
+// ─── Monthly rollup ───────────────────────────────────────────────────
+
+/**
+ * Queues a rollup_month action for the Archivist (priority=1, run immediately).
+ * Period covers the previous complete calendar month.
+ */
+export async function queueMonthlyRollup(): Promise<void> {
+  const archivist = ALL_AGENTS.find((a) => a.role === "archivist");
+  if (!archivist) throw new Error("Archivist agent not found");
+
+  const now         = new Date();
+  // Last day of the previous month
+  const periodEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+  // First day of the previous month
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+
+  await db.insert(aiQueue).values({
+    agentId:      archivist.id,
+    actionType:   "rollup_month",
+    roomId:       AI_LAB_ROOM_ID,
+    promptContext: {
+      periodStart: periodStart.toISOString().slice(0, 10),
+      periodEnd:   periodEnd.toISOString().slice(0, 10),
+    },
+    scheduledFor: new Date(),
+    priority:     1,
     status:       "pending",
   });
 }
