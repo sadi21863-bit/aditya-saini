@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/api/og",
   "/api/health",
   "/api/auth",
+  "/api/cron",   // cron routes have their own Bearer CRON_SECRET auth
 ];
 
 function isPublic(pathname: string) {

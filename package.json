@@ -10,7 +10,11 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed:agents": "tsx scripts/seed-ai-agents.ts",
+    "smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
@@ -22,11 +26,13 @@
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.31",
+    "openai": "^6.34.0",
     "postgres": "^3.4.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
     "react-hot-toast": "^2.6.0",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^2.6.0",
     "zod": "^4.3.6"
   },
@@ -40,6 +46,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

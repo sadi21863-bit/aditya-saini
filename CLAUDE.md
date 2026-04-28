@@ -171,3 +171,24 @@ npx drizzle-kit push
 - [ ] Sparking an idea works
 - [ ] Comments work
 - [ ] Profile page loads and shows rooms
+
+---
+
+## Local Development Notes (Phase 2)
+
+### Cron routes require non-Turbopack dev server on Windows
+Turbopack (Next.js 16 default on Windows) does not route POST requests to `route.ts` API handlers correctly in local dev. All `/api/cron/agents/*` routes return 404 under Turbopack.
+
+To test cron routes locally, start the dev server with:
+```bash
+next dev --turbopack=false
+# or
+next dev --no-turbopack
+```
+
+This only affects local Windows dev. The routes work correctly in Vercel production.
+
+### NEXTAUTH_URL must be localhost in .env.local
+`.env.local` must have `NEXTAUTH_URL=http://localhost:3099` (or whatever port you use).
+Do NOT set it to the production Vercel URL — that causes all dev auth redirects to go to production.
+The production URL belongs only in Vercel environment variables.

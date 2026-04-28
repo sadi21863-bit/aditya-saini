@@ -1,0 +1,167 @@
+import { describe, it, expect } from "vitest";
+import { ALL_AGENTS, getAdmins, getParticipants } from "@/lib/agents/personas";
+
+describe("personas — ALL_AGENTS structure", () => {
+  it("has exactly 6 agents (2 admin + 3 participant + 1 archivist)", () => {
+    expect(ALL_AGENTS).toHaveLength(6);
+  });
+
+  it("every agent has all required fields", () => {
+    const requiredFields = [
+      "id", "name", "handle", "provider", "model",
+      "role", "persona", "dailyLimit", "avatar",
+    ] as const;
+
+    for (const agent of ALL_AGENTS) {
+      for (const field of requiredFields) {
+        expect(agent[field], `${agent.id} is missing "${field}"`).toBeDefined();
+        expect(agent[field], `${agent.id}.${field} is empty`).not.toBe("");
+      }
+    }
+  });
+
+  it("no duplicate handles", () => {
+    const handles = ALL_AGENTS.map((a) => a.handle);
+    const uniqueHandles = new Set(handles);
+    expect(uniqueHandles.size).toBe(handles.length);
+  });
+
+  it("no duplicate ids", () => {
+    const ids = ALL_AGENTS.map((a) => a.id);
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(ids.length);
+  });
+
+  it("provider is exactly 'groq' or 'cerebras' for every agent", () => {
+    for (const agent of ALL_AGENTS) {
+      expect(["groq", "cerebras"]).toContain(agent.provider);
+    }
+  });
+
+  it("dailyLimit is a positive integer for every agent", () => {
+    for (const agent of ALL_AGENTS) {
+      expect(typeof agent.dailyLimit).toBe("number");
+      expect(Number.isInteger(agent.dailyLimit)).toBe(true);
+      expect(agent.dailyLimit).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("personas — admin tier", () => {
+  it("getAdmins returns exactly 2 agents", () => {
+    expect(getAdmins()).toHaveLength(2);
+  });
+
+  it("admin agents are Theme Setter and Quality Checker", () => {
+    const roles = getAdmins().map((a) => a.role).sort();
+    expect(roles).toEqual(["quality_checker", "theme_setter"]);
+  });
+
+  it("admin agents use Groq as provider", () => {
+    for (const agent of getAdmins()) {
+      expect(agent.provider).toBe("groq");
+    }
+  });
+
+  it("admin agents use the adminReasoning model (qwen/qwen3-32b default)", () => {
+    const expectedModel = process.env.AGENT_MODEL_ADMIN ?? "qwen/qwen3-32b";
+    for (const agent of getAdmins()) {
+      expect(agent.model).toBe(expectedModel);
+    }
+  });
+});
+
+describe("personas — participant tier", () => {
+  it("getParticipants returns exactly 3 agents", () => {
+    expect(getParticipants()).toHaveLength(3);
+  });
+
+  it("participants are Llama (groq), GPT-OSS (groq), Qwen (cerebras)", () => {
+    const participants = getParticipants();
+    const llamaAgent   = participants.find((a) => a.handle === "llama");
+    const gptOssAgent  = participants.find((a) => a.handle === "gpt-oss");
+    const qwenAgent    = participants.find((a) => a.handle === "qwen");
+
+    expect(llamaAgent).toBeDefined();
+    expect(gptOssAgent).toBeDefined();
+    expect(qwenAgent).toBeDefined();
+
+    expect(llamaAgent!.provider).toBe("groq");
+    expect(gptOssAgent!.provider).toBe("groq");
+    expect(qwenAgent!.provider).toBe("cerebras");
+  });
+
+  it("every participant persona contains the BRUTAL_HONESTY_RULE markers", () => {
+    for (const agent of getParticipants()) {
+      expect(agent.persona, `${agent.handle} is missing sycophancy ban`).toContain(
+        "NEVER begin a response with"
+      );
+      expect(agent.persona, `${agent.handle} is missing privacy rule`).toContain(
+        "UNIVERSAL PRIVACY RULE"
+      );
+    }
+  });
+
+  it("Llama uses llama-3.3-70b-versatile model", () => {
+    const llama = getParticipants().find((a) => a.handle === "llama")!;
+    const expected = process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile";
+    expect(llama.model).toBe(expected);
+  });
+
+  it("GPT-OSS uses openai/gpt-oss-120b model", () => {
+    const gptOss = getParticipants().find((a) => a.handle === "gpt-oss")!;
+    const expected = process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b";
+    expect(gptOss.model).toBe(expected);
+  });
+
+  it("Qwen uses qwen-3-235b-a22b-instruct-2507 model", () => {
+    const qwen = getParticipants().find((a) => a.handle === "qwen")!;
+    const expected = process.env.AGENT_MODEL_QWEN ?? "qwen-3-235b-a22b-instruct-2507";
+    expect(qwen.model).toBe(expected);
+  });
+});
+
+describe("personas — archivist tier", () => {
+  it("exactly 1 archivist exists", () => {
+    const archivists = ALL_AGENTS.filter((a) => a.role === "archivist");
+    expect(archivists).toHaveLength(1);
+  });
+
+  it("Archivist uses Cerebras as provider", () => {
+    const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
+    expect(archivist.provider).toBe("cerebras");
+  });
+
+  it("Archivist uses qwen-3-235b-a22b-instruct-2507 model", () => {
+    const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
+    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "qwen-3-235b-a22b-instruct-2507";
+    expect(archivist.model).toBe(expected);
+  });
+
+  it("Archivist is NOT in getParticipants()", () => {
+    const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
+    expect(getParticipants()).not.toContainEqual(archivist);
+  });
+});
+
+describe("personas — no deferred agents", () => {
+  it("no Conductor agent exists (deferred to Phase 3)", () => {
+    const conductor = ALL_AGENTS.find((a) => a.role === "conductor");
+    expect(conductor).toBeUndefined();
+  });
+
+  it("no Research Delegator agent exists (deferred to Phase 3)", () => {
+    const delegator = ALL_AGENTS.find((a) => a.role === "research_delegator");
+    expect(delegator).toBeUndefined();
+  });
+
+  it("no DeepSeek agent exists (not available on free tier)", () => {
+    const deepseek = ALL_AGENTS.find((a) => a.handle.toLowerCase().includes("deepseek"));
+    expect(deepseek).toBeUndefined();
+  });
+
+  it("no Mistral agent exists (removed in v4.2)", () => {
+    const mistral = ALL_AGENTS.find((a) => a.handle.toLowerCase().includes("mistral"));
+    expect(mistral).toBeUndefined();
+  });
+});
