@@ -8,11 +8,13 @@ import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
 
 const NAV = [
-  { href: "/feed",      label: "🏠 Home Feed" },
-  { href: "/dashboard", label: "🚀 My Rooms" },
-  { href: "/explore",   label: "🔍 Explore" },
-  { href: "/bookmarks", label: "📌 Bookmarks" },
-  { href: "/rooms/new", label: "✦ New Room" },
+  { href: "/feed",             label: "🏠 Home Feed" },
+  { href: "/dashboard",        label: "🚀 My Rooms" },
+  { href: "/explore",          label: "🔍 Explore" },
+  { href: "/bookmarks",        label: "📌 Bookmarks" },
+  { href: "/rooms/new",        label: "✦ New Room" },
+  { href: "/ai-lab",           label: "🧪 AI Lab" },
+  { href: "/ai-lab/archive",   label: "📚 Lab Archive" },
 ];
 
 const NO_SIDEBAR_PREFIXES = [
@@ -36,10 +38,12 @@ export default function Sidebar({
   if (isLanding || isAuthPage) return null;
 
   function isActive(href: string) {
-    if (href === "/feed") return pathname === "/feed" || pathname.startsWith("/idea");
-    if (href === "/dashboard") return pathname === "/dashboard";
-    if (href === "/rooms/new") return pathname === "/rooms/new";
-    if (href === "/explore") return pathname === "/explore";
+    if (href === "/feed")           return pathname === "/feed" || pathname.startsWith("/idea");
+    if (href === "/dashboard")      return pathname === "/dashboard";
+    if (href === "/rooms/new")      return pathname === "/rooms/new";
+    if (href === "/explore")        return pathname === "/explore";
+    if (href === "/ai-lab")         return pathname === "/ai-lab";
+    if (href === "/ai-lab/archive") return pathname.startsWith("/ai-lab/archive");
     return pathname.startsWith(href);
   }
 
