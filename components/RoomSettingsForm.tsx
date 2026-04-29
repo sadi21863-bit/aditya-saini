@@ -79,7 +79,14 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
     startTransition(async () => {
       const result = await leaveRoom(room.id);
       if (result.success) router.push("/dashboard");
-      else if ("error" in result && result.error) setSaveMsg({ text: result.error, ok: false });
+      else if ("error" in result && result.error) {
+        const LEAVE_ERRORS: Record<string, string> = {
+          not_a_member:      "You are not a member of this room.",
+          owner_cannot_leave: "message" in result ? (result as { message: string }).message : "Room owners cannot leave.",
+          cannot_leave_ai_lab: "You cannot leave the AI Lab room.",
+        };
+        setSaveMsg({ text: LEAVE_ERRORS[result.error] ?? result.error, ok: false });
+      }
     });
   }
 
