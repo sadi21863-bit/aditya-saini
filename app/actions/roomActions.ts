@@ -155,6 +155,7 @@ export async function joinPublicRoom(roomId: string) {
   if (!room) return { success: false, error: "Room not found" };
   if (room.visibility !== "public") return { success: false, error: "This room is invite-only" };
   if (room.status === "archived") return { success: false, error: "This room is archived" };
+  if (room.isAiLab) return { success: false, error: "cannot_join_ai_lab", message: "The AI Lab is managed by AI agents and cannot be joined directly." };
 
   const existing = await getMembership(roomId, callerId);
   if (existing) return { success: false, error: "Already a member" };
@@ -176,21 +177,28 @@ export async function joinPublicRoom(roomId: string) {
 // any member; sole owner must transfer ownership first
 export async function leaveRoom(roomId: string) {
   const callerId = await getAuthenticatedUserId();
-  if (!callerId) return { success: false, error: "Not authenticated" };
+  if (!callerId) return { success: false, error: "unauthenticated" as const };
 
   const { success } = await writeLimiter.limit(callerId);
   if (!success) return { success: false, error: "Too many requests" };
 
   const member = await getMembership(roomId, callerId);
-  if (!member) return { success: false, error: "Not a member" };
+  if (!member) return { success: false, error: "not_a_member" as const };
+
+  // Load room to check AI Lab flag
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { success: false, error: "not_a_member" as const };
+
+  if (room.isAiLab) {
+    return { success: false, error: "cannot_leave_ai_lab" as const };
+  }
 
   if (member.role === "owner") {
-    const owners = await db
-      .select({ id: roomMembers.id })
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.role, "owner")));
-    if (owners.length <= 1)
-      return { success: false, error: "Transfer ownership before leaving" };
+    return {
+      success:  false,
+      error:    "owner_cannot_leave" as const,
+      message:  "Room owners cannot leave. Transfer ownership or delete the room.",
+    };
   }
 
   await db.delete(roomMembers).where(

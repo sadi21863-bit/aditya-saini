@@ -8,6 +8,7 @@ import RoomHeader from "@/components/RoomHeader";
 import RoomIdeasFeed from "@/components/RoomIdeasFeed";
 import RoomMemberList from "@/components/RoomMemberList";
 import JoinRoomButton from "@/components/JoinRoomButton";
+import LeaveRoomButton from "@/components/LeaveRoomButton";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 
@@ -53,9 +54,14 @@ export default async function RoomPage({
 
         {/* Sidebar: members + actions */}
         <div className="lg:w-64 shrink-0 flex flex-col gap-4">
-          {/* Join button for non-members on public rooms */}
-          {!isMember && room.visibility === "public" && room.status === "active" && (
+          {/* Join button for non-members on public rooms (not AI Lab) */}
+          {!isMember && room.visibility === "public" && room.status === "active" && !room.isAiLab && (
             <JoinRoomButton roomId={roomId} />
+          )}
+
+          {/* Leave button for members who are not the owner and not the AI Lab */}
+          {isMember && callerMembership?.role !== "owner" && !room.isAiLab && (
+            <LeaveRoomButton roomId={roomId} />
           )}
 
           {/* Invite button for owners/mods */}
