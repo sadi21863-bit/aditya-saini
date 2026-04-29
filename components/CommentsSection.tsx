@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { Trash2, MessageCircle, Send, CornerDownRight, Pencil, X, Check } from "lucide-react";
 import { addComment, deleteComment, updateComment } from "@/app/actions/commentActions";
 import Link from "next/link";
@@ -30,6 +30,8 @@ interface CommentsSectionProps {
   viewerHandle?: string | null;
   viewerImage?: string | null;
   onCountChange?: (count: number) => void;
+  /** Replaces the top-level compose box. Use for AI Lab @mention input. */
+  commentInput?: React.ReactNode;
 }
 
 const COLLAPSE_AFTER = 3;
@@ -57,6 +59,7 @@ export default function CommentsSection({
   viewerHandle = null,
   viewerImage = null,
   onCountChange,
+  commentInput,
 }: CommentsSectionProps) {
   const [commentList, setCommentList] = useState<Comment[]>(initialComments);
   const [text, setText] = useState("");
@@ -246,37 +249,39 @@ export default function CommentsSection({
         {commentList.length} Comment{commentList.length !== 1 ? "s" : ""}
       </h3>
 
-      {/* Top-level compose */}
-      <div className="flex gap-3 mb-8">
-        <div className="w-8 h-8 rounded-full bg-[#0d9488]/20 flex items-center justify-center
-          shrink-0 mt-0.5">
-          <span className="text-[#0d9488] text-xs font-bold">
-            {viewerHandle?.[0]?.toUpperCase() ?? viewerName?.[0]?.toUpperCase() ?? "U"}
-          </span>
-        </div>
-        <div className="flex-1">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Share your thoughts on this idea..."
-            maxLength={1000}
-            rows={3}
-            className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900
-              text-white text-sm resize-none focus:outline-none focus:ring-2
-              focus:ring-[#0d9488]/40 focus:border-[#0d9488] placeholder:text-slate-500 transition"
-          />
-          {topError && <p className="text-red-400 text-xs mt-1">{topError}</p>}
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-slate-500">{text.length}/1000</span>
-            <button onClick={handleAdd} disabled={isPending || !text.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0d9488] text-white
-                text-xs font-bold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
-              <Send size={12} />
-              {isPending ? "Posting..." : "Post"}
-            </button>
+      {/* Top-level compose — replaced by commentInput when provided (e.g. AI Lab mention input) */}
+      {commentInput ?? (
+        <div className="flex gap-3 mb-8">
+          <div className="w-8 h-8 rounded-full bg-[#0d9488]/20 flex items-center justify-center
+            shrink-0 mt-0.5">
+            <span className="text-[#0d9488] text-xs font-bold">
+              {viewerHandle?.[0]?.toUpperCase() ?? viewerName?.[0]?.toUpperCase() ?? "U"}
+            </span>
+          </div>
+          <div className="flex-1">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Share your thoughts on this idea..."
+              maxLength={1000}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900
+                text-white text-sm resize-none focus:outline-none focus:ring-2
+                focus:ring-[#0d9488]/40 focus:border-[#0d9488] placeholder:text-slate-500 transition"
+            />
+            {topError && <p className="text-red-400 text-xs mt-1">{topError}</p>}
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-slate-500">{text.length}/1000</span>
+              <button onClick={handleAdd} disabled={isPending || !text.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0d9488] text-white
+                  text-xs font-bold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                <Send size={12} />
+                {isPending ? "Posting..." : "Post"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Comment list */}
       <div className="flex flex-col gap-6">

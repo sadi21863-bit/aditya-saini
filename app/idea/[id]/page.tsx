@@ -9,7 +9,17 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import { getComments } from "@/app/actions/commentActions";
 import { recordView } from "@/app/actions/ideaActions";
 import CommentsSection from "@/components/CommentsSection";
+import MentionInput from "@/components/ai-lab/MentionInput";
+import { submitMentionWithChoice } from "@/app/actions/ai-mention-actions";
+import type { MentionInput as MentionInputType, MentionResult } from "@/app/actions/ai-mention-actions";
 import type { Metadata } from "next";
+
+async function handleMentionSubmit(input: MentionInputType): Promise<MentionResult> {
+  "use server";
+  return submitMentionWithChoice(input);
+}
+
+const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID ?? "";
 
 const getIdea = cache(async (id: string) => {
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, id));
@@ -105,7 +115,7 @@ export default async function IdeaPage({
       getComments(ideaId),
 
       idea.roomId
-        ? db.select({ name: rooms.name }).from(rooms).where(eq(rooms.id, idea.roomId)).limit(1)
+        ? db.select({ name: rooms.name, visibility: rooms.visibility, isAiLab: rooms.isAiLab }).from(rooms).where(eq(rooms.id, idea.roomId)).limit(1)
         : Promise.resolve([]),
 
       viewerId
@@ -117,11 +127,14 @@ export default async function IdeaPage({
         : Promise.resolve([]),
     ]);
 
-  const author        = Array.isArray(authorResult) ? authorResult[0] ?? null : authorResult;
-  const hasLiked      = likedResult.length > 0;
-  const isOwner       = Boolean(viewerId && idea.userId === viewerId);
-  const roomName      = roomResult[0]?.name ?? null;
-  const viewerProfile = viewerResult[0] ?? null;
+  const author         = Array.isArray(authorResult) ? authorResult[0] ?? null : authorResult;
+  const hasLiked       = likedResult.length > 0;
+  const isOwner        = Boolean(viewerId && idea.userId === viewerId);
+  const roomData       = roomResult[0] ?? null;
+  const roomName       = roomData?.name ?? null;
+  const roomIsPrivate  = roomData?.visibility === "private";
+  const viewerProfile  = viewerResult[0] ?? null;
+  const isAiLabIdea    = !!AI_LAB_ROOM_ID && idea.roomId === AI_LAB_ROOM_ID;
 
   return (
     <main className="min-h-screen bg-slate-950 py-10 px-4">
@@ -142,6 +155,7 @@ export default async function IdeaPage({
           hasLiked={hasLiked}
           isOwner={isOwner}
           roomName={roomName}
+          isAiLabIdea={isAiLabIdea}
         />
 
         {/* Comments */}
@@ -154,6 +168,15 @@ export default async function IdeaPage({
             viewerName={viewerProfile?.name ?? null}
             viewerHandle={viewerProfile?.handle ?? null}
             viewerImage={viewerProfile?.image ?? null}
+            commentInput={idea.roomId ? (
+              <MentionInput
+                ideaId={ideaId}
+                roomId={idea.roomId}
+                roomIsPrivate={roomIsPrivate}
+                viewerId={viewerId}
+                onSubmit={handleMentionSubmit}
+              />
+            ) : undefined}
           />
         </div>
       </div>

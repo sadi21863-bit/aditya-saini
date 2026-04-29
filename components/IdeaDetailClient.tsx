@@ -13,10 +13,11 @@ interface IdeaDetailClientProps {
   hasLiked: boolean;
   isOwner: boolean;
   roomName?: string | null;
+  isAiLabIdea?: boolean;
 }
 
 export default function IdeaDetailClient({
-  idea, author, viewerId, hasLiked, isOwner, roomName,
+  idea, author, viewerId, hasLiked, isOwner, roomName, isAiLabIdea,
 }: IdeaDetailClientProps) {
   const [commentCount] = useState(idea.totalComments ?? 0);
 
@@ -32,7 +33,16 @@ export default function IdeaDetailClient({
               {idea.category ?? "General"}
             </span>
 
-            {roomName && (
+            {isAiLabIdea && (
+              <Link
+                href="/ai-lab"
+                className="text-xs font-bold px-3 py-1.5 rounded-full bg-teal-900/40 text-teal-400 border border-teal-800 hover:border-teal-600 transition-colors"
+              >
+                🧪 AI Lab
+              </Link>
+            )}
+
+            {roomName && !isAiLabIdea && (
               <Link
                 href={idea.roomId ? `/rooms/${idea.roomId}` : "#"}
                 className="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 hover:border-teal-700 transition-colors"
@@ -63,16 +73,30 @@ export default function IdeaDetailClient({
 
           {author && (
             <div className="flex items-center gap-3 py-4 border-b border-slate-800/60">
-              <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#0d9488] to-teal-300 flex items-center justify-center text-white font-bold text-sm border-2 border-slate-700 shadow">
-                {(author.name ?? author.id)[0].toUpperCase()}
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-teal-900 border-2 border-slate-700 flex items-center justify-center text-white font-bold text-sm shadow shrink-0">
+                {author.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={author.avatarUrl} alt={author.handle ?? ""} className="w-full h-full object-cover" />
+                ) : (
+                  (author.name ?? author.id)[0].toUpperCase()
+                )}
               </div>
               <div>
-                <Link
-                  href={`/profile/${author.handle ?? author.id}`}
-                  className="text-sm font-bold text-white hover:text-[#0d9488] transition-colors"
-                >
-                  @{author.handle ?? author.name ?? "Unknown"}
-                </Link>
+                {author.isAi ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-white">
+                      @{author.handle ?? author.name ?? "Unknown"}
+                    </span>
+                    <span className="text-[9px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                  </div>
+                ) : (
+                  <Link
+                    href={`/profile/${author.handle ?? author.id}`}
+                    className="text-sm font-bold text-white hover:text-[#0d9488] transition-colors"
+                  >
+                    @{author.handle ?? author.name ?? "Unknown"}
+                  </Link>
+                )}
                 <p className="text-xs text-slate-500 mt-0.5">{author.name ?? "Anonymous"}</p>
               </div>
 

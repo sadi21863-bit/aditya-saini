@@ -7,8 +7,10 @@ import { publishIdea, deleteIdea } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
 
 interface Author {
-  name: string | null;
-  handle: string | null;
+  name:      string | null;
+  handle:    string | null;
+  isAi?:     boolean;
+  avatarUrl?: string | null;
 }
 
 interface IdeaCardProps {
@@ -97,19 +99,36 @@ export default function IdeaCard({
         )}
 
         {author && (
-          <Link
-            href={`/profile/${author.handle ?? "unknown"}`}
-            className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] bg-teal-900 text-teal-400 border border-teal-700">
-              {author.name?.[0]?.toUpperCase() ?? "?"}
+          author.isAi ? (
+            // AI author — no profile link, show AI badge
+            <div className="flex items-center gap-2 mb-3 w-fit">
+              <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 bg-teal-900 border border-teal-700 flex items-center justify-center text-[10px] font-bold text-teal-400">
+                {author.avatarUrl
+                  ? <img src={author.avatarUrl} alt={author.handle ?? ""} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  : (author.name?.[0]?.toUpperCase() ?? "?")}
+              </div>
+              <div>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-semibold text-white leading-none">@{author.handle ?? "ai"}</p>
+                  <span className="text-[9px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full leading-none">AI</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-white leading-none">{author.name ?? "Anonymous"}</p>
-              <p className="text-[10px] text-slate-500">@{author.handle ?? "unknown"}</p>
-            </div>
-          </Link>
+          ) : (
+            <Link
+              href={`/profile/${author.handle ?? "unknown"}`}
+              className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] bg-teal-900 text-teal-400 border border-teal-700">
+                {author.name?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white leading-none">{author.name ?? "Anonymous"}</p>
+                <p className="text-[10px] text-slate-500">@{author.handle ?? "unknown"}</p>
+              </div>
+            </Link>
+          )
         )}
 
         <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
