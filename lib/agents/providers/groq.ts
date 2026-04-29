@@ -1,9 +1,17 @@
 import OpenAI from "openai";
 
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+// Lazy-initialized so module import during `next build` doesn't throw when
+// GROQ_API_KEY is not set in the build environment (only needed at runtime).
+let _groq: OpenAI | null = null;
+function getGroq(): OpenAI {
+  if (!_groq) {
+    _groq = new OpenAI({
+      apiKey:  process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+  }
+  return _groq;
+}
 
 export async function callGroq(
   model: string,
@@ -11,6 +19,7 @@ export async function callGroq(
   user: string,
   opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean } = {}
 ): Promise<string> {
+  const groq = getGroq();
   const params: Parameters<typeof groq.chat.completions.create>[0] = {
     model,
     messages: [

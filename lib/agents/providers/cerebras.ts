@@ -1,9 +1,17 @@
 import OpenAI from "openai";
 
-const cerebras = new OpenAI({
-  apiKey: process.env.CEREBRAS_API_KEY!,
-  baseURL: "https://api.cerebras.ai/v1",
-});
+// Lazy-initialized so module import during `next build` doesn't throw when
+// CEREBRAS_API_KEY is not set in the build environment (only needed at runtime).
+let _cerebras: OpenAI | null = null;
+function getCerebras(): OpenAI {
+  if (!_cerebras) {
+    _cerebras = new OpenAI({
+      apiKey:  process.env.CEREBRAS_API_KEY,
+      baseURL: "https://api.cerebras.ai/v1",
+    });
+  }
+  return _cerebras;
+}
 
 /** Fallback model ID map.
  *
@@ -29,7 +37,7 @@ export async function callCerebras(
   user: string,
   opts: { temperature?: number; maxTokens?: number } = {}
 ): Promise<string> {
-  const resp = await cerebras.chat.completions.create({
+  const resp = await getCerebras().chat.completions.create({
     model: modelId,
     messages: [
       { role: "system", content: system },
