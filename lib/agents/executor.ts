@@ -760,7 +760,6 @@ async function executeRollupWeek(
       keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
       keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
       memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-      stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
       status:           "draft",
       generatedAt:      new Date(),
     })
@@ -772,7 +771,6 @@ async function executeRollupWeek(
         keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
         keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
         memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-        stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
         status:           "draft",
         generatedAt:      new Date(),
       },
@@ -907,7 +905,6 @@ async function executeRollupMonth(
       keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
       keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
       memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-      stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
       status:           "draft",
       generatedAt:      new Date(),
     })
@@ -919,7 +916,6 @@ async function executeRollupMonth(
         keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
         keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
         memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-        stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
         status:           "draft",
         generatedAt:      new Date(),
       },

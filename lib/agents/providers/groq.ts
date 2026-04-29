@@ -19,6 +19,7 @@ export async function callGroq(
     ],
     temperature: opts.temperature ?? 0.8,
     max_tokens:  opts.maxTokens  ?? 600,
+    stream:      false,
   };
 
   // response_format: { type: "json_object" } — Groq model support matrix.
@@ -39,6 +40,7 @@ export async function callGroq(
     params.response_format = { type: "json_object" };
   }
 
-  const response = await groq.chat.completions.create(params);
+  // Cast through unknown: create() returns ChatCompletion|Stream union; we never use streaming.
+  const response = await groq.chat.completions.create(params) as unknown as { choices: Array<{ message: { content: string | null } }> };
   return response.choices[0]?.message?.content ?? "";
 }
