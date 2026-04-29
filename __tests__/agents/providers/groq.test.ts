@@ -15,9 +15,11 @@ import { callGroq } from "@/lib/agents/providers/groq";
 
 const MockedOpenAI = vi.mocked(OpenAI);
 
-// Constructor is called at module-load time (const groq = new OpenAI(...)) — check once
+// Constructor is lazy — triggered on first callGroq invocation
 describe("callGroq — client initialization", () => {
-  it("creates the OpenAI client pointed at api.groq.com/openai/v1", () => {
+  it("creates the OpenAI client pointed at api.groq.com/openai/v1", async () => {
+    mockCreate.mockResolvedValueOnce({ choices: [{ message: { content: "ok" } }] });
+    await callGroq("model", "sys", "usr");
     expect(MockedOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: "https://api.groq.com/openai/v1" })
     );

@@ -13,8 +13,11 @@ import { callCerebras, callCerebrasFallback } from "@/lib/agents/providers/cereb
 
 const MockedOpenAI = vi.mocked(OpenAI);
 
+// Constructor is lazy — triggered on first callCerebras invocation
 describe("callCerebras — client initialization", () => {
-  it("creates the OpenAI client pointed at api.cerebras.ai/v1", () => {
+  it("creates the OpenAI client pointed at api.cerebras.ai/v1", async () => {
+    mockCreate.mockResolvedValueOnce({ choices: [{ message: { content: "ok" } }] });
+    await callCerebras("some-model", "sys", "usr");
     expect(MockedOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: "https://api.cerebras.ai/v1" })
     );
