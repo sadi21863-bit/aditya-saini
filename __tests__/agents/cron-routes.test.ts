@@ -26,6 +26,7 @@ import { POST as seedIdeasPOST }    from "@/app/api/cron/agents/seed-ideas/route
 import { POST as archivePOST }      from "@/app/api/cron/agents/archive/route";
 import { POST as rollupWeeklyPOST } from "@/app/api/cron/agents/rollup-weekly/route";
 import { POST as rollupMonthlyPOST} from "@/app/api/cron/agents/rollup-monthly/route";
+import { POST as catchupPOST }      from "@/app/api/cron/agents/catchup/route";
 
 // ─── Test helpers ─────────────────────────────────────────────────────
 
@@ -129,15 +130,25 @@ describe("POST /api/cron/agents/theme", () => {
     expect(body.queued).toBe("theme_select");
   });
 
-  it("calls queueThemeSelection", async () => {
+  it("calls queueThemeSelection then processQueue(2)", async () => {
     await themePOST(auth());
     expect(mockQueueThemeSelection).toHaveBeenCalledOnce();
+    expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueThemeSelection throws", async () => {
     mockQueueThemeSelection.mockRejectedValueOnce(new Error("DB error"));
     const res = await themePOST(auth());
     expect(res.status).toBe(500);
+  });
+
+  it("returns 200 with processingError when processQueue throws after queuing", async () => {
+    mockProcessQueue.mockRejectedValueOnce(new Error("LLM unavailable"));
+    const res = await themePOST(auth());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.processingError).toBeDefined();
   });
 });
 
@@ -154,9 +165,10 @@ describe("POST /api/cron/agents/seed-ideas", () => {
     expect(body.count).toBe(3);
   });
 
-  it("calls queueDailyIdeas", async () => {
+  it("calls queueDailyIdeas then processQueue(5)", async () => {
     await seedIdeasPOST(auth());
     expect(mockQueueDailyIdeas).toHaveBeenCalledOnce();
+    expect(mockProcessQueue).toHaveBeenCalledWith(5);
   });
 });
 
@@ -173,9 +185,10 @@ describe("POST /api/cron/agents/archive", () => {
     expect(body.queued).toBe("archive_day");
   });
 
-  it("calls queueDailyArchive", async () => {
+  it("calls queueDailyArchive then processQueue(2)", async () => {
     await archivePOST(auth());
     expect(mockQueueDailyArchive).toHaveBeenCalledOnce();
+    expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 });
 
@@ -192,9 +205,10 @@ describe("POST /api/cron/agents/rollup-weekly", () => {
     expect(body.queued).toBe("rollup_week");
   });
 
-  it("calls queueWeeklyRollup", async () => {
+  it("calls queueWeeklyRollup then processQueue(2)", async () => {
     await rollupWeeklyPOST(auth());
     expect(mockQueueWeeklyRollup).toHaveBeenCalledOnce();
+    expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueWeeklyRollup throws", async () => {
@@ -217,14 +231,47 @@ describe("POST /api/cron/agents/rollup-monthly", () => {
     expect(body.queued).toBe("rollup_month");
   });
 
-  it("calls queueMonthlyRollup", async () => {
+  it("calls queueMonthlyRollup then processQueue(2)", async () => {
     await rollupMonthlyPOST(auth());
     expect(mockQueueMonthlyRollup).toHaveBeenCalledOnce();
+    expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueMonthlyRollup throws", async () => {
     mockQueueMonthlyRollup.mockRejectedValueOnce(new Error("DB error"));
     const res = await rollupMonthlyPOST(auth());
     expect(res.status).toBe(500);
+  });
+});
+
+// ─── /api/cron/agents/catchup ─────────────────────────────────────────
+
+describe("POST /api/cron/agents/catchup", () => {
+  const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
+
+  it("returns 401 when Authorization header is missing", async () => {
+    const res = await catchupPOST(makeReq());
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 503 when AI_LAB_ENABLED is not 'true'", async () => {
+    process.env.AI_LAB_ENABLED = "false";
+    const res = await catchupPOST(auth());
+    expect(res.status).toBe(503);
+    process.env.AI_LAB_ENABLED = "true";
+  });
+
+  it("returns 200 with processed count when authorized", async () => {
+    mockProcessQueue.mockResolvedValueOnce({ processed: 4, failed: 1 });
+    const res = await catchupPOST(auth());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.processed).toEqual({ processed: 4, failed: 1 });
+  });
+
+  it("calls processQueue(20)", async () => {
+    await catchupPOST(auth());
+    expect(mockProcessQueue).toHaveBeenCalledWith(20);
   });
 });
