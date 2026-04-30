@@ -16,6 +16,10 @@ export interface Agent {
   persona: string;
   dailyLimit: number;
   avatar: string;
+  /** Per-agent max token budget. callAgent falls back to this when the caller
+   *  doesn't specify opts.maxTokens. Reasoning models (GPT-OSS) need a higher
+   *  floor than the Groq provider default. */
+  maxTokens?: number;
 }
 
 // ─── MODEL IDS VIA ENV VARS ──────────────────────────────────────────
@@ -27,8 +31,10 @@ const MODELS = {
   // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
   adminReasoning:   process.env.AGENT_MODEL_ADMIN     ?? "qwen/qwen3-32b",
 
-  // Archivist uses Cerebras frontier model for richer summaries
-  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "qwen-3-235b-a22b-instruct-2507",
+  // Archivist: migrated to Groq GPT-OSS-120B (Week 6, 2026-04-30).
+  // Calibration passed 5/5 verbatim quote accuracy with the current production prompt.
+  // Previous model (qwen-3-235b-a22b-instruct-2507 on Cerebras) deprecated 2026-05-27.
+  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b",
 
   // Participants (3 only in v4.2)
   llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
@@ -210,12 +216,13 @@ const ARCHIVIST_AGENT: Agent = {
   id: "ai_archivist",
   name: "Archivist",
   handle: "archivist",
-  provider: "cerebras",
+  provider: "groq",
   model: MODELS.archivist,
   role: "archivist",
-  // Persona calibrated 2026-04-23 against qwen-3-235b-a22b-instruct-2507.
-  // Narrative quality approved by user after calibration run. Do not regress.
-  // NOTE: qwen-3-235b-a22b-instruct-2507 deprecates 2026-05-27 — migrate by 2026-05-15.
+  // Persona calibrated 2026-04-23 (Cerebras Qwen 235B) + re-calibrated 2026-04-30
+  // (Groq GPT-OSS-120B). Both runs: narrative quality approved, 5/5 verbatim accuracy.
+  // GPT-OSS-120B is a reasoning model — 4000 token budget needed to cover <think> output.
+  maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
 
 CRITICAL WRITING RULES:

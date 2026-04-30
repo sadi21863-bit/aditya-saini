@@ -15,19 +15,19 @@ function getCerebras(): OpenAI {
 
 /** Fallback model ID map.
  *
- * In v4.2, Cerebras serves two purposes:
- *   1. PRIMARY provider for Archivist (qwen-3-235b-a22b-instruct-2507) and
- *      Qwen participant (same model). Called directly via provider="cerebras".
- *   2. FALLBACK for Groq failures. In fallback mode we always route to
- *      llama3.1-8b — a production model with 1M TPD that is always available.
+ * After Week 6 migration (2026-04-30), Cerebras serves one purpose:
+ *   1. PRIMARY provider for Qwen participant (qwen-3-235b-a22b-instruct-2507).
+ *      Archivist migrated to Groq GPT-OSS-120B.
+ *   2. FALLBACK for Groq failures. Routes to llama3.1-8b.
  *
- * Verified April 24, 2026 against actual Cerebras dashboard:
- *   - llama3.1-8b (production, 1M TPD, 14.4K RPD) — always available
- *   - qwen-3-235b-a22b-instruct-2507 (preview, 1M TPD, 14.4K RPD)
+ * Model status (as of 2026-04-30):
+ *   - llama3.1-8b (production, 1M TPD) — fallback; deprecates 2026-05-27
+ *     Post-May-27 fallback target: llama-3.1-8b-instant on Groq
+ *   - qwen-3-235b-a22b-instruct-2507 (preview) — Qwen participant; deprecates 2026-05-27
+ *     Post-May-27 target: gpt-oss-120b on Cerebras (when free-tier access restored)
  *
- * Since no Groq model we use has a 1:1 Cerebras equivalent, we route
- * ALL fallback requests to llama3.1-8b as a safe, always-available rescue
- * path. Quality may drop, but the Lab stays operational during Groq outages.
+ * Since no Groq model has a 1:1 Cerebras equivalent, we route ALL fallback
+ * requests to llama3.1-8b. Quality may drop, but the Lab stays operational.
  */
 const FALLBACK_MODEL_ID = process.env.AGENT_MODEL_FALLBACK ?? "llama3.1-8b";
 

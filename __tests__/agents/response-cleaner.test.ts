@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripThinkingTags } from "@/lib/agents/response-cleaner";
+import { stripThinkingTags, normalizeHyphens } from "@/lib/agents/response-cleaner";
 
 describe("stripThinkingTags", () => {
   // ─── Paired tags ──────────────────────────────────────────────────────
@@ -115,5 +115,24 @@ That should cover both parts. Keep it simple and clear.
 Hello! I'm here and ready to help.`;
 
     expect(stripThinkingTags(groqReal)).toBe("Hello! I'm here and ready to help.");
+  });
+});
+
+// ─── normalizeHyphens ──────────────────────────────────────────────────────
+// GPT-OSS (Groq) emits non-breaking hyphens in narrative text.
+// These need normalizing before storage so string comparisons work correctly.
+
+describe("normalizeHyphens", () => {
+  it("replaces non-breaking hyphen (U+2011) with regular hyphen-minus", () => {
+    expect(normalizeHyphens("safety‑speed tradeoff")).toBe("safety-speed tradeoff");
+  });
+
+  it("replaces figure dash (U+2012) with regular hyphen-minus", () => {
+    expect(normalizeHyphens("cost‒benefit analysis")).toBe("cost-benefit analysis");
+  });
+
+  it("leaves regular hyphens and em-dashes unchanged", () => {
+    const text = "well-known fact — not a tradeoff";
+    expect(normalizeHyphens(text)).toBe(text);
   });
 });

@@ -127,15 +127,20 @@ describe("personas — archivist tier", () => {
     expect(archivists).toHaveLength(1);
   });
 
-  it("Archivist uses Cerebras as provider", () => {
+  it("Archivist uses Groq as provider (migrated from Cerebras in Week 6)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    expect(archivist.provider).toBe("cerebras");
+    expect(archivist.provider).toBe("groq");
   });
 
-  it("Archivist uses qwen-3-235b-a22b-instruct-2507 model", () => {
+  it("Archivist uses openai/gpt-oss-120b model", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "qwen-3-235b-a22b-instruct-2507";
+    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b";
     expect(archivist.model).toBe(expected);
+  });
+
+  it("Archivist has maxTokens set to 4000 for GPT-OSS reasoning budget", () => {
+    const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
+    expect(archivist.maxTokens).toBe(4000);
   });
 
   it("Archivist is NOT in getParticipants()", () => {

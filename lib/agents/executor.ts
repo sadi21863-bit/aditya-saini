@@ -453,9 +453,8 @@ ${commentsBlock}
 
 Write the archive narrative following your Archivist instructions. Output ONLY the JSON object.`;
 
-  // ── 3. Call Archivist — higher token budget for narrative prose ─────
+  // ── 3. Call Archivist — token budget comes from agent.maxTokens (4000 for GPT-OSS) ──
   const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], userPrompt, {
-    maxTokens: 2000,
     temperature: 0.7,
   });
 
@@ -727,9 +726,8 @@ async function executeRollupWeek(
     hasGap,
   );
 
-  // ── 3. Call Archivist ─────────────────────────────────────────────────
+  // ── 3. Call Archivist — token budget from agent.maxTokens (4000 for GPT-OSS) ──
   const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], prompt, {
-    maxTokens:   2000,
     temperature: 0.7,
   });
 
@@ -872,9 +870,8 @@ async function executeRollupMonth(
   // ── 3. Build synthesis prompt ────────────────────────────────────────
   const prompt = buildRollupMonthPrompt(sourceItems, periodStart, periodEnd, usingDailyFallback);
 
-  // ── 4. Call Archivist ─────────────────────────────────────────────────
+  // ── 4. Call Archivist — token budget from agent.maxTokens (4000 for GPT-OSS) ──
   const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], prompt, {
-    maxTokens:   2500,
     temperature: 0.7,
   });
 

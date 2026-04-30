@@ -1,6 +1,6 @@
 import { callGroq } from "./groq";
 import { callCerebras, callCerebrasFallback } from "./cerebras";
-import { stripThinkingTags } from "../response-cleaner";
+import { stripThinkingTags, normalizeHyphens } from "../response-cleaner";
 import type { Agent } from "../personas";
 
 /** Errors that should trigger fallback to Cerebras. */
@@ -41,16 +41,20 @@ export async function callAgent(
     // Don't forward jsonMode for models that don't support it
     delete groqOpts.jsonMode;
   }
-  if (agent.model === GPTOSS_MODEL && !groqOpts.maxTokens) {
-    groqOpts.maxTokens = GPTOSS_MIN_TOKENS;
+  // Use opts.maxTokens if given; else fall back to agent.maxTokens; else GPTOSS_MIN_TOKENS floor.
+  if (!groqOpts.maxTokens) {
+    groqOpts.maxTokens = agent.maxTokens
+      ?? (agent.model === GPTOSS_MODEL ? GPTOSS_MIN_TOKENS : undefined);
   }
 
   // Groq agents (Theme Setter, Quality Checker, Llama, GPT-OSS) try Groq first.
   // On transient errors, fall back to Cerebras llama3.1-8b as safety net.
   try {
-    return stripThinkingTags(
+    // normalizeHyphens: GPT-OSS emits U+2011/U+2012 non-breaking hyphens in narrative text.
+    // Normalize to standard hyphen-minus before storage. Cerebras Qwen doesn't do this.
+    return normalizeHyphens(stripThinkingTags(
       await callGroq(agent.model, agent.persona, userPrompt, groqOpts)
-    );
+    ));
   } catch (err) {
     if (!isTransientError(err)) throw err;
     if (!process.env.CEREBRAS_API_KEY) throw err;

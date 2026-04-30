@@ -1,3 +1,11 @@
+// Normalize non-standard Unicode hyphens emitted by reasoning models (GPT-OSS).
+export function normalizeHyphens(text: string): string {
+  // U+2011 NON-BREAKING HYPHEN, U+2012 FIGURE DASH → U+002D HYPHEN-MINUS
+  // Em-dash (U+2014) and en-dash (U+2013) are intentional typographic characters;
+  // leave them unchanged.
+  return text.replace(/[‑‒]/g, "-");
+}
+
 // Strip reasoning/thinking tags from model output before storage.
 // Qwen3 and DeepSeek R1 Distill both emit <think>...</think> blocks in their
 // default "thinking" mode. The content is chain-of-thought scratch work, not
