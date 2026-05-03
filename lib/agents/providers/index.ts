@@ -1,9 +1,10 @@
 import { callGroq } from "./groq";
-import { callCerebras, callCerebrasFallback } from "./cerebras";
+import { callCerebras } from "./cerebras";
+import { callGitHub } from "./github";
 import { stripThinkingTags, normalizeHyphens } from "../response-cleaner";
 import type { Agent } from "../personas";
 
-/** Errors that should trigger fallback to Cerebras. */
+/** Errors that should trigger fallback to the small Groq model. */
 function isTransientError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
   const status = (err as { status?: number })?.status;
@@ -28,11 +29,18 @@ export async function callAgent(
   userPrompt: string,
   opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
 ): Promise<string> {
-  // Cerebras agents (Archivist, Qwen participant) call Cerebras directly.
+  // Cerebras agents call Cerebras directly.
   if (agent.provider === "cerebras") {
     return stripThinkingTags(
       await callCerebras(agent.model, agent.persona, userPrompt, opts)
     );
+  }
+
+  // GitHub Models agents (Qwen participant — meta/llama-4-scout-17b-16e-instruct).
+  if (agent.provider === "github") {
+    return normalizeHyphens(stripThinkingTags(
+      await callGitHub(agent.model, agent.persona, userPrompt, opts)
+    ));
   }
 
   // Per-model overrides before calling Groq
@@ -48,27 +56,27 @@ export async function callAgent(
   }
 
   // Groq agents (Theme Setter, Quality Checker, Llama, GPT-OSS) try Groq first.
-  // On transient errors, fall back to Cerebras llama3.1-8b as safety net.
+  // On transient errors, fall back to Groq llama-3.1-8b-instant as safety net.
+  // (Cerebras fallback retired 2026-05-27 when llama3.1-8b on Cerebras deprecates.)
   try {
     // normalizeHyphens: GPT-OSS emits U+2011/U+2012 non-breaking hyphens in narrative text.
-    // Normalize to standard hyphen-minus before storage. Cerebras Qwen doesn't do this.
+    // Normalize to standard hyphen-minus before storage.
     return normalizeHyphens(stripThinkingTags(
       await callGroq(agent.model, agent.persona, userPrompt, groqOpts)
     ));
   } catch (err) {
     if (!isTransientError(err)) throw err;
-    if (!process.env.CEREBRAS_API_KEY) throw err;
 
     try {
       console.warn(
-        `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Cerebras llama3.1-8b. Error: ${(err as Error).message}`
+        `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
       );
-      return stripThinkingTags(
-        await callCerebrasFallback(agent.persona, userPrompt, opts)
-      );
+      return normalizeHyphens(stripThinkingTags(
+        await callGroq("llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+      ));
     } catch (fallbackErr) {
       console.error(
-        `[ai-lab] Cerebras fallback also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
+        `[ai-lab] Groq fallback (llama-3.1-8b-instant) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
       );
       throw err;
     }

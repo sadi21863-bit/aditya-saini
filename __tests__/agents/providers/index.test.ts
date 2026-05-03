@@ -1,8 +1,8 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { vi, describe, it, expect, beforeEach } from "vitest";
 
-const mockCallGroq             = vi.hoisted(() => vi.fn());
-const mockCallCerebras         = vi.hoisted(() => vi.fn());
-const mockCallCerebrasFallback = vi.hoisted(() => vi.fn());
+const mockCallGroq     = vi.hoisted(() => vi.fn());
+const mockCallCerebras = vi.hoisted(() => vi.fn());
+const mockCallGitHub   = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/agents/providers/groq", () => ({
   callGroq: mockCallGroq,
@@ -10,7 +10,12 @@ vi.mock("@/lib/agents/providers/groq", () => ({
 
 vi.mock("@/lib/agents/providers/cerebras", () => ({
   callCerebras:         mockCallCerebras,
-  callCerebrasFallback: mockCallCerebrasFallback,
+  // callCerebrasFallback is unused in the production path; keep mock for import compat
+  callCerebrasFallback: vi.fn(),
+}));
+
+vi.mock("@/lib/agents/providers/github", () => ({
+  callGitHub: mockCallGitHub,
 }));
 
 import { callAgent } from "@/lib/agents/providers/index";
@@ -30,37 +35,80 @@ const groqAgent: Agent = {
   avatar:     "/agents/llama.png",
 };
 
+// cerebrasAgent represents a hypothetical future Cerebras agent (routing logic test only).
+// No live agent currently uses provider === "cerebras".
 const cerebrasAgent: Agent = {
-  id:         "ai_archivist",
-  name:       "Archivist",
-  handle:     "archivist",
+  id:         "ai_cerebras_test",
+  name:       "CerebrasTest",
+  handle:     "cerebras-test",
   provider:   "cerebras",
-  model:      "qwen-3-235b-a22b-instruct-2507",
-  role:       "archivist",
-  persona:    "You are the Archivist.",
-  dailyLimit: 3,
-  avatar:     "/agents/archivist.png",
+  model:      "some-cerebras-model",
+  role:       "participant",
+  persona:    "You are a Cerebras agent.",
+  dailyLimit: 5,
+  avatar:     "/agents/placeholder.png",
+};
+
+const githubAgent: Agent = {
+  id:         "ai_qwen",
+  name:       "Qwen",
+  handle:     "qwen",
+  provider:   "github",
+  model:      "meta/llama-4-scout-17b-16e-instruct",
+  role:       "participant",
+  persona:    "You are Qwen.",
+  dailyLimit: 15,
+  avatar:     "/agents/qwen.png",
 };
 
 // ─── Tests ───────────────────────────────────────────────────────────
 
-describe("callAgent — Cerebras primary agents", () => {
+describe("callAgent — Cerebras provider routing", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("calls Cerebras directly with agent.model, never touches Groq", async () => {
-    mockCallCerebras.mockResolvedValueOnce("archive summary");
+  it("calls Cerebras directly with agent.model, never touches Groq or GitHub", async () => {
+    mockCallCerebras.mockResolvedValueOnce("cerebras response");
 
-    const result = await callAgent(cerebrasAgent, "Summarise today");
+    const result = await callAgent(cerebrasAgent, "What do you think?");
 
     expect(mockCallCerebras).toHaveBeenCalledOnce();
     expect(mockCallCerebras).toHaveBeenCalledWith(
       cerebrasAgent.model,
       cerebrasAgent.persona,
-      "Summarise today",
+      "What do you think?",
       undefined
     );
     expect(mockCallGroq).not.toHaveBeenCalled();
-    expect(result).toBe("archive summary");
+    expect(mockCallGitHub).not.toHaveBeenCalled();
+    expect(result).toBe("cerebras response");
+  });
+});
+
+describe("callAgent — GitHub Models provider routing (Qwen participant)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("calls GitHub directly with agent.model, never touches Groq or Cerebras", async () => {
+    mockCallGitHub.mockResolvedValueOnce("qwen says hi");
+
+    const result = await callAgent(githubAgent, "What is your take?");
+
+    expect(mockCallGitHub).toHaveBeenCalledOnce();
+    expect(mockCallGitHub).toHaveBeenCalledWith(
+      githubAgent.model,
+      githubAgent.persona,
+      "What is your take?",
+      undefined
+    );
+    expect(mockCallGroq).not.toHaveBeenCalled();
+    expect(mockCallCerebras).not.toHaveBeenCalled();
+    expect(result).toBe("qwen says hi");
+  });
+
+  it("strips thinking tags from GitHub response", async () => {
+    mockCallGitHub.mockResolvedValueOnce("<think>reasoning</think>The real take.");
+
+    const result = await callAgent(githubAgent, "prompt");
+    expect(result).toBe("The real take.");
   });
 });
 
@@ -73,61 +121,73 @@ describe("callAgent — Groq primary agents (success path)", () => {
     const result = await callAgent(groqAgent, "What do you think?");
 
     expect(mockCallGroq).toHaveBeenCalledOnce();
-    // callAgent always passes an opts object (may be empty after per-model overrides)
     expect(mockCallGroq).toHaveBeenCalledWith(
       groqAgent.model,
       groqAgent.persona,
       "What do you think?",
       expect.anything()
     );
-    expect(mockCallCerebrasFallback).not.toHaveBeenCalled();
+    expect(mockCallCerebras).not.toHaveBeenCalled();
     expect(result).toBe("groq response");
   });
 });
 
 describe("callAgent — Groq fallback on transient errors", () => {
-  const originalCerebraKey = process.env.CEREBRAS_API_KEY;
+  beforeEach(() => vi.clearAllMocks());
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env.CEREBRAS_API_KEY = "test-cerebras-key";
-  });
-
-  afterEach(() => {
-    process.env.CEREBRAS_API_KEY = originalCerebraKey;
-  });
-
-  it("falls back to Cerebras llama3.1-8b on Groq 429 rate-limit error", async () => {
+  it("falls back to Groq llama-3.1-8b-instant on 429 rate-limit error", async () => {
     const rateLimitErr = Object.assign(new Error("rate limit"), { status: 429 });
-    mockCallGroq.mockRejectedValueOnce(rateLimitErr);
-    mockCallCerebrasFallback.mockResolvedValueOnce("fallback answer");
+    mockCallGroq
+      .mockRejectedValueOnce(rateLimitErr)
+      .mockResolvedValueOnce("fallback answer");
 
     const result = await callAgent(groqAgent, "prompt");
 
-    expect(mockCallGroq).toHaveBeenCalledOnce();
-    expect(mockCallCerebrasFallback).toHaveBeenCalledOnce();
+    expect(mockCallGroq).toHaveBeenCalledTimes(2);
+    expect(mockCallGroq).toHaveBeenNthCalledWith(
+      2,
+      "llama-3.1-8b-instant",
+      groqAgent.persona,
+      "prompt",
+      expect.objectContaining({ maxTokens: 600 })
+    );
+    expect(mockCallCerebras).not.toHaveBeenCalled();
     expect(result).toBe("fallback answer");
   });
 
-  it("falls back to Cerebras on Groq 503 server error", async () => {
+  it("falls back to Groq llama-3.1-8b-instant on 503 server error", async () => {
     const serverErr = Object.assign(new Error("service unavailable"), { status: 503 });
-    mockCallGroq.mockRejectedValueOnce(serverErr);
-    mockCallCerebrasFallback.mockResolvedValueOnce("fallback ok");
+    mockCallGroq
+      .mockRejectedValueOnce(serverErr)
+      .mockResolvedValueOnce("fallback ok");
 
     const result = await callAgent(groqAgent, "prompt");
 
-    expect(mockCallCerebrasFallback).toHaveBeenCalledOnce();
+    expect(mockCallGroq).toHaveBeenCalledTimes(2);
+    expect(mockCallGroq).toHaveBeenNthCalledWith(2,
+      "llama-3.1-8b-instant",
+      expect.any(String),
+      "prompt",
+      expect.objectContaining({ maxTokens: 600 })
+    );
     expect(result).toBe("fallback ok");
   });
 
   it("falls back on network timeout error (ETIMEDOUT in message)", async () => {
     const timeoutErr = new Error("ETIMEDOUT: connection timed out");
-    mockCallGroq.mockRejectedValueOnce(timeoutErr);
-    mockCallCerebrasFallback.mockResolvedValueOnce("ok");
+    mockCallGroq
+      .mockRejectedValueOnce(timeoutErr)
+      .mockResolvedValueOnce("ok");
 
     await callAgent(groqAgent, "prompt");
 
-    expect(mockCallCerebrasFallback).toHaveBeenCalledOnce();
+    expect(mockCallGroq).toHaveBeenCalledTimes(2);
+    expect(mockCallGroq).toHaveBeenNthCalledWith(2,
+      "llama-3.1-8b-instant",
+      expect.any(String),
+      "prompt",
+      expect.objectContaining({ maxTokens: 600 })
+    );
   });
 
   it("does NOT fall back on 401 auth error — propagates original error", async () => {
@@ -135,7 +195,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     mockCallGroq.mockRejectedValueOnce(authErr);
 
     await expect(callAgent(groqAgent, "prompt")).rejects.toThrow("invalid api key");
-    expect(mockCallCerebrasFallback).not.toHaveBeenCalled();
+    expect(mockCallGroq).toHaveBeenCalledOnce();
   });
 
   it("does NOT fall back on 400 bad request — propagates original error", async () => {
@@ -143,27 +203,33 @@ describe("callAgent — Groq fallback on transient errors", () => {
     mockCallGroq.mockRejectedValueOnce(badReqErr);
 
     await expect(callAgent(groqAgent, "prompt")).rejects.toThrow("bad request");
-    expect(mockCallCerebrasFallback).not.toHaveBeenCalled();
-  });
-});
-
-describe("callAgent — CEREBRAS_API_KEY unset", () => {
-  const originalCerebraKey = process.env.CEREBRAS_API_KEY;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    delete process.env.CEREBRAS_API_KEY;
+    expect(mockCallGroq).toHaveBeenCalledOnce();
   });
 
-  afterEach(() => {
-    process.env.CEREBRAS_API_KEY = originalCerebraKey;
-  });
-
-  it("propagates the original Groq error when CEREBRAS_API_KEY is not set", async () => {
+  it("throws original error when fallback also fails", async () => {
     const rateLimitErr = Object.assign(new Error("rate limit"), { status: 429 });
-    mockCallGroq.mockRejectedValueOnce(rateLimitErr);
+    const fallbackErr  = Object.assign(new Error("fallback failed"), { status: 503 });
+    mockCallGroq
+      .mockRejectedValueOnce(rateLimitErr)
+      .mockRejectedValueOnce(fallbackErr);
 
     await expect(callAgent(groqAgent, "prompt")).rejects.toThrow("rate limit");
-    expect(mockCallCerebrasFallback).not.toHaveBeenCalled();
+    expect(mockCallGroq).toHaveBeenCalledTimes(2);
+  });
+
+  it("fallback works even without CEREBRAS_API_KEY set", async () => {
+    const original = process.env.CEREBRAS_API_KEY;
+    delete process.env.CEREBRAS_API_KEY;
+
+    const rateLimitErr = Object.assign(new Error("rate limit"), { status: 429 });
+    mockCallGroq
+      .mockRejectedValueOnce(rateLimitErr)
+      .mockResolvedValueOnce("groq fallback ok");
+
+    const result = await callAgent(groqAgent, "prompt");
+    expect(result).toBe("groq fallback ok");
+    expect(mockCallGroq).toHaveBeenCalledTimes(2);
+
+    process.env.CEREBRAS_API_KEY = original;
   });
 });

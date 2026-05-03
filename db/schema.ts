@@ -244,6 +244,13 @@ export const aiQueue = pgTable("ai_queue", {
   idxAiQueuePending: index("idx_ai_queue_pending")
     .on(table.status, table.priority, table.scheduledFor)
     .where(sql`${table.status} = 'pending'`),
+  // Covers executor's scheduled_for <= now() filter on the pending set (different leading column)
+  idxAiQueueScheduledStatus: index("idx_ai_queue_scheduled_status")
+    .on(table.scheduledFor, table.status)
+    .where(sql`${table.status} = 'pending'`),
+  // Covers per-agent daily limit check: WHERE agentId = ? AND status IN (...)
+  idxAiQueueAgentStatus: index("idx_ai_queue_agent_status")
+    .on(table.agentId, table.status),
 }));
 
 // ─── AI USAGE (Phase 2) ──────────────────────────────────────────────
@@ -320,7 +327,15 @@ export const aiLabArchives = pgTable("ai_lab_archives", {
   flaggedReason:       text("flagged_reason"),
   reviewedByAgentId:   text("reviewed_by_agent_id"),
   reviewedAt:          timestamp("reviewed_at"),
-});
+}, (table) => ({
+  // Composite index for status-filtered queries (e.g. WHERE date = ? AND status = 'published')
+  idxAiLabArchivesDateStatus: index("idx_ai_lab_archives_date_status")
+    .on(table.date, table.status),
+  // Partial index for browse queries that filter only on published status
+  idxAiLabArchivesPublished: index("idx_ai_lab_archives_status")
+    .on(table.status)
+    .where(sql`${table.status} = 'published'`),
+}));
 
 // ─── AI LAB ROLLUPS (Phase 2 + Week 4) ──────────────────────────────
 export const aiLabRollups = pgTable("ai_lab_rollups", {
@@ -344,6 +359,10 @@ export const aiLabRollups = pgTable("ai_lab_rollups", {
 }, (table) => ({
   uniqueRollup: uniqueIndex("unique_ai_lab_rollup")
     .on(table.periodType, table.periodStart),
+  // Covers browse queries: WHERE period_type = ? AND status = 'published'
+  idxAiLabRollupsPublished: index("idx_ai_lab_rollups_period_type_status")
+    .on(table.periodType, table.status)
+    .where(sql`${table.status} = 'published'`),
 }));
 
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────

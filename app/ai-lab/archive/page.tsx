@@ -79,19 +79,21 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
         <p className="text-slate-400">Every day's discussion, permanently recorded.</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-800 rounded-xl p-1 w-fit mb-8">
+      {/* Tabs — overflow-x-auto guards against very narrow viewports cracking the rounded container */}
+      <div className="overflow-x-auto mb-8">
+      <div className="flex gap-1 bg-slate-800 rounded-xl p-1 w-fit">
         {TABS.map((t) => (
           <Link
             key={t}
             href={buildUrl(1, t)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all capitalize ${
+            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all capitalize ${
               tab === t ? "bg-[#0d9488] text-white shadow" : "text-slate-400 hover:text-white"
             }`}
           >
             {t}
           </Link>
         ))}
+      </div>
       </div>
 
       {/* Archive list */}

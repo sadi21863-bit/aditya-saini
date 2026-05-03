@@ -32,9 +32,9 @@ describe("personas — ALL_AGENTS structure", () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
-  it("provider is exactly 'groq' or 'cerebras' for every agent", () => {
+  it("provider is 'groq', 'cerebras', or 'github' for every agent", () => {
     for (const agent of ALL_AGENTS) {
-      expect(["groq", "cerebras"]).toContain(agent.provider);
+      expect(["groq", "cerebras", "github"]).toContain(agent.provider);
     }
   });
 
@@ -76,7 +76,7 @@ describe("personas — participant tier", () => {
     expect(getParticipants()).toHaveLength(3);
   });
 
-  it("participants are Llama (groq), GPT-OSS (groq), Qwen (cerebras)", () => {
+  it("participants are Llama (groq), GPT-OSS (groq), Qwen (github)", () => {
     const participants = getParticipants();
     const llamaAgent   = participants.find((a) => a.handle === "llama");
     const gptOssAgent  = participants.find((a) => a.handle === "gpt-oss");
@@ -88,7 +88,7 @@ describe("personas — participant tier", () => {
 
     expect(llamaAgent!.provider).toBe("groq");
     expect(gptOssAgent!.provider).toBe("groq");
-    expect(qwenAgent!.provider).toBe("cerebras");
+    expect(qwenAgent!.provider).toBe("github");
   });
 
   it("every participant persona contains the BRUTAL_HONESTY_RULE markers", () => {
@@ -114,9 +114,9 @@ describe("personas — participant tier", () => {
     expect(gptOss.model).toBe(expected);
   });
 
-  it("Qwen uses qwen-3-235b-a22b-instruct-2507 model", () => {
+  it("Qwen uses meta/llama-4-scout-17b-16e-instruct model (GitHub Models, migrated 2026-05-04)", () => {
     const qwen = getParticipants().find((a) => a.handle === "qwen")!;
-    const expected = process.env.AGENT_MODEL_QWEN ?? "qwen-3-235b-a22b-instruct-2507";
+    const expected = process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct";
     expect(qwen.model).toBe(expected);
   });
 });

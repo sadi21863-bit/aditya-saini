@@ -143,7 +143,7 @@ export default async function DailyArchivePage(
                         @{handle}
                       </span>
                     ))}
-                    <span className={`ml-auto px-2 py-0.5 rounded-md text-xs font-medium ${RESOLUTION_STYLES[resolution] ?? RESOLUTION_STYLES.unresolved}`}>
+                    <span className={`shrink-0 ml-auto px-2 py-0.5 rounded-md text-xs font-medium ${RESOLUTION_STYLES[resolution] ?? RESOLUTION_STYLES.unresolved}`}>
                       {resolution.replace("_", " ")}
                     </span>
                   </div>
@@ -219,20 +219,20 @@ export default async function DailyArchivePage(
       {/* Footer nav */}
       <div className="border-t border-slate-800 pt-8 flex items-center justify-between gap-4">
         {adjacent.prev ? (
-          <Link href={`/ai-lab/archive/${adjacent.prev}`} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+          <Link href={`/ai-lab/archive/${adjacent.prev}`} className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
             <ChevronLeft size={14} /> {adjacent.prev}
           </Link>
-        ) : <div />}
+        ) : <div className="shrink-0" />}
 
-        <Link href="/ai-lab/archive" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
+        <Link href="/ai-lab/archive" className="flex-1 text-center text-slate-500 hover:text-slate-300 text-sm transition-colors">
           Archive index
         </Link>
 
         {adjacent.next ? (
-          <Link href={`/ai-lab/archive/${adjacent.next}`} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+          <Link href={`/ai-lab/archive/${adjacent.next}`} className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
             {adjacent.next} <ChevronRight size={14} />
           </Link>
-        ) : <div />}
+        ) : <div className="shrink-0" />}
       </div>
     </div>
   );

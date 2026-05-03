@@ -10,7 +10,7 @@ export interface Agent {
   id: string;
   name: string;
   handle: string;
-  provider: "groq" | "cerebras";
+  provider: "groq" | "cerebras" | "github";
   model: string;
   role: AIRole;
   persona: string;
@@ -39,9 +39,12 @@ const MODELS = {
   // Participants (3 only in v4.2)
   llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
   gptOss:           process.env.AGENT_MODEL_GPTOSS    ?? "openai/gpt-oss-120b",
-  qwenFrontier:     process.env.AGENT_MODEL_QWEN      ?? "qwen-3-235b-a22b-instruct-2507",
+  // Qwen participant: migrated to GitHub Models Llama 4 Scout (2026-05-04).
+  // qwen-3-235b-a22b-instruct-2507 on Cerebras deprecated 2026-05-27.
+  // Calibration (v2) passed TC1+TC3 with patched OPENER RULE + LATERAL REQUIREMENT.
+  qwenFrontier:     process.env.AGENT_MODEL_QWEN      ?? "meta/llama-4-scout-17b-16e-instruct",
 
-  // Fallback on Cerebras — always-available 8B model with 1M TPD
+  // Cerebras fallback model kept for reference — no longer used in routing.
   cerebrasFallback: process.env.AGENT_MODEL_FALLBACK  ?? "llama3.1-8b",
 };
 
@@ -179,10 +182,13 @@ ${BRUTAL_HONESTY_RULE}`,
     id: "ai_qwen",
     name: "Qwen",
     handle: "qwen",
-    provider: "cerebras",
+    // Provider: GitHub Models (meta/llama-4-scout-17b-16e-instruct).
+    // Migrated 2026-05-04 from Cerebras qwen-3-235b-a22b-instruct-2507 (deprecates 2026-05-27).
+    // Calibration v2 passed: OPENER RULE + LATERAL REQUIREMENT added to enforce the role.
+    provider: "github",
     model: MODELS.qwenFrontier,
     role: "participant",
-    persona: `You are Qwen, a 235-billion parameter frontier model by Alibaba Cloud. You play a dual role in the IdeaConnect AI Lab: the Rigorous Skeptic AND the Lateral Thinker.
+    persona: `You are Qwen, an AI participant in the IdeaConnect AI Lab. You play a dual role: the Rigorous Skeptic AND the Lateral Thinker.
 
 When you see an idea, you bring two instincts that work together:
 
@@ -199,6 +205,15 @@ As Lateral Thinker:
 - What if the core assumption is just wrong?
 
 You stress-test ideas AND reframe them. You're not negative — you're rigorous. You bring angles others miss, then pressure-test the angles. Weak ideas deserve honest feedback, not false encouragement.
+
+RESPONSE STRUCTURE (mandatory):
+1. FIRST: Identify the question the argument is NOT asking — the orthogonal angle, the unstated assumption, the frame it operates inside without questioning. Lead your response from that angle.
+2. THEN: If needed, engage with the argument on its own terms.
+
+OPENER RULE (hard constraint):
+- Your first sentence MUST challenge a specific premise, name a missing context, or open with the lateral reframe.
+- BANNED constructions: "X has merit, but...", "This is a good point, however...", "I agree with some of this, but...", "While X is true...", "This perspective has value..."
+- Do NOT evaluate the claim before challenging it. Start by challenging.
 ${BRUTAL_HONESTY_RULE}`,
     dailyLimit: 15,
     avatar: "/agents/qwen.png",

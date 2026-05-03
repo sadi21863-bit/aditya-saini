@@ -53,6 +53,10 @@ export default function ArchiveModerationPanel({
   const [rejectReason, setRejectReason] = useState("");
   const [feedback,     setFeedback]     = useState<Record<string, string>>({});
 
+  // Optimistic removal: IDs dismissed from the Needs Review list immediately on action success.
+  // router.refresh() then syncs server state in the background without a visible scroll jump.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
   function setMsg(id: string, msg: string) {
     setFeedback((prev) => ({ ...prev, [id]: msg }));
     setTimeout(() => setFeedback((prev) => { const n = { ...prev }; delete n[id]; return n; }), 4000);
@@ -62,7 +66,10 @@ export default function ArchiveModerationPanel({
     startTransition(async () => {
       const result = await fn();
       if (result.success) {
-        setMsg(archiveId, result.message ?? "Done");
+        // Remove card immediately so the page doesn't scroll on refresh
+        setDismissed((prev) => new Set(prev).add(archiveId));
+        setEditingId(null);
+        setRejectingId(null);
         router.refresh();
       } else {
         setMsg(archiveId, result.error ?? "Something went wrong");
@@ -76,13 +83,13 @@ export default function ArchiveModerationPanel({
       <section>
         <h2 className="text-xl font-semibold text-white mb-5">Needs Review</h2>
 
-        {needsReview.length === 0 ? (
+        {needsReview.filter((a) => !dismissed.has(a.id)).length === 0 ? (
           <p className="text-slate-500 py-10 text-center">
             All caught up — no archives need review.
           </p>
         ) : (
           <div className="flex flex-col gap-8">
-            {needsReview.map((archive) => {
+            {needsReview.filter((a) => !dismissed.has(a.id)).map((archive) => {
               const disagreements = (Array.isArray(archive.keyDisagreements) ? archive.keyDisagreements : []) as Array<Record<string, unknown>>;
               const quotes        = (Array.isArray(archive.memorableQuotes)  ? archive.memorableQuotes  : []) as Array<Record<string, unknown>>;
               const isEditing     = editingId   === archive.id;

@@ -13,21 +13,14 @@ function getCerebras(): OpenAI {
   return _cerebras;
 }
 
-/** Fallback model ID map.
+/** Kept for potential future use — currently unused (2026-05-04).
  *
- * After Week 6 migration (2026-04-30), Cerebras serves one purpose:
- *   1. PRIMARY provider for Qwen participant (qwen-3-235b-a22b-instruct-2507).
- *      Archivist migrated to Groq GPT-OSS-120B.
- *   2. FALLBACK for Groq failures. Routes to llama3.1-8b.
+ * After Week 6 Phase A migration:
+ *   - Fallback moved to Groq llama-3.1-8b-instant (callCerebrasFallback no longer called)
+ *   - Qwen participant migrated off Cerebras (qwen-3-235b-a22b-instruct-2507 deprecates 2026-05-27)
+ *   - Cerebras has NO active role in the AI Lab as of this date.
  *
- * Model status (as of 2026-04-30):
- *   - llama3.1-8b (production, 1M TPD) — fallback; deprecates 2026-05-27
- *     Post-May-27 fallback target: llama-3.1-8b-instant on Groq
- *   - qwen-3-235b-a22b-instruct-2507 (preview) — Qwen participant; deprecates 2026-05-27
- *     Post-May-27 target: gpt-oss-120b on Cerebras (when free-tier access restored)
- *
- * Since no Groq model has a 1:1 Cerebras equivalent, we route ALL fallback
- * requests to llama3.1-8b. Quality may drop, but the Lab stays operational.
+ * Revisit if Cerebras restores gpt-oss-120b on the free tier.
  */
 const FALLBACK_MODEL_ID = process.env.AGENT_MODEL_FALLBACK ?? "llama3.1-8b";
 
@@ -52,7 +45,7 @@ export async function callCerebras(
   return result.choices[0]?.message?.content ?? "";
 }
 
-/** Used specifically by fallback logic in index.ts — always uses FALLBACK_MODEL_ID. */
+/** Currently unused — Groq is the fallback provider. Revisit when Cerebras restores gpt-oss-120b free tier. */
 export async function callCerebrasFallback(
   system: string,
   user: string,
