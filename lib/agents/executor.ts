@@ -29,6 +29,7 @@ import {
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins } from "./personas";
 import { callAgent } from "./providers/index";
+import { queueCommentsOnIdea, queueQualityReview } from "./scheduler";
 import {
   buildPrompt,
   buildQualityReviewArchivePrompt,
@@ -298,6 +299,19 @@ async function writePostIdea(
       .update(aiQueue)
       .set({ resultIdeaId: newIdea.id })
       .where(eq(aiQueue.id, item.id));
+
+    // Cascade: queue 2 participant comments + 1 quality review
+    // Failures here must not roll back the idea write — log and continue.
+    try {
+      await queueCommentsOnIdea(newIdea.id, agentId);
+    } catch (err) {
+      console.error(`[executor] queueCommentsOnIdea failed for idea ${newIdea.id}:`, (err as Error).message);
+    }
+    try {
+      await queueQualityReview(newIdea.id, "idea");
+    } catch (err) {
+      console.error(`[executor] queueQualityReview failed for idea ${newIdea.id}:`, (err as Error).message);
+    }
   }
 }
 
@@ -324,6 +338,13 @@ async function writeComment(
       .update(aiQueue)
       .set({ resultCommentId: newComment.id })
       .where(eq(aiQueue.id, item.id));
+
+    // Cascade: queue quality review for this comment
+    try {
+      await queueQualityReview(newComment.id, "comment");
+    } catch (err) {
+      console.error(`[executor] queueQualityReview failed for comment ${newComment.id}:`, (err as Error).message);
+    }
   }
 }
 
