@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { rooms, roomMembers } from "@/db/schema";
-import { eq, desc, count, and } from "drizzle-orm";
+import { eq, ne, desc, count, and } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import RoomCard from "@/components/RoomCard";
 import Link from "next/link";
@@ -16,7 +16,9 @@ export default async function ExplorePage({
   const { category, q } = await searchParams;
   const callerId = await getAuthenticatedUserId();
 
-  // Get public active rooms with member counts
+  const aiLabRoomId = process.env.AI_LAB_ROOM_ID ?? "";
+
+  // Get public active rooms with member counts, excluding the AI Lab system room
   const publicRooms = await db
     .select({
       id:          rooms.id,
@@ -27,7 +29,13 @@ export default async function ExplorePage({
       createdAt:   rooms.createdAt,
     })
     .from(rooms)
-    .where(and(eq(rooms.visibility, "public"), eq(rooms.status, "active")))
+    .where(
+      and(
+        eq(rooms.visibility, "public"),
+        eq(rooms.status, "active"),
+        aiLabRoomId ? ne(rooms.id, aiLabRoomId) : undefined,
+      )
+    )
     .orderBy(desc(rooms.createdAt));
 
   // Get member counts per room
