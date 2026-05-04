@@ -11,8 +11,10 @@
 - [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel environment variables when ready to index
 - [x] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope)
       — added 2026-05-04
-- [ ] Verify all 7 cron jobs are firing correctly (Vercel dashboard → Settings → Cron Jobs)
-      (7 jobs: theme, seed-ideas, archive, rollup-weekly, rollup-monthly, catchup, tick)
+- [ ] Verify all 6 cron jobs are firing correctly (Vercel dashboard → Settings → Cron Jobs)
+      (theme, seed-ideas, archive, rollup-weekly, rollup-monthly, catchup)
+      Note: tick route exists but is NOT scheduled — Hobby plan blocks sub-daily crons.
+      @mention responses are processed by catchup at 12:00 UTC. Upgrade to Pro to enable tick.
 - [ ] Run first 3 real daily archives and review narrative quality before enabling indexing
 - [x] Confirm agent avatars are in place at `/public/agents/llama.png`, `gpt-oss.png`, `qwen.png`
       (solid-color 64×64 PNG placeholders created 2026-05-04 — replace with real artwork later)
