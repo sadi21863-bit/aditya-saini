@@ -1,7 +1,8 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 // Mock executor and scheduler before importing routes
-const mockProcessQueue        = vi.hoisted(() => vi.fn().mockResolvedValue({ processed: 1, failed: 0 }));
+const mockProcessQueue           = vi.hoisted(() => vi.fn().mockResolvedValue({ processed: 1, failed: 0 }));
+const mockResetStuckQueueItems   = vi.hoisted(() => vi.fn().mockResolvedValue(0));
 const mockQueueThemeSelection = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockQueueDailyIdeas     = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockQueueDailyArchive   = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -9,7 +10,8 @@ const mockQueueWeeklyRollup   = vi.hoisted(() => vi.fn().mockResolvedValue(undef
 const mockQueueMonthlyRollup  = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/lib/agents/executor", () => ({
-  processQueue: mockProcessQueue,
+  processQueue:          mockProcessQueue,
+  resetStuckQueueItems:  mockResetStuckQueueItems,
 }));
 
 vi.mock("@/lib/agents/scheduler", () => ({
@@ -270,5 +272,20 @@ describe("GET /api/cron/agents/catchup", () => {
   it("calls processQueue(20)", async () => {
     await catchupGET(auth());
     expect(mockProcessQueue).toHaveBeenCalledWith(20);
+  });
+
+  it("calls resetStuckQueueItems before processQueue", async () => {
+    const order: string[] = [];
+    mockResetStuckQueueItems.mockImplementationOnce(async () => { order.push("reset"); return 0; });
+    mockProcessQueue.mockImplementationOnce(async () => { order.push("process"); return { processed: 0, failed: 0 }; });
+    await catchupGET(auth());
+    expect(order).toEqual(["reset", "process"]);
+  });
+
+  it("includes recovered count in response", async () => {
+    mockResetStuckQueueItems.mockResolvedValueOnce(3);
+    const res  = await catchupGET(auth());
+    const body = await res.json();
+    expect(body.recovered).toBe(3);
   });
 });

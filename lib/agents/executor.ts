@@ -26,7 +26,7 @@ import {
   aiThemes, aiModerationLog, aiLabArchives, aiLabRollups,
   notifications,
 } from "@/db/schema";
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins } from "./personas";
 import { callAgent } from "./providers/index";
 import { queueCommentsOnIdea, queueQualityReview } from "./scheduler";
@@ -106,6 +106,22 @@ export async function processQueue(
   }
 
   return { processed, failed };
+}
+
+/**
+ * Resets queue rows stuck in `in_progress` for longer than 10 minutes.
+ * Vercel function timeouts leave rows claimed but never completed — this
+ * is the safety net. Called by the catchup cron before processQueue.
+ * Uses scheduledFor (never null) rather than executedAt (null on first claim).
+ */
+export async function resetStuckQueueItems(): Promise<number> {
+  const staleThreshold = new Date(Date.now() - 10 * 60 * 1000);
+  const reset = await db
+    .update(aiQueue)
+    .set({ status: "pending", errorMessage: "reset by catchup — was stuck in_progress" })
+    .where(and(eq(aiQueue.status, "in_progress"), lt(aiQueue.scheduledFor, staleThreshold)))
+    .returning({ id: aiQueue.id });
+  return reset.length;
 }
 
 // ─── Per-item execution ───────────────────────────────────────────────
