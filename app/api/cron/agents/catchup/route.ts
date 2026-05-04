@@ -1,7 +1,7 @@
 import { checkCronAuth } from "@/lib/agents/cron-auth";
 import { processQueue } from "@/lib/agents/executor";
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   const denied = checkCronAuth(req);
   if (denied) return denied;
 

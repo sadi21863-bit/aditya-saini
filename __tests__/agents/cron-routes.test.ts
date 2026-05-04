@@ -20,13 +20,13 @@ vi.mock("@/lib/agents/scheduler", () => ({
   queueMonthlyRollup:  mockQueueMonthlyRollup,
 }));
 
-import { POST as tickPOST }         from "@/app/api/cron/agents/tick/route";
-import { POST as themePOST }        from "@/app/api/cron/agents/theme/route";
-import { POST as seedIdeasPOST }    from "@/app/api/cron/agents/seed-ideas/route";
-import { POST as archivePOST }      from "@/app/api/cron/agents/archive/route";
-import { POST as rollupWeeklyPOST } from "@/app/api/cron/agents/rollup-weekly/route";
-import { POST as rollupMonthlyPOST} from "@/app/api/cron/agents/rollup-monthly/route";
-import { POST as catchupPOST }      from "@/app/api/cron/agents/catchup/route";
+import { POST as tickPOST }        from "@/app/api/cron/agents/tick/route";
+import { GET  as themeGET }         from "@/app/api/cron/agents/theme/route";
+import { GET  as seedIdeasGET }     from "@/app/api/cron/agents/seed-ideas/route";
+import { GET  as archiveGET }       from "@/app/api/cron/agents/archive/route";
+import { GET  as rollupWeeklyGET }  from "@/app/api/cron/agents/rollup-weekly/route";
+import { GET  as rollupMonthlyGET } from "@/app/api/cron/agents/rollup-monthly/route";
+import { GET  as catchupGET }       from "@/app/api/cron/agents/catchup/route";
 
 // ─── Test helpers ─────────────────────────────────────────────────────
 
@@ -35,10 +35,7 @@ const VALID_SECRET = "test-cron-secret-123";
 function makeReq(authHeader?: string): Request {
   const headers: Record<string, string> = {};
   if (authHeader !== undefined) headers["authorization"] = authHeader;
-  return new Request("http://localhost/api/cron/test", {
-    method:  "POST",
-    headers,
-  });
+  return new Request("http://localhost/api/cron/test", { headers });
 }
 
 // ─── Setup / teardown ─────────────────────────────────────────────────
@@ -119,11 +116,11 @@ describe("POST /api/cron/agents/tick", () => {
 
 // ─── /api/cron/agents/theme ───────────────────────────────────────────
 
-describe("POST /api/cron/agents/theme", () => {
+describe("GET /api/cron/agents/theme", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true and queued field", async () => {
-    const res = await themePOST(auth());
+    const res = await themeGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -131,20 +128,20 @@ describe("POST /api/cron/agents/theme", () => {
   });
 
   it("calls queueThemeSelection then processQueue(2)", async () => {
-    await themePOST(auth());
+    await themeGET(auth());
     expect(mockQueueThemeSelection).toHaveBeenCalledOnce();
     expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueThemeSelection throws", async () => {
     mockQueueThemeSelection.mockRejectedValueOnce(new Error("DB error"));
-    const res = await themePOST(auth());
+    const res = await themeGET(auth());
     expect(res.status).toBe(500);
   });
 
   it("returns 200 with processingError when processQueue throws after queuing", async () => {
     mockProcessQueue.mockRejectedValueOnce(new Error("LLM unavailable"));
-    const res = await themePOST(auth());
+    const res = await themeGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -154,11 +151,11 @@ describe("POST /api/cron/agents/theme", () => {
 
 // ─── /api/cron/agents/seed-ideas ─────────────────────────────────────
 
-describe("POST /api/cron/agents/seed-ideas", () => {
+describe("GET /api/cron/agents/seed-ideas", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true and count=3", async () => {
-    const res = await seedIdeasPOST(auth());
+    const res = await seedIdeasGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -166,7 +163,7 @@ describe("POST /api/cron/agents/seed-ideas", () => {
   });
 
   it("calls queueDailyIdeas then processQueue(5)", async () => {
-    await seedIdeasPOST(auth());
+    await seedIdeasGET(auth());
     expect(mockQueueDailyIdeas).toHaveBeenCalledOnce();
     expect(mockProcessQueue).toHaveBeenCalledWith(5);
   });
@@ -174,11 +171,11 @@ describe("POST /api/cron/agents/seed-ideas", () => {
 
 // ─── /api/cron/agents/archive ─────────────────────────────────────────
 
-describe("POST /api/cron/agents/archive", () => {
+describe("GET /api/cron/agents/archive", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true", async () => {
-    const res = await archivePOST(auth());
+    const res = await archiveGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -186,7 +183,7 @@ describe("POST /api/cron/agents/archive", () => {
   });
 
   it("calls queueDailyArchive then processQueue(2)", async () => {
-    await archivePOST(auth());
+    await archiveGET(auth());
     expect(mockQueueDailyArchive).toHaveBeenCalledOnce();
     expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
@@ -194,11 +191,11 @@ describe("POST /api/cron/agents/archive", () => {
 
 // ─── /api/cron/agents/rollup-weekly ──────────────────────────────────
 
-describe("POST /api/cron/agents/rollup-weekly", () => {
+describe("GET /api/cron/agents/rollup-weekly", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true and queued='rollup_week'", async () => {
-    const res  = await rollupWeeklyPOST(auth());
+    const res  = await rollupWeeklyGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -206,25 +203,25 @@ describe("POST /api/cron/agents/rollup-weekly", () => {
   });
 
   it("calls queueWeeklyRollup then processQueue(2)", async () => {
-    await rollupWeeklyPOST(auth());
+    await rollupWeeklyGET(auth());
     expect(mockQueueWeeklyRollup).toHaveBeenCalledOnce();
     expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueWeeklyRollup throws", async () => {
     mockQueueWeeklyRollup.mockRejectedValueOnce(new Error("DB error"));
-    const res = await rollupWeeklyPOST(auth());
+    const res = await rollupWeeklyGET(auth());
     expect(res.status).toBe(500);
   });
 });
 
 // ─── /api/cron/agents/rollup-monthly ─────────────────────────────────
 
-describe("POST /api/cron/agents/rollup-monthly", () => {
+describe("GET /api/cron/agents/rollup-monthly", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true and queued='rollup_month'", async () => {
-    const res  = await rollupMonthlyPOST(auth());
+    const res  = await rollupMonthlyGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -232,38 +229,38 @@ describe("POST /api/cron/agents/rollup-monthly", () => {
   });
 
   it("calls queueMonthlyRollup then processQueue(2)", async () => {
-    await rollupMonthlyPOST(auth());
+    await rollupMonthlyGET(auth());
     expect(mockQueueMonthlyRollup).toHaveBeenCalledOnce();
     expect(mockProcessQueue).toHaveBeenCalledWith(2);
   });
 
   it("returns 500 when queueMonthlyRollup throws", async () => {
     mockQueueMonthlyRollup.mockRejectedValueOnce(new Error("DB error"));
-    const res = await rollupMonthlyPOST(auth());
+    const res = await rollupMonthlyGET(auth());
     expect(res.status).toBe(500);
   });
 });
 
 // ─── /api/cron/agents/catchup ─────────────────────────────────────────
 
-describe("POST /api/cron/agents/catchup", () => {
+describe("GET /api/cron/agents/catchup", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 401 when Authorization header is missing", async () => {
-    const res = await catchupPOST(makeReq());
+    const res = await catchupGET(makeReq());
     expect(res.status).toBe(401);
   });
 
   it("returns 503 when AI_LAB_ENABLED is not 'true'", async () => {
     process.env.AI_LAB_ENABLED = "false";
-    const res = await catchupPOST(auth());
+    const res = await catchupGET(auth());
     expect(res.status).toBe(503);
     process.env.AI_LAB_ENABLED = "true";
   });
 
   it("returns 200 with processed count when authorized", async () => {
     mockProcessQueue.mockResolvedValueOnce({ processed: 4, failed: 1 });
-    const res = await catchupPOST(auth());
+    const res = await catchupGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -271,7 +268,7 @@ describe("POST /api/cron/agents/catchup", () => {
   });
 
   it("calls processQueue(20)", async () => {
-    await catchupPOST(auth());
+    await catchupGET(auth());
     expect(mockProcessQueue).toHaveBeenCalledWith(20);
   });
 });
