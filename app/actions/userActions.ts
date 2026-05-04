@@ -65,6 +65,16 @@ export async function createUserProfile(data: {
   return { success: true };
 }
 
+// ─── CHECK HANDLE AVAILABILITY ──────────────────────────────────────
+
+export async function checkHandleAvailability(
+  handle: string
+): Promise<{ available: boolean }> {
+  if (!/^[a-z0-9_]{3,30}$/.test(handle)) return { available: false };
+  const existing = await db.query.users.findFirst({ where: eq(users.handle, handle) });
+  return { available: !existing };
+}
+
 // ─── UPDATE PROFILE ─────────────────────────────────────────────────
 
 export async function updateProfile(data: {
