@@ -94,7 +94,8 @@ export async function isAdmin(): Promise<boolean> {
       .split(",")
       .map((e) => e.trim())
       .filter(Boolean);
-    return adminEmails.includes(session?.user?.email ?? "");
+    const userEmail = (session?.user?.email ?? "").toLowerCase();
+    return adminEmails.some((e) => e.toLowerCase() === userEmail);
   } catch {
     return false;
   }

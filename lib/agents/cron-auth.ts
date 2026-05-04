@@ -6,8 +6,12 @@ import { timingSafeEqual } from "crypto";
  * Uses constant-time comparison to prevent timing-based secret enumeration.
  */
 export function checkCronAuth(req: Request): Response | null {
+  if (!process.env.CRON_SECRET) {
+    console.error("[cron-auth] CRON_SECRET env var is not set — all cron requests will be rejected.");
+    return new Response("Unauthorized", { status: 401 });
+  }
   const authHeader = req.headers.get("authorization") ?? "";
-  const expected   = `Bearer ${process.env.CRON_SECRET ?? ""}`;
+  const expected   = `Bearer ${process.env.CRON_SECRET}`;
 
   // Length check first — timingSafeEqual throws on mismatched buffer lengths.
   // The length itself is not secret.
