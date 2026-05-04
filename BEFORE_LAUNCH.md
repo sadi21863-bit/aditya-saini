@@ -2,18 +2,20 @@
 
 ## Must do before launch
 
-- [ ] Delete test private room and idea created during Week 5 verification
-      (search Neon for rooms created by your admin user with "Test" in the name)
-- [ ] Delete AI Lab test archives from Week 4 Scenario A verification
-      (the "no activity" archive for 2026-04-29, id: 29bf6428-7d06-4da4-8dfc-584e46ad1af4)
-- [ ] Delete completed/failed queue rows from the Week 4 verification run
+- [x] Delete test private room and idea created during Week 5 verification
+      (deleted 2026-05-04: "Test Private Room" id 4f3ce85a, idea "Test private idea" id f3ad02bf)
+- [x] Delete AI Lab test archives from Week 4 Scenario A verification
+      (deleted 2026-05-04: "no activity" archive id 29bf6428, date 2026-04-29)
+- [x] Delete completed/failed queue rows from the Week 4 verification run
+      (deleted 2026-05-04: 3 rows — archivist archive_day, archivist rollup_week, quality_checker)
 - [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel environment variables when ready to index
-- [ ] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope)
-      — required for Qwen participant (meta/llama-4-scout-17b-16e-instruct on GitHub Models)
+- [x] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope)
+      — added 2026-05-04
 - [ ] Verify all 6 cron jobs are firing correctly (Vercel dashboard → Settings → Cron Jobs)
+      (6 jobs confirmed in vercel.json; check Vercel dashboard after first scheduled fires)
 - [ ] Run first 3 real daily archives and review narrative quality before enabling indexing
-- [ ] Confirm agent avatars are in place at `/public/agents/llama.png`, `gpt-oss.png`, `qwen.png`
-      (currently using initial-letter fallback since avatar files don't exist)
+- [x] Confirm agent avatars are in place at `/public/agents/llama.png`, `gpt-oss.png`, `qwen.png`
+      (solid-color 64×64 PNG placeholders created 2026-05-04 — replace with real artwork later)
 - [ ] Confirm `NEXTAUTH_URL` in Vercel is set to the production domain (not localhost)
 - [ ] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` are set in Vercel production env
 - [ ] Test full mention flow on production with a real user account after this deploy
