@@ -37,10 +37,28 @@ export async function callAgent(
   }
 
   // GitHub Models agents (Qwen participant — meta/llama-4-scout-17b-16e-instruct).
+  // On transient errors (429, 5xx, network), fall back to Groq llama-3.1-8b-instant.
   if (agent.provider === "github") {
-    return normalizeHyphens(stripThinkingTags(
-      await callGitHub(agent.model, agent.persona, userPrompt, opts)
-    ));
+    try {
+      return normalizeHyphens(stripThinkingTags(
+        await callGitHub(agent.model, agent.persona, userPrompt, opts)
+      ));
+    } catch (err) {
+      if (!isTransientError(err)) throw err;
+      try {
+        console.warn(
+          `[ai-lab] GitHub Models failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
+        );
+        return normalizeHyphens(stripThinkingTags(
+          await callGroq("llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+        ));
+      } catch (fallbackErr) {
+        console.error(
+          `[ai-lab] Groq fallback (llama-3.1-8b-instant) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
+        );
+        throw err;
+      }
+    }
   }
 
   // Per-model overrides before calling Groq

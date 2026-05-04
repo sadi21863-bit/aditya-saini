@@ -110,6 +110,22 @@ describe("callAgent — GitHub Models provider routing (Qwen participant)", () =
     const result = await callAgent(githubAgent, "prompt");
     expect(result).toBe("The real take.");
   });
+
+  it("falls back to Groq llama-3.1-8b-instant when GitHub Models returns 429", async () => {
+    const rateLimitErr = Object.assign(new Error("rate limit exceeded"), { status: 429 });
+    mockCallGitHub.mockRejectedValueOnce(rateLimitErr);
+    mockCallGroq.mockResolvedValueOnce("fallback response");
+
+    const result = await callAgent(githubAgent, "test prompt");
+
+    expect(mockCallGroq).toHaveBeenCalledWith(
+      "llama-3.1-8b-instant",
+      githubAgent.persona,
+      "test prompt",
+      expect.objectContaining({ maxTokens: 600 }),
+    );
+    expect(result).toBe("fallback response");
+  });
 });
 
 describe("callAgent — Groq primary agents (success path)", () => {
