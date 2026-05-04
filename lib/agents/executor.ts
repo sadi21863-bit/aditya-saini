@@ -2,7 +2,7 @@
  * lib/agents/executor.ts
  *
  * Reads from ai_queue and executes pending actions.
- * Called by the /api/cron/agents/tick endpoint every 5 minutes.
+ * Called every 5 min by /api/cron/agents/tick (and on-demand by seed-ideas, catchup, theme, archive).
  *
  * Concurrency safety: uses FOR UPDATE SKIP LOCKED inside a short transaction
  * to atomically claim rows. Two concurrent workers will never process the

@@ -20,7 +20,7 @@ vi.mock("@/lib/agents/scheduler", () => ({
   queueMonthlyRollup:  mockQueueMonthlyRollup,
 }));
 
-import { POST as tickPOST }        from "@/app/api/cron/agents/tick/route";
+import { GET  as tickGET }          from "@/app/api/cron/agents/tick/route";
 import { GET  as themeGET }         from "@/app/api/cron/agents/theme/route";
 import { GET  as seedIdeasGET }     from "@/app/api/cron/agents/seed-ideas/route";
 import { GET  as archiveGET }       from "@/app/api/cron/agents/archive/route";
@@ -55,53 +55,53 @@ afterEach(() => {
 
 describe("cron auth guard", () => {
   it("returns 401 when Authorization header is missing", async () => {
-    const res = await tickPOST(makeReq());
+    const res = await tickGET(makeReq());
     expect(res.status).toBe(401);
   });
 
   it("returns 401 when secret is wrong", async () => {
-    const res = await tickPOST(makeReq("Bearer wrong-secret"));
+    const res = await tickGET(makeReq("Bearer wrong-secret"));
     expect(res.status).toBe(401);
   });
 
   it("returns 401 when Bearer prefix is omitted", async () => {
-    const res = await tickPOST(makeReq(VALID_SECRET));
+    const res = await tickGET(makeReq(VALID_SECRET));
     expect(res.status).toBe(401);
   });
 
   it("returns 503 when AI_LAB_ENABLED is not 'true'", async () => {
     process.env.AI_LAB_ENABLED = "false";
-    const res = await tickPOST(makeReq(`Bearer ${VALID_SECRET}`));
+    const res = await tickGET(makeReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(503);
   });
 
   it("returns 503 when AI_LAB_ENABLED is missing entirely", async () => {
     delete process.env.AI_LAB_ENABLED;
-    const res = await tickPOST(makeReq(`Bearer ${VALID_SECRET}`));
+    const res = await tickGET(makeReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(503);
   });
 });
 
 // ─── /api/cron/agents/tick ────────────────────────────────────────────
 
-describe("POST /api/cron/agents/tick", () => {
+describe("GET /api/cron/agents/tick", () => {
   const auth = () => makeReq(`Bearer ${VALID_SECRET}`);
 
   it("returns 200 with success=true", async () => {
-    const res = await tickPOST(auth());
+    const res = await tickGET(auth());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
   });
 
   it("calls processQueue(5)", async () => {
-    await tickPOST(auth());
+    await tickGET(auth());
     expect(mockProcessQueue).toHaveBeenCalledWith(5);
   });
 
   it("includes processed/failed counts in response", async () => {
     mockProcessQueue.mockResolvedValueOnce({ processed: 3, failed: 1 });
-    const res = await tickPOST(auth());
+    const res = await tickGET(auth());
     const body = await res.json();
     expect(body.processed).toBe(3);
     expect(body.failed).toBe(1);
@@ -109,7 +109,7 @@ describe("POST /api/cron/agents/tick", () => {
 
   it("returns 500 when processQueue throws", async () => {
     mockProcessQueue.mockRejectedValueOnce(new Error("DB unavailable"));
-    const res = await tickPOST(auth());
+    const res = await tickGET(auth());
     expect(res.status).toBe(500);
   });
 });
