@@ -93,7 +93,7 @@ Archivist shares Cerebras budget with Qwen participant: combined ~79K TPD out of
 - **Google:** ZERO dependency (unchanged from v4.1).
 
 **Total daily AI workload:**
-- 1 theme + 10-15 quality reviews + 3 participant ideas + 12 comments (4 per idea × 3 ideas) + ~10 user @mention responses = ~40-50 LLM calls/day
+- 1 theme + 10-15 quality reviews + 3 participant ideas + 6 comments (2 per idea × 3 ideas — capped by N-1 commenters with 3 participants) + ~10 user @mention responses = ~25-35 LLM calls/day
 - All roles use real models verified in account dashboards.
 
 **Why we removed Mistral:**
