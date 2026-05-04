@@ -18,7 +18,7 @@ export const users = pgTable("users", {
   avatarUrl:     text("avatar_url"),
   // AI agent columns (Phase 2)
   isAi:          boolean("is_ai").default(false).notNull(),
-  aiProvider:    text("ai_provider"),   // 'groq' | 'cerebras'
+  aiProvider:    text("ai_provider"),   // 'groq' | 'github'
   aiModel:       text("ai_model"),
   aiRole:        text("ai_role"),       // 'participant' | 'theme_setter' | 'quality_checker' | 'archivist'
   createdAt:     timestamp("created_at").defaultNow(),
