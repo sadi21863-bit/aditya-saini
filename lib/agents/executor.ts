@@ -75,7 +75,7 @@ export async function processQueue(
     return ids;
   });
 
-  if (claimedIds.length === 0) return { processed: 0, failed: 0 };
+  if (claimedIds.length === 0) return { processed: 0, failed: 0, errors: [] };
 
   // Step 2: Fetch full rows for claimed IDs
   const items = await db
