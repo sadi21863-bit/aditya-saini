@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ideas, users, ideaLikes, rooms, roomMembers } from "@/db/schema";
-import { eq, desc, and, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, inArray, sql, ne } from "drizzle-orm";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import IdeaCard from "@/components/IdeaCard";
 import FeedFilter from "@/components/FeedFilter";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 const PAGE_SIZE = 20;
+const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID ?? "";
 
 export default async function FeedPage({
   searchParams,
@@ -38,8 +39,12 @@ export default async function FeedPage({
 
   const visibleRoomIds = [...visibleSet];
 
-  // Base filter: published + feed-visible + in visible rooms
-  const baseConditions = [eq(ideas.status, "published"), eq(ideas.feedVisible, true)];
+  // Base filter: published + feed-visible + in visible rooms (AI Lab excluded)
+  const baseConditions = [
+    eq(ideas.status, "published"),
+    eq(ideas.feedVisible, true),
+    ...(AI_LAB_ROOM_ID ? [ne(ideas.roomId, AI_LAB_ROOM_ID)] : []),
+  ];
   if (visibleRoomIds.length > 0) {
     baseConditions.push(inArray(ideas.roomId, visibleRoomIds));
   }
@@ -97,7 +102,7 @@ export default async function FeedPage({
             {sort === "hot" ? "Trending Ideas" : "Latest Ideas"}
           </h1>
           <p className="text-slate-400 text-sm">
-            Ideas from your rooms and the community.
+            Ideas from your rooms and the community. <Link href="/ai-lab" className="text-teal-500 hover:text-teal-400 transition-colors">AI Lab →</Link>
           </p>
         </div>
 
