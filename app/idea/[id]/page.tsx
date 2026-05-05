@@ -168,7 +168,7 @@ export default async function IdeaPage({
             viewerName={viewerProfile?.name ?? null}
             viewerHandle={viewerProfile?.handle ?? null}
             viewerImage={viewerProfile?.image ?? null}
-            commentInput={isAiLabIdea && idea.roomId ? (
+            commentInput={idea.roomId ? (
               <MentionInput
                 ideaId={ideaId}
                 roomId={idea.roomId}
