@@ -137,7 +137,7 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-11 w-80 rounded-2xl bg-white border border-slate-200
+                <div className="absolute left-0 bottom-full mb-2 w-80 rounded-2xl bg-white border border-slate-200
           shadow-2xl shadow-black/10 z-50 overflow-hidden">
 
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
