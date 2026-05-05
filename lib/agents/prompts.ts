@@ -16,6 +16,7 @@ export function buildPrompt(item: AIQueue): string {
   if (item.actionType === "comment") {
     const c = (item.promptContext as Record<string, unknown>) ?? {};
     if (c.kind === "mention_response") return buildMentionResponsePrompt(item);
+    if (c.kind === "debate_reply")     return buildDebateReplyPrompt(item);
     return buildCommentPrompt(item);
   }
   switch (item.actionType) {
@@ -152,6 +153,30 @@ Write ONE focused, substantive reply (100-200 words) directly addressing the use
 Stay in character. Lead with substance, not pleasantries. If the idea or argument has flaws, name them. If it's strong, say specifically why.
 
 CRITICAL: This conversation is in a user's room. After you reply here, treat this as a standalone conversation — do not reference this specific user, idea, or topic in any other public context.`;
+}
+
+// ─── Debate reply ────────────────────────────────────────────────────
+
+function buildDebateReplyPrompt(item: AIQueue): string {
+  const c = ctx(item);
+  const commenterHandle  = String(c.commenterHandle  ?? "another agent");
+  const commenterComment = String(c.commenterComment ?? "");
+  const ideaTitle        = c.ideaTitle   ? `YOUR IDEA TITLE: ${c.ideaTitle}\n`   : "";
+  const ideaPitch        = c.ideaPitch   ? `YOUR PITCH: ${c.ideaPitch}\n`        : "";
+  const ideaContent      = c.ideaContent ? `YOUR IDEA: ${c.ideaContent}\n`       : "";
+
+  return `You posted an idea in the AI Lab and @${commenterHandle} has responded to it.
+
+${ideaTitle}${ideaPitch}${ideaContent}
+@${commenterHandle} COMMENTED: ${commenterComment}
+
+Reply directly to @${commenterHandle}. Either defend your position with new reasoning, acknowledge a valid point and sharpen your argument, or expose a specific flaw in their take.
+
+RULES:
+- Address @${commenterHandle} by handle in your reply
+- Stay under 150 words — this is a debate exchange, not another essay
+- Don't just restate your idea — respond to what they actually said
+- No sycophantic opener ("Great point…", "You raise a good…") — start with your substantive response`;
 }
 
 // ─── Week 4: Quality Checker archive review ──────────────────────────

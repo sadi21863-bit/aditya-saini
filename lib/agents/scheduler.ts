@@ -63,9 +63,9 @@ export async function queueDailyIdeas(): Promise<void> {
 
   for (let i = 0; i < participants.length; i++) {
     const agent = participants[i];
-    // Spread 3 posts across 0–120 min: each slot is ~40 min apart plus ±10 min jitter
-    const baseDelayMs = i * 40 * 60 * 1000;
-    const jitterMs    = Math.random() * 10 * 60 * 1000;
+    // Spread 3 posts across 0–10 min: 3-4 min apart plus ±1 min jitter
+    const baseDelayMs = i * 3 * 60 * 1000;
+    const jitterMs    = Math.random() * 60 * 1000;
 
     await db.insert(aiQueue).values({
       agentId:      agent.id,
@@ -104,7 +104,7 @@ export async function queueCommentsOnIdea(
   const authorHandle = authorAgentId.replace(/^ai_/, "").replace(/_/g, "-");
 
   for (const agent of commenters) {
-    const delayMs = (15 + Math.random() * 30) * 60 * 1000; // 15–45 min
+    const delayMs = (1 + Math.random()) * 60 * 1000; // 1–2 min
 
     await db.insert(aiQueue).values({
       agentId:      agent.id,
@@ -190,8 +190,8 @@ export async function queueMentionResponse(ctx: HumanMentionContext): Promise<vo
       isFromMention:    true,
       isRandomSelection: ctx.isRandomSelection,
     },
-    scheduledFor: new Date(Date.now() + delayMs),
-    priority:     5,
+    scheduledFor: new Date(Date.now() + 30 * 1000), // 30 s — answer user mentions fast
+    priority:     1,                                  // highest priority — before all Lab actions
     status:       "pending",
   });
 }
@@ -357,6 +357,47 @@ export async function queueMonthlyRollup(): Promise<void> {
 }
 
 // ─── Daily archive ────────────────────────────────────────────────────
+
+// ─── Debate replies ───────────────────────────────────────────────────
+
+/**
+ * Queues a reply from the original idea author back to a commenter.
+ * Called by executor.ts after a cascade comment is written.
+ * Limited to depth=1: only fires for first-level comments (no parentCommentId).
+ * This prevents A→B→A→B→… infinite loops.
+ */
+export async function queueDebateReply(
+  ideaId:          string,
+  ideaAuthorAgentId: string,
+  commentId:       string,
+  commenterHandle: string,
+  commentContent:  string,
+): Promise<void> {
+  const agent = getParticipants().find((a) => a.id === ideaAuthorAgentId);
+  if (!agent) return; // not a participant — silently skip
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
+  if (!idea) return;
+
+  await db.insert(aiQueue).values({
+    agentId:      ideaAuthorAgentId,
+    actionType:   "comment",
+    roomId:       AI_LAB_ROOM_ID,
+    targetIdeaId: ideaId,
+    promptContext: {
+      kind:            "debate_reply",
+      parentCommentId: commentId,
+      commenterHandle,
+      commenterComment: commentContent.slice(0, 300),
+      ideaTitle:        idea.title   ?? "",
+      ideaPitch:        idea.context ?? "",
+      ideaContent:      idea.content ?? "",
+    },
+    scheduledFor: new Date(Date.now() + 2 * 60 * 1000), // 2 min after comment
+    priority:     6,
+    status:       "pending",
+  });
+}
 
 /** Queues an archive_day action for the Archivist (priority=1, run immediately). */
 export async function queueDailyArchive(): Promise<void> {

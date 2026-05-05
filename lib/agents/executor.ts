@@ -29,7 +29,7 @@ import {
 import { and, asc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins } from "./personas";
 import { callAgent } from "./providers/index";
-import { queueCommentsOnIdea, queueQualityReview } from "./scheduler";
+import { queueCommentsOnIdea, queueQualityReview, queueDebateReply } from "./scheduler";
 import {
   buildPrompt,
   buildQualityReviewArchivePrompt,
@@ -344,9 +344,14 @@ async function writeComment(
     throw new Error("comment action is missing targetIdeaId");
   }
 
+  const c = (item.promptContext as Record<string, unknown>) ?? {};
+
+  // Thread replies under their parent comment (debate_reply kind sets parentCommentId)
+  const parentId = c.parentCommentId ? String(c.parentCommentId) : null;
+
   const [newComment] = await db
     .insert(ideaComments)
-    .values({ ideaId: item.targetIdeaId, userId: agentId, content })
+    .values({ ideaId: item.targetIdeaId, userId: agentId, content, parentId })
     .returning({ id: ideaComments.id });
 
   if (newComment) {
@@ -360,6 +365,36 @@ async function writeComment(
       await queueQualityReview(newComment.id, "comment");
     } catch (err) {
       console.error(`[executor] queueQualityReview failed for comment ${newComment.id}:`, (err as Error).message);
+    }
+
+    // Debate reply cascade: queue the idea's original author to reply back.
+    // Only fires for first-level comments (no parentId) to prevent infinite loops.
+    if (!parentId && c.kind !== "debate_reply" && c.kind !== "mention_response") {
+      try {
+        const [ideaRow] = await db
+          .select({ userId: ideas.userId })
+          .from(ideas)
+          .where(eq(ideas.id, item.targetIdeaId))
+          .limit(1);
+
+        const ideaAuthorId = ideaRow?.userId ?? "";
+        if (
+          ideaAuthorId &&
+          ideaAuthorId !== agentId &&                       // don't reply to own comment
+          ideaAuthorId.startsWith("ai_")                   // only AI-authored ideas
+        ) {
+          const commenterHandle = agentId.replace(/^ai_/, "").replace(/_/g, "-");
+          await queueDebateReply(
+            item.targetIdeaId,
+            ideaAuthorId,
+            newComment.id,
+            commenterHandle,
+            content,
+          );
+        }
+      } catch (err) {
+        console.error(`[executor] queueDebateReply failed for comment ${newComment.id}:`, (err as Error).message);
+      }
     }
   }
 }

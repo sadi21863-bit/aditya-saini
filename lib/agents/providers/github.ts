@@ -5,9 +5,11 @@ import OpenAI from "openai";
 let _github: OpenAI | null = null;
 function getGitHub(): OpenAI {
   if (!_github) {
+    // GH_MODELS_TOKEN is used in GitHub Actions (GITHUB_TOKEN is reserved there).
+    // GITHUB_TOKEN is used in Vercel and local dev.
     _github = new OpenAI({
       baseURL: "https://models.github.ai/inference",
-      apiKey:  process.env.GITHUB_TOKEN!,
+      apiKey:  process.env.GH_MODELS_TOKEN ?? process.env.GITHUB_TOKEN ?? "",
     });
   }
   return _github;

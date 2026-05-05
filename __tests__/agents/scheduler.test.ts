@@ -234,13 +234,13 @@ describe("queueCommentsOnIdea", () => {
     }
   });
 
-  it("schedules in the 15–45 min window", async () => {
+  it("schedules in the 1–2 min window", async () => {
     await queueCommentsOnIdea(IDEA_ID, AUTHOR);
     const now = Date.now();
     for (const row of capturedInserts) {
       const delayMin = ((row.scheduledFor as Date).getTime() - now) / 60_000;
-      expect(delayMin).toBeGreaterThanOrEqual(14.9);
-      expect(delayMin).toBeLessThanOrEqual(45.1);
+      expect(delayMin).toBeGreaterThanOrEqual(0.9);
+      expect(delayMin).toBeLessThanOrEqual(2.1);
     }
   });
 });
@@ -280,9 +280,9 @@ describe("queueMentionResponse", () => {
     expect(lastInsert().actionType).toBe("comment");
   });
 
-  it("sets priority to 5", async () => {
+  it("sets priority to 1 (highest — answer user mentions fast)", async () => {
     await queueMentionResponse(MENTION_CTX);
-    expect(lastInsert().priority).toBe(5);
+    expect(lastInsert().priority).toBe(1);
   });
 
   it("sets kind='mention_response' in promptContext", async () => {
@@ -296,12 +296,11 @@ describe("queueMentionResponse", () => {
     expect(lastInsert().roomId).toBe("room-uuid");
   });
 
-  it("schedules in the 10–30 min window", async () => {
+  it("schedules within 30 seconds (fast path for user mentions)", async () => {
+    const before = Date.now();
     await queueMentionResponse(MENTION_CTX);
-    const now = Date.now();
-    const delayMin = ((lastInsert().scheduledFor as Date).getTime() - now) / 60_000;
-    expect(delayMin).toBeGreaterThanOrEqual(9.9);
-    expect(delayMin).toBeLessThanOrEqual(30.1);
+    const delaySec = ((lastInsert().scheduledFor as Date).getTime() - before) / 1000;
+    expect(delaySec).toBeLessThanOrEqual(31); // 30s + 1s tolerance
   });
 
   it("forces echo_to_lab=false for private rooms even if echoToLab=true was passed", async () => {
