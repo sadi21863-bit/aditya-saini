@@ -454,7 +454,7 @@ describe("processQueue — empty queue", () => {
 
     const result = await processQueue(5);
 
-    expect(result).toEqual({ processed: 0, failed: 0 });
+    expect(result).toEqual({ processed: 0, failed: 0, errors: [] });
     expect(mockCallAgent).not.toHaveBeenCalled();
   });
 });

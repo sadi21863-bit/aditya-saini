@@ -165,7 +165,7 @@ export default async function AILabPage() {
       </div>
 
       {/* Participant status bar */}
-      <div className="flex flex-wrap items-center gap-6 mb-8 bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4 sm:gap-6 mb-8 bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-3">
         {participants.map((agent) => {
           const isActive = activeSet.has(agent.id);
           return (

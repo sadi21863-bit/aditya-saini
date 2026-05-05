@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { Trash2, Edit3, Eye, Loader2, Heart, Send } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { publishIdea, deleteIdea } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
 
@@ -26,12 +27,13 @@ export default function IdeaCard({
   idea, author, viewerId = "", hasLiked = false,
   isOwner: isOwnerProp, showActions = false,
 }: IdeaCardProps) {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading]           = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [liked, setLiked] = useState(hasLiked);
-  const [likeCount, setLikeCount] = useState(idea.totalLikes ?? 0);
-  const [hovered, setHovered] = useState(false);
+  const [liked, setLiked]               = useState(hasLiked);
+  const [likeCount, setLikeCount]       = useState(idea.totalLikes ?? 0);
+  const [hovered, setHovered]           = useState(false);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     return () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current); };
@@ -63,115 +65,139 @@ export default function IdeaCard({
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">
+            <span className="text-[11px] font-semibold text-teal-400 uppercase tracking-widest">
               {idea.category ?? "General"}
             </span>
             {idea.status === "draft" && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-amber-900/50 text-amber-300 border-amber-700">
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded border bg-amber-900/50 text-amber-300 border-amber-700">
                 Draft
               </span>
             )}
           </div>
-          <h3 className="text-sm font-bold text-white truncate">{idea.title}</h3>
+          <h3
+            title={idea.title ?? undefined}
+            className="text-sm font-bold text-white truncate"
+          >
+            {idea.title}
+          </h3>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-500 shrink-0">
           <span className={`flex items-center gap-1 ${liked ? "text-rose-400" : ""}`}>
-            <Heart size={11} className={liked ? "fill-current" : ""} />
+            <motion.span
+              whileTap={reduce ? {} : { scale: 1.4 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
+              className="inline-flex"
+            >
+              <Heart size={11} className={liked ? "fill-current" : ""} />
+            </motion.span>
             {likeCount}
           </span>
           <span>👁 {idea.views ?? 0}</span>
         </div>
       </div>
 
-      <div
-        style={{
-          maxHeight: hovered ? "300px" : "0px",
-          opacity: hovered ? 1 : 0,
-          marginTop: hovered ? "12px" : "0px",
-          overflow: "hidden",
-          transition: "max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, margin-top 0.3s ease-in-out",
-        }}
-      >
-        {idea.context ? (
-          <p className="text-sm text-slate-400 line-clamp-3 mb-3">{idea.context}</p>
-        ) : (
-          <p className="text-sm text-slate-600 italic mb-3">No pitch added.</p>
-        )}
+      {/* Animated expand panel */}
+      <AnimatePresence>
+        {hovered && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: reduce ? 0 : 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mt-3">
+              {idea.context ? (
+                <p className="text-sm text-slate-400 line-clamp-3 mb-3">{idea.context}</p>
+              ) : (
+                <p className="text-sm text-slate-600 italic mb-3">No pitch added.</p>
+              )}
 
-        {author && (
-          author.isAi ? (
-            // AI author — no profile link, show AI badge
-            <div className="flex items-center gap-2 mb-3 w-fit">
-              <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 bg-teal-900 border border-teal-700 flex items-center justify-center text-[10px] font-bold text-teal-400">
-                {author.avatarUrl
-                  ? <img src={author.avatarUrl} alt={author.handle ?? ""} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  : (author.name?.[0]?.toUpperCase() ?? "?")}
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-xs font-semibold text-white leading-none">@{author.handle ?? "ai"}</p>
-                  <span className="text-[9px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full leading-none">AI</span>
-                </div>
+              {author && (
+                author.isAi ? (
+                  <div className="flex items-center gap-2 mb-3 w-fit">
+                    {/* Layered avatar: initials behind, image on top */}
+                    <div className="relative w-6 h-6 shrink-0">
+                      <div className="absolute inset-0 rounded-full bg-teal-900 border border-teal-700 flex items-center justify-center text-[10px] font-bold text-teal-400">
+                        {author.handle?.[0]?.toUpperCase() ?? "?"}
+                      </div>
+                      {author.avatarUrl && (
+                        <img
+                          src={author.avatarUrl}
+                          alt=""
+                          className="absolute inset-0 w-full h-full rounded-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs font-semibold text-white leading-none">@{author.handle ?? "ai"}</p>
+                        <span className="text-[11px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full leading-none">AI</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    href={`/profile/${author.handle ?? "unknown"}`}
+                    className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] bg-teal-900 text-teal-400 border border-teal-700">
+                      {author.name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white leading-none">{author.name ?? "Anonymous"}</p>
+                      <p className="text-[11px] text-slate-500">@{author.handle ?? "unknown"}</p>
+                    </div>
+                  </Link>
+                )
+              )}
+
+              <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
+                <Link
+                  href={`/idea/${idea.id}`}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-500 transition"
+                >
+                  <Eye size={12} /> View
+                </Link>
+                {showActions && isOwner && (
+                  <>
+                    <Link
+                      href={`/idea/${idea.id}/edit`}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 transition"
+                    >
+                      <Edit3 size={12} /> Edit
+                    </Link>
+                    {idea.status === "draft" && (
+                      <button
+                        onClick={() => run("publish", publishIdea)}
+                        disabled={!!loading}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-teal-600 rounded-lg hover:bg-teal-500 disabled:opacity-50 transition"
+                      >
+                        {loading === "publish" ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                        Publish
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDeleteClick}
+                      disabled={loading === "delete"}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${
+                        confirmDelete
+                          ? "bg-red-600 text-white animate-pulse"
+                          : "text-red-400 bg-slate-800 hover:bg-red-900/30"
+                      }`}
+                    >
+                      {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                      {confirmDelete ? "Sure?" : "Del"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          ) : (
-            <Link
-              href={`/profile/${author.handle ?? "unknown"}`}
-              className="flex items-center gap-2 mb-3 hover:opacity-70 transition-opacity w-fit"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] bg-teal-900 text-teal-400 border border-teal-700">
-                {author.name?.[0]?.toUpperCase() ?? "?"}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white leading-none">{author.name ?? "Anonymous"}</p>
-                <p className="text-[10px] text-slate-500">@{author.handle ?? "unknown"}</p>
-              </div>
-            </Link>
-          )
+          </motion.div>
         )}
-
-        <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
-          <Link
-            href={`/idea/${idea.id}`}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-500 transition"
-          >
-            <Eye size={12} /> View
-          </Link>
-          {showActions && isOwner && (
-            <>
-              <Link
-                href={`/idea/${idea.id}/edit`}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 transition"
-              >
-                <Edit3 size={12} /> Edit
-              </Link>
-              {idea.status === "draft" && (
-                <button
-                  onClick={() => run("publish", publishIdea)}
-                  disabled={!!loading}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-teal-600 rounded-lg hover:bg-teal-500 disabled:opacity-50 transition"
-                >
-                  {loading === "publish" ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                  Publish
-                </button>
-              )}
-              <button
-                onClick={handleDeleteClick}
-                disabled={loading === "delete"}
-                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${
-                  confirmDelete
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "text-red-400 bg-slate-800 hover:bg-red-900/30"
-                }`}
-              >
-                {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                {confirmDelete ? "Sure?" : "Del"}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

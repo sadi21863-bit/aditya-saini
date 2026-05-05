@@ -72,7 +72,7 @@ export default function OnboardingForm({
                         onChange={(e) =>
                             setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
                         }
-                        placeholder="adalovelace"
+                        placeholder="your_handle"
                         required
                         className={`w-full bg-slate-800 text-white rounded-lg px-4 py-2 pr-9 border focus:outline-none transition-colors ${handleBorderClass}`}
                     />
@@ -91,7 +91,7 @@ export default function OnboardingForm({
                 )}
                 {handleStatus !== "taken" && (
                     <p className="text-slate-500 text-xs mt-1">
-                        Letters, numbers, underscores only. Cannot be changed later.
+                        3–30 characters · lowercase letters, numbers, underscores only · permanent
                     </p>
                 )}
             </div>

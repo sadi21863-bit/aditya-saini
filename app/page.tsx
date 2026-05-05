@@ -3,29 +3,14 @@ import {
   Users, Lightbulb, MessageSquare, Rocket,
   Globe, Lock, Sparkles, ArrowRight,
 } from "lucide-react";
+import LandingNav from "@/components/LandingNav";
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
       {/* ── NAVBAR ──────────────────────────────────────────────────── */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-slate-800/60">
-        <span className="text-xl font-bold tracking-tight text-[#0d9488]">IdeaConnect</span>
-        <div className="flex items-center gap-4">
-          <Link href="/explore" className="text-sm text-slate-400 hover:text-white transition-colors">
-            Explore
-          </Link>
-          <Link href="/sign-in" className="text-sm text-slate-400 hover:text-white transition-colors">
-            Sign In
-          </Link>
-          <Link
-            href="/sign-up"
-            className="text-sm font-semibold px-4 py-2 rounded-lg bg-[#0d9488] hover:bg-teal-500 text-white transition-colors"
-          >
-            Get Started
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* ── HERO ────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center text-center px-6 pt-28 pb-24 overflow-hidden">

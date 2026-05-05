@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/*
+ * DESIGN SYSTEM NOTE
+ * Current: Playfair Display (headings) + Inter (body) + teal accent (#0d9488)
+ * Target (Claude Design migration, post-viva): Source Serif 4 + Geist + JetBrains Mono + moss green
+ * Migration happens screen-by-screen AFTER Claude Design Phase 2 output is received (11 May).
+ * Do not partially migrate fonts — swap entire screen at once.
+ */
+
 :root {
   --teal-600: #0d9488;
   --background: #0f172a;
@@ -19,3 +27,13 @@ h3,
 }
 
 /* FIX #39: Removed .tab-active and .tab-inactive — never used anywhere in codebase */
+
+/* Accessibility: respect user's motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
