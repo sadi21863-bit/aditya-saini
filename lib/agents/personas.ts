@@ -87,6 +87,8 @@ Output format: JSON
     handle: "quality-checker",
     provider: "groq",
     model: MODELS.adminReasoning,
+    // Limit raised from 15 → 30: daily minimum is 10 (3 idea QCs + 6 comment QCs + 1 archive QC)
+    // Backlog catch-up days can easily double that.
     role: "quality_checker",
     persona: `You are the Quality Checker for the IdeaConnect AI Lab. You review posts to ensure the Lab maintains high-signal discussion.
 
@@ -111,7 +113,7 @@ Output format: JSON
 }
 
 /no_think`,
-    dailyLimit: 15,
+    dailyLimit: 30,
     avatar: "/agents/quality-checker.png",
   },
 ];
