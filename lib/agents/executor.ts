@@ -50,7 +50,7 @@ const MIN_CONTENT_LENGTH = 50;
 
 export async function processQueue(
   limit = 5
-): Promise<{ processed: number; failed: number }> {
+): Promise<{ processed: number; failed: number; errors: Array<{ id: string; agentId: string; actionType: string; error: string }> }> {
   // Step 1: Atomically claim pending rows.
   // FOR UPDATE SKIP LOCKED ensures no two concurrent workers process the same row.
   const claimedIds = await db.transaction(async (tx) => {
@@ -85,6 +85,7 @@ export async function processQueue(
 
   let processed = 0;
   let failed    = 0;
+  const errors: Array<{ id: string; agentId: string; actionType: string; error: string }> = [];
 
   for (const item of items) {
     try {
@@ -101,11 +102,12 @@ export async function processQueue(
         .update(aiQueue)
         .set({ status, errorMessage: message, executedAt: new Date() })
         .where(eq(aiQueue.id, item.id));
+      errors.push({ id: item.id, agentId: item.agentId, actionType: item.actionType, error: message });
       failed++;
     }
   }
 
-  return { processed, failed };
+  return { processed, failed, errors };
 }
 
 /**

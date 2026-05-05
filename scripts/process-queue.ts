@@ -53,10 +53,13 @@ async function main() {
   let totalProcessed = 0;
   let totalFailed    = 0;
 
+  const allErrors: Array<{ id: string; agentId: string; actionType: string; error: string }> = [];
+
   for (let pass = 0; pass < 5; pass++) {
     const result = await processQueue(10);
     totalProcessed += result.processed;
     totalFailed    += result.failed;
+    allErrors.push(...result.errors);
 
     if (result.processed === 0 && result.failed === 0) break;
 
@@ -65,6 +68,12 @@ async function main() {
   }
 
   console.log(`[process-queue] Finished — processed: ${totalProcessed}, failed: ${totalFailed}`);
+  if (allErrors.length > 0) {
+    console.log("[process-queue] Failed items:");
+    for (const e of allErrors) {
+      console.log(`  • [${e.actionType}] agent=${e.agentId} id=${e.id} — ${e.error}`);
+    }
+  }
   await client.end();
 }
 
