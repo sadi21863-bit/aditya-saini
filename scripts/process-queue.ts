@@ -2,7 +2,9 @@
  * scripts/process-queue.ts
  *
  * Queue processor for GitHub Actions (no function timeout).
- * Advances all overdue pending items, then drains the queue in batches.
+ * Self-healing: checks whether today's theme and ideas have been seeded
+ * and queues them if missing — so a missed Vercel cron is recovered within
+ * the next 5-minute GHA run, without any manual intervention.
  *
  * Usage: npx tsx scripts/process-queue.ts
  *
@@ -19,10 +21,61 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { processQueue, resetStuckQueueItems } from "@/lib/agents/executor";
+import { queueThemeSelection, queueDailyIdeas } from "@/lib/agents/scheduler";
 
-// Minimal DB client just for the advance step (executor uses its own via @/db)
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const rawDb  = drizzle(client);
+
+/** yyyy-mm-dd in UTC — matches how AI Lab crons schedule work */
+function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Self-healing check: if today's theme or ideas are missing from the queue
+ * and the DB, queue them now. This recovers from missed Vercel crons without
+ * any manual intervention, within the next 5-minute GHA window.
+ */
+async function ensureDailyWorkQueued(): Promise<void> {
+  const today = todayUTC();
+
+  // ── Theme ────────────────────────────────────────────────────────────
+  // Check if today's theme already exists in ai_themes (already processed)
+  // or if a theme_select item is already in the queue (pending/in-progress)
+  const [themeInDb] = await rawDb.execute(sql`
+    SELECT 1 FROM ai_themes WHERE date = ${today} LIMIT 1
+  `) as unknown as [unknown?];
+
+  const [themeInQueue] = await rawDb.execute(sql`
+    SELECT 1 FROM ai_queue
+    WHERE  action_type   = 'theme_select'
+      AND  scheduled_for >= (${today}::date)
+      AND  status        IN ('pending', 'in_progress', 'done')
+    LIMIT 1
+  `) as unknown as [unknown?];
+
+  if (!themeInDb && !themeInQueue) {
+    console.log(`[process-queue] No theme for ${today} — queuing theme selection`);
+    await queueThemeSelection();
+  }
+
+  // ── Ideas ────────────────────────────────────────────────────────────
+  // Only seed ideas if today's theme already exists (ideas reference the theme).
+  // Check if any post_idea items were created today (pending, in-progress, or done).
+  if (themeInDb) {
+    const [ideasInQueue] = await rawDb.execute(sql`
+      SELECT 1 FROM ai_queue
+      WHERE  action_type = 'post_idea'
+        AND  created_at  >= (${today}::date)
+      LIMIT 1
+    `) as unknown as [unknown?];
+
+    if (!ideasInQueue) {
+      console.log(`[process-queue] No ideas queued for ${today} — queuing daily ideas`);
+      await queueDailyIdeas();
+    }
+  }
+}
 
 async function main() {
   if (process.env.AI_LAB_ENABLED !== "true") {
@@ -31,13 +84,16 @@ async function main() {
     return;
   }
 
-  // 1. Reset any items stuck in_progress from a previous timeout
+  // 1. Self-heal: ensure today's theme and ideas are queued
+  await ensureDailyWorkQueued();
+
+  // 2. Reset any items stuck in_progress from a previous timeout
   const recovered = await resetStuckQueueItems();
   if (recovered > 0) {
     console.log(`[process-queue] Reset ${recovered} stuck in_progress item(s)`);
   }
 
-  // 2. Advance all overdue pending items to now() so processQueue picks them up
+  // 3. Advance all overdue pending items to now() so processQueue picks them up
   const advanced = await rawDb.execute(sql`
     UPDATE ai_queue
     SET    scheduled_for = now()
@@ -49,10 +105,9 @@ async function main() {
     console.log(`[process-queue] Advanced ${advancedCount} pending item(s) to now()`);
   }
 
-  // 3. Drain the queue in batches (max 5 passes per run to stay within GHA limits)
+  // 4. Drain the queue in batches (max 5 passes per run to stay within GHA limits)
   let totalProcessed = 0;
   let totalFailed    = 0;
-
   const allErrors: Array<{ id: string; agentId: string; actionType: string; error: string }> = [];
 
   for (let pass = 0; pass < 5; pass++) {
@@ -63,7 +118,6 @@ async function main() {
 
     if (result.processed === 0 && result.failed === 0) break;
 
-    // Brief pause between passes to avoid hammering APIs
     await new Promise((r) => setTimeout(r, 2000));
   }
 
@@ -74,6 +128,7 @@ async function main() {
       console.log(`  • [${e.actionType}] agent=${e.agentId} id=${e.id} — ${e.error}`);
     }
   }
+
   await client.end();
 }
 
