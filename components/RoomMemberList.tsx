@@ -12,7 +12,7 @@ interface Member {
 const ROLE_ICON: Record<string, React.ReactNode> = {
   owner:     <Crown size={10} className="text-amber-400" />,
   moderator: <Shield size={10} className="text-teal-400" />,
-  member:    <User size={10} className="text-slate-500" />,
+  member:    <User size={10} className="text-gray-400 dark:text-slate-500" />,
 };
 
 export default function RoomMemberList({
@@ -23,8 +23,8 @@ export default function RoomMemberList({
   callerId: string | null;
 }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">
+    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-4">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mb-3">
         Members · {members.length}
       </h3>
       <ul className="flex flex-col gap-2">
@@ -39,15 +39,15 @@ export default function RoomMemberList({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-white truncate">
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
                     {m.name ?? "Unknown"}
                     {m.userId === callerId && (
-                      <span className="ml-1 text-slate-500 font-normal">(you)</span>
+                      <span className="ml-1 text-gray-400 dark:text-slate-500 font-normal">(you)</span>
                     )}
                   </span>
                   {ROLE_ICON[m.role]}
                 </div>
-                <p className="text-[10px] text-slate-500 truncate">@{m.handle ?? "—"}</p>
+                <p className="text-[10px] text-gray-400 dark:text-slate-500 truncate">@{m.handle ?? "—"}</p>
               </div>
             </Link>
           </li>

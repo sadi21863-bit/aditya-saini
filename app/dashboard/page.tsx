@@ -44,8 +44,8 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white">My Rooms</h1>
-          <p className="text-slate-400 text-sm mt-1">@{me.handle}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Rooms</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">@{me.handle}</p>
         </div>
         <Link
           href="/rooms/new"
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
       {/* Rooms Grid */}
       {myMemberships.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-slate-500 mb-4">You&apos;re not in any rooms yet.</p>
+          <p className="text-gray-400 dark:text-slate-500 mb-4">You&apos;re not in any rooms yet.</p>
           <Link
             href="/rooms/new"
             className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition"
@@ -74,23 +74,23 @@ export default async function DashboardPage() {
             <Link
               key={m.roomId}
               href={`/rooms/${m.roomId}`}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-teal-700/50 transition-colors group"
+              className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-5 hover:border-teal-700/50 transition-colors group"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-white font-semibold group-hover:text-teal-400 transition-colors truncate">
+                <h3 className="text-gray-900 dark:text-white font-semibold group-hover:text-teal-400 transition-colors truncate">
                   {m.roomName}
                 </h3>
                 <div className="flex items-center gap-2">
                   {m.roomVisibility === "private" ? (
-                    <Lock size={12} className="text-slate-500" />
+                    <Lock size={12} className="text-gray-400 dark:text-slate-500" />
                   ) : (
                     <Globe size={12} className="text-teal-500" />
                   )}
-                  <span className="text-xs text-slate-500 capitalize">{m.role}</span>
+                  <span className="text-xs text-gray-400 dark:text-slate-500 capitalize">{m.role}</span>
                 </div>
               </div>
               {m.roomDescription && (
-                <p className="text-slate-400 text-sm line-clamp-2">{m.roomDescription}</p>
+                <p className="text-gray-500 dark:text-slate-400 text-sm line-clamp-2">{m.roomDescription}</p>
               )}
             </Link>
           ))}
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
       {/* Recent Ideas */}
       {recentIdeas.length > 0 && (
         <>
-          <h2 className="text-xl font-bold text-white mb-4">Recent Ideas</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Recent Ideas</h2>
           <div className="flex flex-col gap-4">
             {recentIdeas.map((idea) => (
               <IdeaCard

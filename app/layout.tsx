@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -59,15 +60,18 @@ export default async function RootLayout({
 
   return (
     <SessionProvider session={session}>
-      <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-        <body className="bg-slate-950 text-white min-h-screen">
-          <GlobalErrorBoundary>
-            <div className="flex min-h-screen">
-              <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
-              <main className="flex-1 min-h-screen">{children}</main>
-            </div>
-            <Toaster position="bottom-right" />
-          </GlobalErrorBoundary>
+      <html lang="en" suppressHydrationWarning
+        className={`${playfair.variable} ${inter.variable}`}>
+        <body className="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
+          <ThemeProvider>
+            <GlobalErrorBoundary>
+              <div className="flex min-h-screen">
+                <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
+                <main className="flex-1 min-h-screen">{children}</main>
+              </div>
+              <Toaster position="bottom-right" />
+            </GlobalErrorBoundary>
+          </ThemeProvider>
         </body>
       </html>
     </SessionProvider>

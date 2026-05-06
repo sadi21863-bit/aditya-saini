@@ -70,7 +70,6 @@ export default async function ProfilePage({
   const followerCount = followerRows.length;
   const followingCount = followingRows.length;
 
-  // Only show public rooms to non-owners
   const visibleRooms = isOwnProfile
     ? userRooms
     : userRooms.filter((r) => r.roomVisibility === "public");
@@ -85,18 +84,18 @@ export default async function ProfilePage({
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {profileUser.name ?? `@${profileUser.handle}`}
           </h1>
-          <p className="text-slate-400 text-sm mt-1">@{profileUser.handle}</p>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">@{profileUser.handle}</p>
           {profileUser.bio && (
-            <p className="text-slate-300 mt-2 text-sm">{profileUser.bio}</p>
+            <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">{profileUser.bio}</p>
           )}
-          <div className="flex gap-4 mt-3 text-sm text-slate-400">
-            <span><strong className="text-white">{followerCount}</strong> followers</span>
-            <span><strong className="text-white">{followingCount}</strong> following</span>
-            <span><strong className="text-white">{userIdeas.length}</strong> ideas</span>
-            <span><strong className="text-white">{visibleRooms.length}</strong> rooms</span>
+          <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500 dark:text-slate-400">
+            <span><strong className="text-gray-900 dark:text-white">{followerCount}</strong> followers</span>
+            <span><strong className="text-gray-900 dark:text-white">{followingCount}</strong> following</span>
+            <span><strong className="text-gray-900 dark:text-white">{userIdeas.length}</strong> ideas</span>
+            <span><strong className="text-gray-900 dark:text-white">{visibleRooms.length}</strong> rooms</span>
           </div>
         </div>
 
@@ -112,8 +111,8 @@ export default async function ProfilePage({
           {isOwnProfile && (
             <Link
               href={`/profile/${handle}/edit`}
-              className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-700
-                text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+              className="text-xs font-bold px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700
+                text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-slate-500 transition-colors"
             >
               Edit Profile
             </Link>
@@ -124,26 +123,26 @@ export default async function ProfilePage({
       {/* Rooms */}
       {visibleRooms.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-white mb-4">Rooms</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Rooms</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {visibleRooms.map((r) => (
               <Link
                 key={r.roomId}
                 href={`/rooms/${r.roomId}`}
-                className="bg-slate-900 border border-slate-800 rounded-xl p-4
+                className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4
                   hover:border-teal-700/50 transition-colors group"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white group-hover:text-teal-400 transition-colors truncate">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors truncate">
                     {r.roomName}
                   </h3>
                   {r.roomVisibility === "private" ? (
-                    <Lock size={12} className="text-slate-500 shrink-0" />
+                    <Lock size={12} className="text-gray-400 dark:text-slate-500 shrink-0" />
                   ) : (
                     <Globe size={12} className="text-teal-500 shrink-0" />
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1 capitalize">{r.role}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 capitalize">{r.role}</p>
               </Link>
             ))}
           </div>
@@ -152,12 +151,12 @@ export default async function ProfilePage({
 
       {/* Ideas */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">Ideas</h2>
-        <span className="text-xs text-slate-500">{userIdeas.length} total</span>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ideas</h2>
+        <span className="text-xs text-gray-400 dark:text-slate-500">{userIdeas.length} total</span>
       </div>
 
       {userIdeas.length === 0 ? (
-        <p className="text-slate-500 text-sm">No published ideas yet.</p>
+        <p className="text-gray-400 dark:text-slate-500 text-sm">No published ideas yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {userIdeas.map((idea) => (

@@ -20,12 +20,10 @@ export default function SparkButton({
   onSuccess,
   disabled = false,
 }: SparkProps) {
-  const [count, setCount]     = useState(initialLikes);
+  const [count, setCount]       = useState(initialLikes);
   const [isActive, setIsActive] = useState(false);
   const [hasLiked, setHasLiked] = useState(false);
 
-  // viewerId is kept as a prop so the parent can disable the button when
-  // viewerId === idea.userId — the prop is NOT forwarded to the server action.
   void viewerId;
 
   const handleSpark = async () => {
@@ -34,7 +32,6 @@ export default function SparkButton({
     setIsActive(true);
     setCount((prev) => prev + 1);
 
-    // sparkIdea is a server action — it reads the caller from auth internally.
     const result = await sparkIdea(ideaId);
 
     if (!result.success) {
@@ -57,12 +54,12 @@ export default function SparkButton({
       className={`relative group flex items-center gap-2.5 px-5 py-2.5 rounded-full font-bold
         text-sm transition-all duration-300 active:scale-95 select-none ${
           disabled
-            ? "bg-slate-800 text-slate-600 cursor-not-allowed opacity-50"
+            ? "bg-gray-100 dark:bg-slate-800 text-gray-300 dark:text-slate-600 cursor-not-allowed opacity-50"
             : hasLiked
               ? "bg-[#0d9488] text-white cursor-default shadow-md"
               : isActive
                 ? "bg-[#0d9488] text-white shadow-lg"
-                : "bg-slate-50 text-slate-500 border border-slate-200 hover:border-[#0d9488] hover:text-[#0d9488]"
+                : "bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 hover:border-[#0d9488] hover:text-[#0d9488]"
         }`}
     >
       <Zap

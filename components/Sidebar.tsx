@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import NotificationCenter from "@/components/NotificationCenter";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/feed",           label: "Home Feed",   icon: Home },
@@ -52,7 +53,7 @@ export default function Sidebar({
 
   const linkCls = (href: string, extra = "") =>
     `flex items-center gap-3 rounded-lg text-sm font-medium transition px-3 py-2 ${extra} ${
-      isActive(href) ? "bg-teal-700 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+      isActive(href) ? "bg-teal-700 text-white" : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
     }`;
 
   return (
@@ -60,7 +61,7 @@ export default function Sidebar({
       {/* ── Mobile hamburger trigger ─────────────────────────────────── */}
       {!mobileOpen && (
         <button
-          className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-slate-800 text-white shadow-lg"
+          className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-gray-800 dark:bg-slate-800 text-white shadow-lg"
           onClick={() => setMobileOpen(true)}
           aria-label="Open navigation"
         >
@@ -81,7 +82,7 @@ export default function Sidebar({
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              className="md:hidden fixed top-0 left-0 h-full w-64 bg-slate-900 border-r border-slate-800 z-50 flex flex-col py-6 px-4"
+              className="md:hidden fixed top-0 left-0 h-full w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 z-50 flex flex-col py-6 px-4"
               initial={{ x: reduce ? 0 : -256 }}
               animate={{ x: 0 }}
               exit={{ x: reduce ? 0 : -256 }}
@@ -90,11 +91,11 @@ export default function Sidebar({
               {/* Logo + close */}
               <div className="flex items-center justify-between mb-8">
                 <Link href="/feed" onClick={() => setMobileOpen(false)}>
-                  <h2 className="text-xl font-bold text-teal-400 tracking-tight">IdeaConnect</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Build ideas together</p>
+                  <h2 className="text-xl font-bold text-teal-600 dark:text-teal-400 tracking-tight">IdeaConnect</h2>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Build ideas together</p>
                 </Link>
                 <button
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                  className="p-1.5 rounded-lg text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition"
                   onClick={() => setMobileOpen(false)}
                 >
                   <X className="w-5 h-5" />
@@ -127,17 +128,18 @@ export default function Sidebar({
               </nav>
 
               {/* Bottom: notifications + avatar + sign out */}
-              <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3">
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 flex flex-col gap-3">
                 {currentUserId && <NotificationCenter userId={currentUserId} />}
+                <ThemeToggle collapsed={false} />
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-7 h-7 rounded-full bg-teal-700 flex items-center justify-center shrink-0 text-xs font-bold text-white uppercase">
                     {currentHandle ? currentHandle.charAt(0) : "?"}
                   </div>
-                  <span className="text-slate-300 text-sm truncate">@{currentHandle}</span>
+                  <span className="text-gray-600 dark:text-slate-300 text-sm truncate">@{currentHandle}</span>
                 </div>
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition"
+                  className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition"
                 >
                   <LogOut size={16} /> Sign out
                 </button>
@@ -149,7 +151,7 @@ export default function Sidebar({
 
       {/* ── Desktop sidebar ──────────────────────────────────────────── */}
       <aside
-        className={`hidden md:flex fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-800
+        className={`hidden md:flex fixed left-0 top-0 h-screen bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800
           flex-col py-6 z-50 transition-all duration-300
           ${collapsed ? "w-16 px-2" : "w-64 px-4"}`}
       >
@@ -157,8 +159,8 @@ export default function Sidebar({
         <div className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
           {!collapsed ? (
             <Link href="/feed" className="block">
-              <h2 className="text-xl font-bold text-teal-400 tracking-tight">IdeaConnect</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Build ideas together</p>
+              <h2 className="text-xl font-bold text-teal-600 dark:text-teal-400 tracking-tight">IdeaConnect</h2>
+              <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Build ideas together</p>
             </Link>
           ) : (
             <Link href="/feed" className="text-teal-400 font-black text-lg">IC</Link>
@@ -176,7 +178,7 @@ export default function Sidebar({
                 ${collapsed ? "px-2 py-2 justify-center" : "px-3 py-2"}
                 ${isActive(item.href)
                   ? "bg-teal-700 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
                 }`}
             >
               <item.icon className={`shrink-0 ${collapsed ? "w-5 h-5" : "w-4 h-4"}`} />
@@ -192,7 +194,7 @@ export default function Sidebar({
                 ${collapsed ? "px-2 py-2 justify-center" : "px-3 py-2"}
                 ${pathname.startsWith("/profile")
                   ? "bg-teal-700 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
                 }`}
             >
               <User className={`shrink-0 ${collapsed ? "w-5 h-5" : "w-4 h-4"}`} />
@@ -202,17 +204,18 @@ export default function Sidebar({
         </nav>
 
         {/* Bottom */}
-        <div className={`mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
+        <div className={`mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
           {currentUserId && (
             <div className={collapsed ? "" : "px-1"}>
               <NotificationCenter userId={currentUserId} />
             </div>
           )}
+          <ThemeToggle collapsed={collapsed} />
           <div className={`flex items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               title="Sign out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0"
+              className="p-1.5 rounded-lg text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition shrink-0"
             >
               <LogOut size={16} />
             </button>
@@ -222,7 +225,7 @@ export default function Sidebar({
                   {currentHandle ? currentHandle.charAt(0) : "?"}
                 </div>
                 {currentHandle && (
-                  <span className="text-slate-300 text-sm truncate">@{currentHandle}</span>
+                  <span className="text-gray-600 dark:text-slate-300 text-sm truncate">@{currentHandle}</span>
                 )}
               </div>
             )}
@@ -233,13 +236,13 @@ export default function Sidebar({
         <button
           onClick={() => setCollapsed((v) => !v)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-8 w-6 h-6 rounded-full bg-slate-700
-            border border-slate-600 flex items-center justify-center
-            hover:bg-slate-600 transition-colors z-10 shadow"
+          className="absolute -right-3 top-8 w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700
+            border border-gray-300 dark:border-slate-600 flex items-center justify-center
+            hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors z-10 shadow"
         >
           {collapsed
-            ? <ChevronRight size={12} className="text-slate-300" />
-            : <ChevronLeft  size={12} className="text-slate-300" />}
+            ? <ChevronRight size={12} className="text-gray-600 dark:text-slate-300" />
+            : <ChevronLeft  size={12} className="text-gray-600 dark:text-slate-300" />}
         </button>
       </aside>
 

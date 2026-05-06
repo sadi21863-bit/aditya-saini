@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Tailwind v4: enable dark: variant via .dark class on <html> */
+@variant dark (&:where(.dark, .dark *));
+
 /*
  * DESIGN SYSTEM NOTE
  * Current: Playfair Display (headings) + Inter (body) + teal accent (#0d9488)

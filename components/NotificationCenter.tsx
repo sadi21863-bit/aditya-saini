@@ -71,14 +71,11 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
         }
     }, [isOpen, loaded]);
 
-    // FIX #26: Skip polling when the tab is hidden — saves requests on background tabs
     useEffect(() => {
         if (!userId) return;
 
         const poll = async () => {
-            // Only poll when the tab is visible
             if (document.visibilityState !== "visible") return;
-
             const count = await getUnreadCount();
             setUnreadCount(count);
             if (count !== prevCountRef.current) {
@@ -87,11 +84,8 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
             }
         };
 
-        poll(); // run immediately on mount
-
+        poll();
         const interval = setInterval(poll, 30_000);
-
-        // FIX #26: Re-poll immediately when user returns to the tab
         const handleVisibility = () => {
             if (document.visibilityState === "visible") poll();
         };
@@ -127,24 +121,26 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
 
             <button
                 onClick={() => setIsOpen((v) => !v)}
-                className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
                 aria-label="Notifications"
+                aria-expanded={isOpen}
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             >
-                <Bell size={18} className="text-slate-500 hover:text-slate-900 transition-colors" />
+                <Bell size={18} className="text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white transition-colors" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
                 )}
             </button>
 
             {isOpen && (
-                <div className="absolute left-0 bottom-full mb-2 w-80 rounded-2xl bg-white border border-slate-200
-          shadow-2xl shadow-black/10 z-50 overflow-hidden">
+                <div className="absolute left-0 bottom-full mb-2 w-80 rounded-2xl
+                  bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700
+                  shadow-lg dark:shadow-black/20 z-50 overflow-hidden">
 
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900">Notifications</h3>
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
                             {unreadCount > 0 && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-teal-50 text-[#0d9488]">
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-[#0d9488]">
                                     {unreadCount}
                                 </span>
                             )}
@@ -163,37 +159,37 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                             )}
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                             >
-                                <X size={14} className="text-slate-400" />
+                                <X size={14} className="text-gray-400 dark:text-slate-400" />
                             </button>
                         </div>
                     </div>
 
-                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                    <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800">
                         {isPending && !loaded ? (
-                            <div className="py-8 text-center text-xs text-slate-400">Loading...</div>
+                            <div className="py-8 text-center text-xs text-gray-400 dark:text-slate-400">Loading...</div>
                         ) : notifications.length === 0 ? (
                             <div className="py-10 text-center">
-                                <Bell size={24} className="mx-auto text-slate-300 mb-2" />
-                                <p className="text-slate-400 text-xs">No notifications yet</p>
+                                <Bell size={24} className="mx-auto text-gray-300 dark:text-slate-600 mb-2" />
+                                <p className="text-gray-400 dark:text-slate-400 text-xs">No notifications yet</p>
                             </div>
                         ) : (
                             notifications.map((notif) => {
                                 const Icon = ICON_MAP[notif.type] ?? Bell;
-                                const color = COLOR_MAP[notif.type] ?? "text-slate-400";
+                                const color = COLOR_MAP[notif.type] ?? "text-gray-400 dark:text-slate-400";
                                 const content = (
                                     <div
                                         key={notif.id}
-                                        className={`flex gap-3 px-4 py-3 hover:bg-slate-50 transition-colors
+                                        className={`flex gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors
                       ${!notif.read ? "border-l-2 border-l-[#0d9488]" : "border-l-2 border-l-transparent"}`}
                                     >
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
                                             <Icon size={14} className={color} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs text-slate-700 leading-relaxed">{notif.body}</p>
-                                            <p className="text-[10px] text-slate-400 mt-1">{relativeTime(notif.createdAt)}</p>
+                                            <p className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed">{notif.body}</p>
+                                            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{relativeTime(notif.createdAt)}</p>
                                         </div>
                                         {!notif.read && (
                                             <div className="w-1.5 h-1.5 rounded-full bg-[#0d9488] mt-2 shrink-0" />
@@ -212,7 +208,7 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                         )}
                     </div>
 
-                    <div className="px-4 py-3 border-t border-slate-100">
+                    <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
                         <Link
                             href="/notifications"
                             className="block text-center text-xs font-semibold

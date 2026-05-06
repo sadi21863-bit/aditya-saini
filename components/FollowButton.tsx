@@ -25,26 +25,21 @@ export default function FollowButton({
     const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
     const [isPending, startTransition] = useTransition();
 
-    // Don't show button if user is viewing their own profile
-    if (currentUserId === targetUserId) {
-        return null;
-    }
+    if (currentUserId === targetUserId) return null;
 
     const handleToggleFollow = () => {
         startTransition(async () => {
             if (isFollowing) {
                 const result = await unfollowUser(targetUserId);
-                if (result.success) {
-                    setIsFollowing(false);
-                }
+                if (result.success) setIsFollowing(false);
             } else {
                 const result = await followUser(targetUserId);
-                if (result.success) {
-                    setIsFollowing(true);
-                }
+                if (result.success) setIsFollowing(true);
             }
         });
     };
+
+    void targetHandle;
 
     const sizeClasses = {
         sm: "text-xs px-3 py-1.5",
@@ -57,23 +52,13 @@ export default function FollowButton({
             <button
                 onClick={handleToggleFollow}
                 disabled={isPending}
-                className={`flex items-center gap-1.5 rounded-lg font-semibold transition-all ${sizeClasses[size]
-                    } ${isFollowing
-                        ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                className={`flex items-center gap-1.5 rounded-lg font-semibold transition-all ${sizeClasses[size]} ${
+                    isFollowing
+                        ? "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700"
                         : "bg-[#0d9488] text-white hover:bg-[#0f766e] shadow-sm"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-                {isFollowing ? (
-                    <>
-                        <UserCheck size={14} />
-                        Following
-                    </>
-                ) : (
-                    <>
-                        <UserPlus size={14} />
-                        Follow
-                    </>
-                )}
+                {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
             </button>
         );
     }
@@ -82,23 +67,13 @@ export default function FollowButton({
         <button
             onClick={handleToggleFollow}
             disabled={isPending}
-            className={`flex items-center gap-2 rounded-xl font-bold transition-all ${sizeClasses[size]
-                } ${isFollowing
-                    ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-slate-200"
+            className={`flex items-center gap-2 rounded-xl font-bold transition-all ${sizeClasses[size]} ${
+                isFollowing
+                    ? "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border-2 border-gray-200 dark:border-slate-700"
                     : "bg-linear-to-r from-[#0d9488] to-teal-600 text-white hover:from-[#0f766e] hover:to-teal-700 shadow-md hover:shadow-lg"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-            {isFollowing ? (
-                <>
-                    <UserCheck size={16} />
-                    Following
-                </>
-            ) : (
-                <>
-                    <UserPlus size={16} />
-                    Follow
-                </>
-            )}
+            {isFollowing ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
         </button>
     );
 }

@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import IdeaDetailClient from "@/components/IdeaDetailClient";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { getComments } from "@/app/actions/commentActions";
@@ -137,14 +138,14 @@ export default async function IdeaPage({
   const isAiLabIdea    = !!AI_LAB_ROOM_ID && idea.roomId === AI_LAB_ROOM_ID;
 
   return (
-    <main className="min-h-screen bg-slate-950 py-10 px-4">
+    <main className="min-h-screen bg-gray-50 dark:bg-slate-950 py-10 px-4">
       <div className="max-w-4xl mx-auto">
         <Link
           href={idea.roomId ? `/rooms/${idea.roomId}` : "/feed"}
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-[#0d9488]
+          className="inline-flex items-center gap-2 text-gray-500 dark:text-slate-400 hover:text-[#0d9488]
             transition-colors font-semibold text-sm mb-8 group"
         >
-          <span className="group-hover:-translate-x-1 transition-transform">←</span>
+          <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           {roomName ? `Back to ${roomName}` : "Back to Feed"}
         </Link>
 
@@ -159,7 +160,7 @@ export default async function IdeaPage({
         />
 
         {/* Comments */}
-        <div className="mt-8 bg-slate-900 border border-slate-800 rounded-3xl px-8 py-8">
+        <div className="mt-8 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl px-8 py-8">
           <CommentsSection
             ideaId={ideaId}
             ideaOwnerId={idea.userId ?? undefined}

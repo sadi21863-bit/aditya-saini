@@ -88,7 +88,7 @@ export default function MentionInput({
   return (
     <div className="mb-8">
       <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#0d9488]/20 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-8 h-8 rounded-full bg-[#0d9488]/10 dark:bg-[#0d9488]/20 flex items-center justify-center shrink-0 mt-0.5">
           <span className="text-[#0d9488] text-xs font-bold">?</span>
         </div>
         <div className="flex-1">
@@ -99,9 +99,9 @@ export default function MentionInput({
             maxLength={1000}
             rows={3}
             disabled={isPending}
-            className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900
-              text-white text-sm resize-none focus:outline-none focus:ring-2
-              focus:ring-[#0d9488]/40 focus:border-[#0d9488] placeholder:text-slate-500 transition
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900
+              text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2
+              focus:ring-[#0d9488] focus:border-[#0d9488] placeholder:text-gray-400 dark:placeholder:text-slate-500 transition
               disabled:opacity-50"
           />
 

@@ -58,7 +58,7 @@ export default function IdeaCard({
 
   return (
     <div
-      className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 hover:border-teal-700 transition-colors duration-200 cursor-pointer"
+      className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl px-5 py-4 hover:border-teal-700 transition-colors duration-200 cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -76,12 +76,12 @@ export default function IdeaCard({
           </div>
           <h3
             title={idea.title ?? undefined}
-            className="text-sm font-bold text-white truncate"
+            className="text-sm font-bold text-gray-900 dark:text-white truncate"
           >
             {idea.title}
           </h3>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-500 shrink-0">
+        <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500 shrink-0">
           <span className={`flex items-center gap-1 ${liked ? "text-rose-400" : ""}`}>
             <motion.span
               whileTap={reduce ? {} : { scale: 1.4 }}
@@ -92,7 +92,7 @@ export default function IdeaCard({
             </motion.span>
             {likeCount}
           </span>
-          <span>👁 {idea.views ?? 0}</span>
+          <span className="flex items-center gap-1"><Eye size={11} /> {idea.views ?? 0}</span>
         </div>
       </div>
 
@@ -108,9 +108,9 @@ export default function IdeaCard({
           >
             <div className="mt-3">
               {idea.context ? (
-                <p className="text-sm text-slate-400 line-clamp-3 mb-3">{idea.context}</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 line-clamp-3 mb-3">{idea.context}</p>
               ) : (
-                <p className="text-sm text-slate-600 italic mb-3">No pitch added.</p>
+                <p className="text-sm text-gray-400 dark:text-slate-600 italic mb-3">No pitch added.</p>
               )}
 
               {author && (
@@ -132,7 +132,7 @@ export default function IdeaCard({
                     </div>
                     <div>
                       <div className="flex items-center gap-1">
-                        <p className="text-xs font-semibold text-white leading-none">@{author.handle ?? "ai"}</p>
+                        <p className="text-xs font-semibold text-gray-900 dark:text-white leading-none">@{author.handle ?? "ai"}</p>
                         <span className="text-[11px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full leading-none">AI</span>
                       </div>
                     </div>
@@ -147,14 +147,14 @@ export default function IdeaCard({
                       {author.name?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-white leading-none">{author.name ?? "Anonymous"}</p>
-                      <p className="text-[11px] text-slate-500">@{author.handle ?? "unknown"}</p>
+                      <p className="text-xs font-semibold text-gray-900 dark:text-white leading-none">{author.name ?? "Anonymous"}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-slate-500">@{author.handle ?? "unknown"}</p>
                     </div>
                   </Link>
                 )
               )}
 
-              <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800">
+              <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-slate-800">
                 <Link
                   href={`/idea/${idea.id}`}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-500 transition"
@@ -165,7 +165,7 @@ export default function IdeaCard({
                   <>
                     <Link
                       href={`/idea/${idea.id}/edit`}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 rounded-lg hover:bg-slate-700 transition"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition"
                     >
                       <Edit3 size={12} /> Edit
                     </Link>
@@ -185,7 +185,7 @@ export default function IdeaCard({
                       className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${
                         confirmDelete
                           ? "bg-red-600 text-white animate-pulse"
-                          : "text-red-400 bg-slate-800 hover:bg-red-900/30"
+                          : "text-red-400 bg-gray-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/30"
                       }`}
                     >
                       {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}

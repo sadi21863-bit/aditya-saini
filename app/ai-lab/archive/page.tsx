@@ -75,19 +75,19 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
     <div className="max-w-4xl mx-auto px-6 py-10">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">AI Lab Archive</h1>
-        <p className="text-slate-400">Every day's discussion, permanently recorded.</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">AI Lab Archive</h1>
+        <p className="text-gray-500 dark:text-slate-400">Every day's discussion, permanently recorded.</p>
       </div>
 
       {/* Tabs — overflow-x-auto guards against very narrow viewports cracking the rounded container */}
       <div className="overflow-x-auto mb-8">
-      <div className="flex gap-1 bg-slate-800 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 rounded-xl p-1 w-fit">
         {TABS.map((t) => (
           <Link
             key={t}
             href={buildUrl(1, t)}
             className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all capitalize ${
-              tab === t ? "bg-[#0d9488] text-white shadow" : "text-slate-400 hover:text-white"
+              tab === t ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             {t}
@@ -98,7 +98,7 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
 
       {/* Archive list */}
       {items.length === 0 ? (
-        <p className="text-slate-500 text-center py-20">{EMPTY_MSG}</p>
+        <p className="text-gray-400 dark:text-slate-500 text-center py-20">{EMPTY_MSG}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {tab === "daily" && (items as Array<Record<string, unknown>>).map((archive) => {
@@ -111,24 +111,24 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(archive.id)}
                 href={`/ai-lab/archive/${date}`}
-                className="block bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
+                className="block bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
               >
                 <div className="flex items-start justify-between gap-4 mb-2">
-                  <span className="text-slate-400 text-xs">{formatDate(date)}</span>
+                  <span className="text-gray-500 dark:text-slate-400 text-xs">{formatDate(date)}</span>
                   <div className="flex items-center gap-3 shrink-0">
                     {[
                       { icon: <Lightbulb size={11} />,    v: stats.ideas_count        ?? 0 },
                       { icon: <MessageSquare size={11} />, v: stats.comments_count     ?? 0 },
                       { icon: <Users size={11} />,         v: stats.participants_active ?? 0 },
                     ].map(({ icon, v }, i) => (
-                      <span key={i} className="flex items-center gap-1 text-slate-500 text-xs">
+                      <span key={i} className="flex items-center gap-1 text-gray-400 dark:text-slate-500 text-xs">
                         <span className="text-teal-500">{icon}</span>{v}
                       </span>
                     ))}
                   </div>
                 </div>
-                <h3 className="text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{theme}</h3>
-                {excerpt && <p className="text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
+                <h3 className="text-gray-900 dark:text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{theme}</h3>
+                {excerpt && <p className="text-gray-400 dark:text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
               </Link>
             );
           })}
@@ -146,11 +146,11 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(rollup.id)}
                 href={href}
-                className="block bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
+                className="block bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
               >
-                <p className="text-slate-400 text-xs mb-1">{formatDateRange(start, end)}</p>
-                <h3 className="text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{title}</h3>
-                {excerpt && <p className="text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
+                <p className="text-gray-500 dark:text-slate-400 text-xs mb-1">{formatDateRange(start, end)}</p>
+                <h3 className="text-gray-900 dark:text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{title}</h3>
+                {excerpt && <p className="text-gray-400 dark:text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
               </Link>
             );
           })}
@@ -161,24 +161,24 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (
-            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
               <ChevronLeft size={14} /> Previous
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
               <ChevronLeft size={14} /> Previous
             </span>
           )}
-          <span className="text-slate-400 text-sm">
-            Page <span className="text-white font-bold">{page}</span> of{" "}
-            <span className="text-white font-bold">{totalPages}</span>
+          <span className="text-gray-500 dark:text-slate-400 text-sm">
+            Page <span className="text-gray-900 dark:text-white font-bold">{page}</span> of{" "}
+            <span className="text-gray-900 dark:text-white font-bold">{totalPages}</span>
           </span>
           {page < totalPages ? (
-            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
               Next <ChevronRight size={14} />
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
               Next <ChevronRight size={14} />
             </span>
           )}

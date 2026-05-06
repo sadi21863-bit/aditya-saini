@@ -84,8 +84,8 @@ export default async function ExplorePage({
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white">Explore Rooms</h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Explore Rooms</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
             Discover public rooms and join the conversation.
           </p>
         </div>
@@ -103,13 +103,13 @@ export default async function ExplorePage({
       {/* Search + category filter */}
       <form method="GET" className="flex flex-wrap gap-3 mb-8">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
           <input
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search rooms…"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-4 py-2
-              text-white text-sm placeholder-slate-500 focus:outline-none focus:border-teal-600 transition"
+            className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl pl-8 pr-4 py-2
+              text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-teal-600 transition"
           />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -118,7 +118,7 @@ export default async function ExplorePage({
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               !category || category === "all"
                 ? "bg-teal-600 text-white"
-                : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-slate-700"
             }`}
           >
             All
@@ -130,7 +130,7 @@ export default async function ExplorePage({
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                 category === cat
                   ? "bg-teal-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                  : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-slate-700"
               }`}
             >
               {cat}
@@ -142,7 +142,7 @@ export default async function ExplorePage({
       {/* Grid */}
       {sorted.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-500 mb-4">No public rooms yet.</p>
+          <p className="text-gray-400 dark:text-slate-500 mb-4">No public rooms yet.</p>
           {callerId && (
             <Link
               href="/rooms/new"

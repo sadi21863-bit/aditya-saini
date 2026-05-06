@@ -165,11 +165,11 @@ export default function CommentsSection({
           <div className="flex items-center gap-1.5 flex-wrap">
             {c.user.handle ? (
               <Link href={`/profile/${c.user.handle}`}
-                className="text-sm font-bold text-white hover:text-[#0d9488] transition-colors">
+                className="text-sm font-bold text-gray-900 dark:text-white hover:text-[#0d9488] transition-colors">
                 @{name}
               </Link>
             ) : (
-              <span className="text-sm font-bold text-white">@{name}</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-white">@{name}</span>
             )}
             {isOP && (
               <span className="text-[10px] font-bold bg-[#0d9488]/20 text-[#0d9488]
@@ -177,9 +177,9 @@ export default function CommentsSection({
                 OP
               </span>
             )}
-            <span className="text-xs text-slate-500">{relativeTime(c.createdAt)}</span>
+            <span className="text-xs text-gray-400 dark:text-slate-500">{relativeTime(c.createdAt)}</span>
             {wasEdited(c) && (
-              <span className="text-[10px] italic text-slate-600">edited</span>
+              <span className="text-[10px] italic text-gray-400 dark:text-slate-600">edited</span>
             )}
           </div>
 
@@ -190,8 +190,8 @@ export default function CommentsSection({
                 onChange={(e) => setEditText(e.target.value)}
                 maxLength={1000}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-800
-                  text-white text-sm resize-none focus:outline-none focus:border-[#0d9488] transition"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800
+                  text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:border-[#0d9488] transition"
               />
               <div className="flex gap-2 mt-1.5">
                 <button onClick={() => handleEdit(c.id)} disabled={isPending}
@@ -201,13 +201,13 @@ export default function CommentsSection({
                 </button>
                 <button onClick={() => setEditingId(null)}
                   className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-700
-                    text-slate-300 text-xs hover:bg-slate-600 transition">
+                    text-gray-600 dark:text-slate-300 text-xs hover:bg-gray-200 dark:hover:bg-slate-600 transition">
                   <X size={11} /> Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-300 mt-1 leading-relaxed whitespace-pre-wrap">
+            <p className="text-sm text-gray-700 dark:text-slate-300 mt-1 leading-relaxed whitespace-pre-wrap">
               {c.content}
             </p>
           )}
@@ -215,7 +215,7 @@ export default function CommentsSection({
           {!isReply && editingId !== c.id && (
             <button
               onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
-              className="flex items-center gap-1 mt-1.5 text-xs text-slate-500
+              className="flex items-center gap-1 mt-1.5 text-xs text-gray-400 dark:text-slate-500
                 hover:text-[#0d9488] transition-colors">
               <CornerDownRight size={11} /> Reply
             </button>
@@ -227,12 +227,12 @@ export default function CommentsSection({
             <button
               onClick={() => { setEditingId(c.id); setEditText(c.content); }}
               disabled={isPending} title="Edit"
-              className="p-1.5 rounded-lg text-slate-600 hover:text-[#0d9488]
+              className="p-1.5 rounded-lg text-gray-400 dark:text-slate-600 hover:text-[#0d9488]
                 hover:bg-[#0d9488]/10 transition-colors">
               <Pencil size={12} />
             </button>
             <button onClick={() => handleDelete(c.id)} disabled={isPending} title="Delete"
-              className="p-1.5 rounded-lg text-slate-600 hover:text-red-400
+              className="p-1.5 rounded-lg text-gray-400 dark:text-slate-600 hover:text-red-400
                 hover:bg-red-900/20 transition-colors">
               <Trash2 size={12} />
             </button>
@@ -243,8 +243,8 @@ export default function CommentsSection({
   }
 
   return (
-    <section className="mt-10 pt-8 border-t border-slate-800">
-      <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+    <section className="mt-10 pt-8 border-t border-gray-200 dark:border-slate-800">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
         <MessageCircle size={18} className="text-[#0d9488]" />
         {commentList.length} Comment{commentList.length !== 1 ? "s" : ""}
       </h3>
@@ -265,13 +265,13 @@ export default function CommentsSection({
               placeholder="Share your thoughts on this idea..."
               maxLength={1000}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900
-                text-white text-sm resize-none focus:outline-none focus:ring-2
-                focus:ring-[#0d9488]/40 focus:border-[#0d9488] placeholder:text-slate-500 transition"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900
+                text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2
+                focus:ring-[#0d9488] focus:border-[#0d9488] placeholder:text-gray-400 dark:placeholder:text-slate-500 transition"
             />
             {topError && <p className="text-red-400 text-xs mt-1">{topError}</p>}
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-slate-500">{text.length}/1000</span>
+              <span className="text-xs text-gray-400 dark:text-slate-500">{text.length}/1000</span>
               <button onClick={handleAdd} disabled={isPending || !text.trim()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0d9488] text-white
                   text-xs font-bold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
@@ -286,7 +286,7 @@ export default function CommentsSection({
       {/* Comment list */}
       <div className="flex flex-col gap-6">
         {topLevel.length === 0 && (
-          <p className="text-slate-500 text-sm text-center py-6">
+          <p className="text-gray-400 dark:text-slate-500 text-sm text-center py-6">
             No comments yet. Be the first to spark a conversation!
           </p>
         )}
@@ -305,7 +305,7 @@ export default function CommentsSection({
               {/* Inline reply input */}
               {replyingTo === comment.id && (
                 <div className="ml-11 mt-3">
-                  <p className="text-xs text-slate-500 mb-1.5">
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mb-1.5">
                     Replying to{" "}
                     <span className="text-[#0d9488] font-medium">@{displayName}</span>
                   </p>
@@ -317,8 +317,8 @@ export default function CommentsSection({
                     placeholder="Write a reply..."
                     maxLength={1000}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800
-                      text-white text-sm resize-none focus:outline-none focus:border-[#0d9488] transition"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800
+                      text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:border-[#0d9488] transition"
                   />
                   <div className="flex gap-2 mt-1.5">
                     <button
@@ -339,7 +339,7 @@ export default function CommentsSection({
 
               {/* Nested replies */}
               {replies.length > 0 && (
-                <div className="ml-11 mt-3 border-l-2 border-slate-700/60 pl-4 flex flex-col gap-4">
+                <div className="ml-8 sm:ml-11 mt-3 border-l-2 border-gray-200 dark:border-slate-700/60 pl-4 flex flex-col gap-4">
                   {visible.map((reply) => (
                     <CommentRow key={reply.id} c={reply} isReply />
                   ))}
@@ -360,7 +360,7 @@ export default function CommentsSection({
                           return s;
                         })
                       }
-                      className="text-xs text-slate-500 hover:text-slate-300 self-start">
+                      className="text-xs text-gray-400 dark:text-slate-500 hover:text-slate-300 self-start">
                       Collapse replies
                     </button>
                   )}

@@ -98,19 +98,19 @@ export default async function FeedPage({
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {sort === "hot" ? "Trending Ideas" : "Latest Ideas"}
           </h1>
-          <p className="text-slate-400 text-sm">
+          <p className="text-gray-500 dark:text-slate-400 text-sm">
             Ideas from your rooms and the community. <Link href="/ai-lab" className="text-teal-500 hover:text-teal-400 transition-colors">AI Lab →</Link>
           </p>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-800 rounded-xl p-1 shrink-0">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-xl p-1 shrink-0">
           <Link
             href={`/feed?${category ? `category=${category}&` : ""}sort=hot`}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              sort === "hot" ? "bg-[#0d9488] text-white shadow" : "text-slate-400 hover:text-white"
+              sort === "hot" ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             <Flame size={12} /> Hot
@@ -118,7 +118,7 @@ export default async function FeedPage({
           <Link
             href={`/feed?${category ? `category=${category}&` : ""}sort=new`}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              sort !== "hot" ? "bg-[#0d9488] text-white shadow" : "text-slate-400 hover:text-white"
+              sort !== "hot" ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             <Clock size={12} /> New
@@ -132,7 +132,7 @@ export default async function FeedPage({
 
       <div className="mt-6 flex flex-col gap-4">
         {rawIdeas.length === 0 && (
-          <p className="text-slate-500 text-center py-20">No ideas found. Create a room and post your first one.</p>
+          <p className="text-gray-400 dark:text-slate-500 text-center py-20">No ideas found. Create a room and post your first one.</p>
         )}
         {rawIdeas.map(({ idea, author }) => (
           <IdeaCard
@@ -148,24 +148,24 @@ export default async function FeedPage({
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (
-            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
               <ChevronLeft size={14} /> Previous
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
               <ChevronLeft size={14} /> Previous
             </span>
           )}
-          <span className="text-slate-400 text-sm">
-            Page <span className="text-white font-bold">{page}</span> of{" "}
-            <span className="text-white font-bold">{totalPages}</span>
+          <span className="text-gray-500 dark:text-slate-400 text-sm">
+            Page <span className="text-gray-900 dark:text-white font-bold">{page}</span> of{" "}
+            <span className="text-gray-900 dark:text-white font-bold">{totalPages}</span>
           </span>
           {page < totalPages ? (
-            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors">
+            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
               Next <ChevronRight size={14} />
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-slate-600 text-sm font-semibold cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
               Next <ChevronRight size={14} />
             </span>
           )}

@@ -34,7 +34,7 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-white">Ideas</h2>
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Ideas</h2>
         {isMember && (
           <Link
             href={`/rooms/${roomId}/new-idea`}
@@ -47,8 +47,8 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
       </div>
 
       {roomIdeas.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center">
-          <p className="text-slate-500 text-sm">No ideas yet.</p>
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl py-16 text-center">
+          <p className="text-gray-400 dark:text-slate-500 text-sm">No ideas yet.</p>
           {isMember && (
             <Link
               href={`/rooms/${roomId}/new-idea`}
