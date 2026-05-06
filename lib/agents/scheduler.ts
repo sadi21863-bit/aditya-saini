@@ -399,12 +399,13 @@ export async function queueDebateReply(
   });
 }
 
-/** Queues an archive_day action for the Archivist (priority=1, run immediately). */
-export async function queueDailyArchive(): Promise<void> {
+/** Queues an archive_day action for the Archivist (priority=1, run immediately).
+ *  Pass a date string (YYYY-MM-DD UTC) to archive a specific day; defaults to today. */
+export async function queueDailyArchive(dateStr?: string): Promise<void> {
   const archivist = ALL_AGENTS.find((a) => a.role === "archivist");
   if (!archivist) throw new Error("Archivist agent not found");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateStr ?? new Date().toISOString().slice(0, 10);
   const [todayTheme] = await db
     .select({ theme: aiThemes.theme })
     .from(aiThemes)

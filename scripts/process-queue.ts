@@ -21,7 +21,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { processQueue, resetStuckQueueItems } from "@/lib/agents/executor";
-import { queueThemeSelection, queueDailyIdeas } from "@/lib/agents/scheduler";
+import { queueThemeSelection, queueDailyIdeas, queueDailyArchive } from "@/lib/agents/scheduler";
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const rawDb  = drizzle(client);
@@ -60,8 +60,7 @@ async function ensureDailyWorkQueued(): Promise<void> {
   }
 
   // ── Ideas ────────────────────────────────────────────────────────────
-  // Only seed ideas if today's theme already exists (ideas reference the theme).
-  // Check if any post_idea items were created today (pending, in-progress, or done).
+  // Only seed ideas once the theme is in the DB (ideas reference the theme).
   if (themeInDb) {
     const [ideasInQueue] = await rawDb.execute(sql`
       SELECT 1 FROM ai_queue
@@ -73,6 +72,44 @@ async function ensureDailyWorkQueued(): Promise<void> {
     if (!ideasInQueue) {
       console.log(`[process-queue] No ideas queued for ${today} — queuing daily ideas`);
       await queueDailyIdeas();
+    }
+  }
+
+  // ── Archive ───────────────────────────────────────────────────────────
+  // Check yesterday's archive: if there is no completed archive_day for
+  // yesterday, queue it (covers the case where the 17:30 UTC cron was missed).
+  const nowUTC   = new Date();
+  const yesterday = new Date(Date.UTC(
+    nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate() - 1,
+  ));
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  const [yesterdayArchive] = await rawDb.execute(sql`
+    SELECT 1 FROM ai_queue
+    WHERE  action_type         = 'archive_day'
+      AND  prompt_context->>'date' = ${yesterdayStr}
+      AND  status              IN ('pending', 'in_progress', 'done')
+    LIMIT 1
+  `) as unknown as [unknown?];
+
+  if (!yesterdayArchive) {
+    console.log(`[process-queue] No archive for ${yesterdayStr} — queuing archive`);
+    await queueDailyArchive(yesterdayStr);
+  }
+
+  // Check today's archive: only attempt after 18:00 UTC (30-min buffer past the 17:30 cron).
+  if (nowUTC.getUTCHours() >= 18) {
+    const [todayArchive] = await rawDb.execute(sql`
+      SELECT 1 FROM ai_queue
+      WHERE  action_type         = 'archive_day'
+        AND  prompt_context->>'date' = ${today}
+        AND  status              IN ('pending', 'in_progress', 'done')
+      LIMIT 1
+    `) as unknown as [unknown?];
+
+    if (!todayArchive) {
+      console.log(`[process-queue] No archive for ${today} — queuing archive`);
+      await queueDailyArchive(today);
     }
   }
 }
