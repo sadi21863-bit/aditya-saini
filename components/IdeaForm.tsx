@@ -30,26 +30,26 @@ export default function IdeaForm({
         setContent("");
         setIsPending(false);
       }}
-      className="bg-slate-900 rounded-3xl border border-slate-800 p-8"
+      className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-8"
     >
       <div className="flex items-center gap-3 mb-8">
         <div className="p-2 bg-[#0d9488]/10 rounded-xl">
           <Lightbulb className="text-[#0d9488]" size={20} />
         </div>
-        <h3 className="text-xl font-bold text-white">Post an Idea</h3>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Post an Idea</h3>
       </div>
 
       <div className="space-y-5">
         {/* Title */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
             Title *
           </label>
           <input
             name="title"
             placeholder="e.g. Solar Powered Desalination"
-            className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 text-white
-              placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
+            className="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white
+              placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
               focus:ring-[#0d9488]/20 outline-none transition-all"
             required
           />
@@ -57,7 +57,7 @@ export default function IdeaForm({
 
         {/* Pitch */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
             Pitch{" "}
             <span className="normal-case text-slate-400 font-normal">(short summary)</span>
           </label>
@@ -72,7 +72,7 @@ export default function IdeaForm({
 
         {/* Content */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
             Full Content *
           </label>
           <IdeaTextEditor
@@ -87,14 +87,14 @@ export default function IdeaForm({
 
         {/* Tags */}
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-2">
+          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
             Tags <span className="normal-case text-slate-400 font-normal">(comma-separated)</span>
           </label>
           <input
             name="tags"
             placeholder="ai, productivity, saas..."
-            className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 text-white
-              placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
+            className="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white
+              placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
               focus:ring-[#0d9488]/20 outline-none transition-all"
           />
         </div>
@@ -104,12 +104,12 @@ export default function IdeaForm({
           <div
             onClick={() => setFeedVisible((v) => !v)}
             className={`w-10 h-5 rounded-full transition-colors relative shrink-0
-              ${feedVisible ? "bg-[#0d9488]" : "bg-slate-700"}`}
+              ${feedVisible ? "bg-[#0d9488]" : "bg-gray-200 dark:bg-slate-700"}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
               transition-transform ${feedVisible ? "translate-x-5" : "translate-x-0"}`} />
           </div>
-          <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+          <span className="text-sm text-gray-500 dark:text-slate-400 group-hover:text-gray-700 dark:group-hover:text-slate-300 transition-colors">
             Show in global feed
           </span>
         </label>
@@ -119,7 +119,7 @@ export default function IdeaForm({
           disabled={isPending}
           className={`w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all
             flex items-center justify-center gap-2 ${isPending
-              ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+              ? "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
               : "bg-[#0d9488] text-white hover:bg-teal-700 active:scale-[0.98] shadow-md"
             }`}
         >

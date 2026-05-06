@@ -37,36 +37,36 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Create an account</h1>
-          <p className="text-slate-400 text-sm mt-1">Join IdeaConnect for free</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create an account</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">Join IdeaConnect for free</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
           {/* OAuth buttons */}
           <button
             onClick={() => signIn("google", { callbackUrl: "/onboarding" })}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
-              border border-slate-700 bg-slate-800 text-white text-sm font-medium
-              hover:bg-slate-700 transition"
+              border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white text-sm font-medium
+              hover:bg-gray-100 dark:hover:bg-slate-700 transition"
           >
             <Chrome size={16} /> Continue with Google
           </button>
           <button
             onClick={() => signIn("github", { callbackUrl: "/onboarding" })}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
-              border border-slate-700 bg-slate-800 text-white text-sm font-medium
-              hover:bg-slate-700 transition"
+              border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white text-sm font-medium
+              hover:bg-gray-100 dark:hover:bg-slate-700 transition"
           >
             <Github size={16} /> Continue with GitHub
           </button>
 
-          <div className="flex items-center gap-3 text-slate-600 text-xs">
-            <div className="flex-1 h-px bg-slate-800" />
+          <div className="flex items-center gap-3 text-gray-400 dark:text-slate-600 text-xs">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
             or
-            <div className="flex-1 h-px bg-slate-800" />
+            <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
           </div>
 
           {/* Registration form */}
@@ -77,8 +77,8 @@ export default function SignUpPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800
-                text-white text-sm placeholder:text-slate-500 focus:outline-none
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800
+                text-gray-900 dark:text-white text-sm placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none
                 focus:border-[#0d9488] transition"
             />
             <input
@@ -87,8 +87,8 @@ export default function SignUpPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800
-                text-white text-sm placeholder:text-slate-500 focus:outline-none
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800
+                text-gray-900 dark:text-white text-sm placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none
                 focus:border-[#0d9488] transition"
             />
             <input
@@ -98,8 +98,8 @@ export default function SignUpPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800
-                text-white text-sm placeholder:text-slate-500 focus:outline-none
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800
+                text-gray-900 dark:text-white text-sm placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none
                 focus:border-[#0d9488] transition"
             />
             {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -116,7 +116,7 @@ export default function SignUpPage() {
           </form>
         </div>
 
-        <p className="text-center text-slate-500 text-sm mt-4">
+        <p className="text-center text-gray-400 dark:text-slate-500 text-sm mt-4">
           Already have an account?{" "}
           <Link href="/sign-in" className="text-[#0d9488] hover:underline">
             Sign in

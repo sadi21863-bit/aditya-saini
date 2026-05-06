@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Calendar, PenLine, MessageCircle } from "lucide-react";
+import { Eye, Calendar, PenLine, MessageCircle, FlaskConical } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
 import type { Idea, User } from "@/db/schema";
 import Link from "next/link";
@@ -38,7 +38,7 @@ export default function IdeaDetailClient({
                 href="/ai-lab"
                 className="text-xs font-bold px-3 py-1.5 rounded-full bg-teal-900/40 text-teal-400 border border-teal-800 hover:border-teal-600 transition-colors"
               >
-                🧪 AI Lab
+                <FlaskConical size={11} className="inline mr-1" />AI Lab
               </Link>
             )}
 

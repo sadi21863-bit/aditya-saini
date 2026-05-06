@@ -48,7 +48,7 @@ export default function CreateRoomForm() {
     <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Name */}
       <div>
-        <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+        <label className="block text-sm font-semibold text-gray-600 dark:text-slate-300 mb-1.5">
           Room name <span className="text-red-400">*</span>
         </label>
         <input
@@ -56,14 +56,14 @@ export default function CreateRoomForm() {
           required
           maxLength={80}
           placeholder="e.g. AI for Agriculture"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white
-            placeholder-slate-500 text-sm focus:outline-none focus:border-teal-600 transition"
+          className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-gray-900 dark:text-white
+            placeholder-gray-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-teal-600 transition"
         />
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+        <label className="block text-sm font-semibold text-gray-600 dark:text-slate-300 mb-1.5">
           Description
         </label>
         <textarea
@@ -78,7 +78,7 @@ export default function CreateRoomForm() {
 
       {/* Category */}
       <div>
-        <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+        <label className="block text-sm font-semibold text-gray-600 dark:text-slate-300 mb-1.5">
           Category
         </label>
         <div className="flex gap-2 mb-2">
@@ -88,7 +88,7 @@ export default function CreateRoomForm() {
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               categoryMode === "preset"
                 ? "bg-teal-600 text-white"
-                : "bg-slate-800 text-slate-400 border border-slate-700 hover:text-white"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             Pick a category
@@ -99,7 +99,7 @@ export default function CreateRoomForm() {
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               categoryMode === "custom"
                 ? "bg-teal-600 text-white"
-                : "bg-slate-800 text-slate-400 border border-slate-700 hover:text-white"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             Custom
@@ -140,8 +140,8 @@ export default function CreateRoomForm() {
             onClick={() => setVisibility("private")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex-1
               ${visibility === "private"
-                ? "bg-slate-700 border-teal-600 text-white"
-                : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
+                ? "bg-gray-100 dark:bg-slate-700 border-teal-600 text-gray-900 dark:text-white"
+                : "bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-gray-400 dark:hover:border-slate-600"
               }`}
           >
             <Lock size={14} />
@@ -155,8 +155,8 @@ export default function CreateRoomForm() {
             onClick={() => setVisibility("public")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex-1
               ${visibility === "public"
-                ? "bg-slate-700 border-teal-600 text-white"
-                : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
+                ? "bg-gray-100 dark:bg-slate-700 border-teal-600 text-gray-900 dark:text-white"
+                : "bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-gray-400 dark:hover:border-slate-600"
               }`}
           >
             <Globe size={14} />
