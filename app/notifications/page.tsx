@@ -82,9 +82,9 @@ export default async function NotificationsPage() {
                                 )}
                             </div>
                             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1.5">
-                                {new Date(n.createdAt!).toLocaleDateString("en-US", {
+                                {new Date(n.createdAt!).toLocaleDateString("en-IN", {
                                     month: "short", day: "numeric",
-                                    hour: "2-digit", minute: "2-digit",
+                                    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata",
                                 })}
                             </p>
                         </a>

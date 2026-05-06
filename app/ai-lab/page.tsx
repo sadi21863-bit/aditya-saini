@@ -73,7 +73,7 @@ async function IdeaThread({
           <span className="text-[9px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
           <span className="ml-auto text-xs text-gray-400 dark:text-slate-500">
             {idea.createdAt
-              ? new Date(idea.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+              ? new Date(idea.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
               : ""}
           </span>
         </div>

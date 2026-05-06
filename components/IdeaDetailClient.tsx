@@ -54,8 +54,8 @@ export default function IdeaDetailClient({
             <span className="ml-auto flex items-center gap-1.5 text-xs text-gray-400 dark:text-slate-500">
               <Calendar size={11} />
               {idea.createdAt
-                ? new Date(idea.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric", month: "long", day: "numeric",
+                ? new Date(idea.createdAt).toLocaleDateString("en-IN", {
+                    year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Kolkata",
                   })
                 : ""}
             </span>
