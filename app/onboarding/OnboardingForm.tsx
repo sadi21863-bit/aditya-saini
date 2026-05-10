@@ -41,7 +41,7 @@ export default function OnboardingForm({
             setError(result.error);
             setLoading(false);
         } else {
-            router.push("/feed");
+            router.push("/onboarding/welcome");
         }
     }
 

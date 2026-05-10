@@ -362,6 +362,11 @@ async function writeComment(
       .set({ resultCommentId: newComment.id })
       .where(eq(aiQueue.id, item.id));
 
+    await db
+      .update(ideas)
+      .set({ totalComments: sql`${ideas.totalComments} + 1` })
+      .where(eq(ideas.id, item.targetIdeaId));
+
     // Cascade: queue quality review for this comment
     try {
       await queueQualityReview(newComment.id, "comment");

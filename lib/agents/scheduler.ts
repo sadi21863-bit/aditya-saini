@@ -190,7 +190,7 @@ export async function queueMentionResponse(ctx: HumanMentionContext): Promise<vo
       isFromMention:    true,
       isRandomSelection: ctx.isRandomSelection,
     },
-    scheduledFor: new Date(Date.now() + 30 * 1000), // 30 s — answer user mentions fast
+    scheduledFor: new Date(Date.now() + delayMs),
     priority:     1,                                  // highest priority — before all Lab actions
     status:       "pending",
   });
@@ -268,7 +268,7 @@ export async function queueQualityReview(
       .limit(1);
     if (comment) {
       content      = comment.content;
-      authorHandle = comment.userId.replace(/^ai_/, "").replace(/_/g, "-");
+      authorHandle = (comment.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-");
     }
   }
 

@@ -296,11 +296,12 @@ describe("queueMentionResponse", () => {
     expect(lastInsert().roomId).toBe("room-uuid");
   });
 
-  it("schedules within 30 seconds (fast path for user mentions)", async () => {
+  it("schedules 10–30 minutes ahead (human mention delay)", async () => {
     const before = Date.now();
     await queueMentionResponse(MENTION_CTX);
     const delaySec = ((lastInsert().scheduledFor as Date).getTime() - before) / 1000;
-    expect(delaySec).toBeLessThanOrEqual(31); // 30s + 1s tolerance
+    expect(delaySec).toBeGreaterThanOrEqual(9 * 60);   // at least 9 min
+    expect(delaySec).toBeLessThanOrEqual(31 * 60);     // at most 31 min
   });
 
   it("forces echo_to_lab=false for private rooms even if echoToLab=true was passed", async () => {

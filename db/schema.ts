@@ -104,8 +104,8 @@ export const ideaComments = pgTable("idea_comments", {
   id:                 uuid("id").defaultRandom().primaryKey(),
   ideaId:             uuid("idea_id").notNull()
                         .references(() => ideas.id, { onDelete: "cascade" }),
-  userId:             text("user_id").notNull()
-                        .references(() => users.id, { onDelete: "cascade" }),
+  userId:             text("user_id")
+                        .references(() => users.id, { onDelete: "set null" }),
   content:            text("content").notNull(),
   parentId:           uuid("parent_id")
                         .references((): any => ideaComments.id, { onDelete: "set null" }),

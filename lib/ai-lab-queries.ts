@@ -120,7 +120,7 @@ export async function getCommentsForIdeas(ideaIds: string[]) {
 function mapComment(r: {
   id: string; ideaId: string; content: string;
   createdAt: Date | null; updatedAt: Date | null; parentId: string | null;
-  userId: string; userName: string | null; userHandle: string | null;
+  userId: string | null; userName: string | null; userHandle: string | null;
   userImage: string | null; userIsAi: boolean | null; userAvatarUrl: string | null;
 }) {
   return {

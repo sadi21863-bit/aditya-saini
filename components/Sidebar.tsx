@@ -7,8 +7,9 @@ import { useState } from "react";
 import {
   Home, LayoutDashboard, Compass, Bookmark,
   Plus, FlaskConical, Archive, User,
-  ChevronLeft, ChevronRight, LogOut, Menu, X,
+  ChevronLeft, ChevronRight, LogOut, Menu, X, Search,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import NotificationCenter from "@/components/NotificationCenter";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -33,9 +34,20 @@ export default function Sidebar({
   currentHandle: string;
 }) {
   const pathname   = usePathname();
+  const router     = useRouter();
   const [collapsed,   setCollapsed]   = useState(false);
   const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const reduce = useReducedMotion();
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q.length >= 2) {
+      router.push(`/search?q=${encodeURIComponent(q)}`);
+      setMobileOpen(false);
+    }
+  }
 
   const isLanding  = pathname === "/";
   const isAuthPage = NO_SIDEBAR_PREFIXES.some((p) => pathname.startsWith(p));
@@ -102,6 +114,20 @@ export default function Sidebar({
                 </button>
               </div>
 
+              {/* Search */}
+              <form onSubmit={handleSearch} className="mb-4">
+                <div className="relative">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+                  <input
+                    type="search"
+                    placeholder="Search ideas..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </form>
+
               {/* Nav */}
               <nav className="flex flex-col gap-1 flex-1">
                 {NAV_ITEMS.map((item) => (
@@ -166,6 +192,22 @@ export default function Sidebar({
             <Link href="/feed" className="text-teal-400 font-black text-lg">IC</Link>
           )}
         </div>
+
+        {/* Search */}
+        {!collapsed && (
+          <form onSubmit={handleSearch} className="mb-4">
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+              <input
+                type="search"
+                placeholder="Search ideas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+          </form>
+        )}
 
         {/* Nav */}
         <nav className="flex flex-col gap-1 flex-1">

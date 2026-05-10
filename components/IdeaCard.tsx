@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { Trash2, Edit3, Eye, Loader2, Heart, Send } from "lucide-react";
+import { Trash2, Edit3, Eye, Loader2, Heart, Send, Link2, Check } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { publishIdea, deleteIdea } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
@@ -32,6 +32,7 @@ export default function IdeaCard({
   const [liked, setLiked]               = useState(hasLiked);
   const [likeCount, setLikeCount]       = useState(idea.totalLikes ?? 0);
   const [hovered, setHovered]           = useState(false);
+  const [copied, setCopied]             = useState(false);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduce = useReducedMotion();
 
@@ -55,6 +56,12 @@ export default function IdeaCard({
   };
 
   const isOwner = isOwnerProp ?? (idea.userId === viewerId && viewerId !== "");
+
+  function copyLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/idea/${idea.id}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div
@@ -161,6 +168,16 @@ export default function IdeaCard({
                 >
                   <Eye size={12} /> View
                 </Link>
+                <button
+                  onClick={copyLink}
+                  className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors px-2 py-1.5"
+                  title="Copy link"
+                >
+                  {copied
+                    ? <Check size={12} className="text-teal-500" />
+                    : <Link2 size={12} />
+                  }
+                </button>
                 {showActions && isOwner && (
                   <>
                     <Link

@@ -2,11 +2,12 @@
 
 import { db } from "@/db";
 import { ideaComments, ideas, users } from "@/db/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { createNotification } from "./notificationActions";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
+import { containsBlockedContent } from "@/lib/moderation";
 
 // ─── ADD COMMENT ────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ export async function addComment(ideaId: string, content: string, parentId?: str
   const trimmed = content?.trim();
   if (!trimmed) return { success: false, error: "Comment cannot be empty" };
   if (trimmed.length > 1000) return { success: false, error: "Too long" };
+  if (containsBlockedContent(trimmed)) return { success: false, error: "This content cannot be posted." };
 
   const [idea] = await db
     .select({ id: ideas.id, userId: ideas.userId, title: ideas.title })
@@ -63,6 +65,29 @@ export async function addComment(ideaId: string, content: string, parentId?: str
         body: `Someone replied to your comment on "${idea.title}"`,
         link: `/idea/${ideaId}`,
       });
+    }
+  }
+
+  // Notify prior commenters on the same idea (thread subscriptions)
+  const priorCommenters = await db
+    .selectDistinct({ userId: ideaComments.userId })
+    .from(ideaComments)
+    .where(
+      and(
+        eq(ideaComments.ideaId, ideaId),
+        ne(ideaComments.userId, callerId),
+        ne(ideaComments.userId, idea.userId ?? "")
+      )
+    );
+
+  for (const { userId } of priorCommenters) {
+    if (userId) {
+      await createNotification({
+        userId,
+        type: "reply",
+        body: `Someone else commented on an idea you're following`,
+        link: `/idea/${ideaId}`,
+      }).catch(() => {});
     }
   }
 

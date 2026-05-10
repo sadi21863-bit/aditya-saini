@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-const ONBOARDING_EXEMPT = ["/onboarding", "/sign-in", "/sign-up", "/api"];
+const ONBOARDING_EXEMPT = ["/onboarding", "/sign-in", "/sign-up", "/api", "/onboarding/welcome"];
 
 const playfair = Playfair_Display({
   subsets: ["latin"],

@@ -1,14 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { ideas, ideaLikes, roomMembers } from "@/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { ideas, ideaLikes, roomMembers, rooms, users } from "@/db/schema";
+import { eq, sql, and, or, ilike, exists } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/auth";
 import { writeLimiter, lightLimiter } from "@/lib/ratelimit";
 import { createNotification } from "@/app/actions/notificationActions";
+import { containsBlockedContent } from "@/lib/moderation";
 
 // ─── Validation ─────────────────────────────────────────────────────
 const IdeaWriteSchema = z.object({
@@ -70,6 +71,11 @@ export async function addIdea(formData: FormData) {
   if (!parsed.success) return { success: false, errors: parsed.error.flatten().fieldErrors };
 
   const { title, category, context, content, tags, feedVisible } = parsed.data;
+
+  if (containsBlockedContent(`${title} ${content}`)) {
+    return { success: false, errors: { form: ["This content cannot be posted."] } };
+  }
+
   await db.insert(ideas).values({
     title, category, context, content, tags, roomId, feedVisible,
     status: "published", totalLikes: 0, totalComments: 0, views: 0, userId: callerId,
@@ -213,4 +219,38 @@ export async function recordView(ideaId: string): Promise<boolean> {
   if (!success) return false;
   await db.update(ideas).set({ views: sql`${ideas.views} + 1` }).where(eq(ideas.id, ideaId));
   return true;
+}
+
+// ─── SEARCH ─────────────────────────────────────────────────────────
+export async function searchIdeas(query: string, callerId: string | null) {
+  if (!query || query.trim().length < 2) return [];
+  const term = `%${query.trim()}%`;
+  return db
+    .select({ idea: ideas, author: users })
+    .from(ideas)
+    .leftJoin(users, eq(ideas.userId, users.id))
+    .leftJoin(rooms, eq(ideas.roomId, rooms.id))
+    .where(
+      and(
+        eq(ideas.status, "published"),
+        or(
+          eq(rooms.visibility, "public"),
+          callerId
+            ? exists(
+                db.select().from(roomMembers)
+                  .where(and(
+                    eq(roomMembers.roomId, ideas.roomId as any),
+                    eq(roomMembers.userId, callerId)
+                  ))
+              )
+            : sql`false`
+        ),
+        or(
+          ilike(ideas.title, term),
+          ilike(ideas.context, term),
+          ilike(ideas.content, term),
+        )
+      )
+    )
+    .limit(20);
 }

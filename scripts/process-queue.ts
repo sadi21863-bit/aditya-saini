@@ -40,8 +40,8 @@ async function ensureDailyWorkQueued(): Promise<void> {
   const today = todayUTC();
 
   // ── Theme ────────────────────────────────────────────────────────────
-  // Check if today's theme already exists in ai_themes (already processed)
-  // or if a theme_select item is already in the queue (pending/in-progress)
+  // Primary check: theme row in ai_themes (most reliable — means it was processed).
+  // Secondary check: pending/in_progress queue item (generation in flight).
   const [themeInDb] = await rawDb.execute(sql`
     SELECT 1 FROM ai_themes WHERE date = ${today} LIMIT 1
   `) as unknown as [unknown?];
@@ -50,7 +50,7 @@ async function ensureDailyWorkQueued(): Promise<void> {
     SELECT 1 FROM ai_queue
     WHERE  action_type   = 'theme_select'
       AND  scheduled_for >= (${today}::date)
-      AND  status        IN ('pending', 'in_progress', 'done')
+      AND  status        IN ('pending', 'in_progress')
     LIMIT 1
   `) as unknown as [unknown?];
 
@@ -76,38 +76,52 @@ async function ensureDailyWorkQueued(): Promise<void> {
   }
 
   // ── Archive ───────────────────────────────────────────────────────────
-  // Check yesterday's archive: if there is no completed archive_day for
-  // yesterday, queue it (covers the case where the 17:30 UTC cron was missed).
+  // Primary check: row in ai_lab_archives (archive was generated — most reliable).
+  // Secondary check: pending/in_progress queue item (generation in flight).
+  //
+  // IMPORTANT: do NOT check for 'completed'/'rate_limited' queue status here.
+  // Those are terminal queue statuses — a completed archive_day row means the
+  // archive ran, regardless of whether the queue item itself is 'completed' or
+  // 'rate_limited'. Using ai_lab_archives as ground truth prevents re-queuing
+  // after the archive has already been generated.
   const nowUTC   = new Date();
   const yesterday = new Date(Date.UTC(
     nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate() - 1,
   ));
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-  const [yesterdayArchive] = await rawDb.execute(sql`
+  const [yesterdayArchiveInDb] = await rawDb.execute(sql`
+    SELECT 1 FROM ai_lab_archives WHERE date = ${yesterdayStr} LIMIT 1
+  `) as unknown as [unknown?];
+
+  const [yesterdayArchiveInQueue] = await rawDb.execute(sql`
     SELECT 1 FROM ai_queue
-    WHERE  action_type         = 'archive_day'
+    WHERE  action_type           = 'archive_day'
       AND  prompt_context->>'date' = ${yesterdayStr}
-      AND  status              IN ('pending', 'in_progress', 'done')
+      AND  status                IN ('pending', 'in_progress')
     LIMIT 1
   `) as unknown as [unknown?];
 
-  if (!yesterdayArchive) {
+  if (!yesterdayArchiveInDb && !yesterdayArchiveInQueue) {
     console.log(`[process-queue] No archive for ${yesterdayStr} — queuing archive`);
     await queueDailyArchive(yesterdayStr);
   }
 
   // Check today's archive: only attempt after 18:00 UTC (30-min buffer past the 17:30 cron).
   if (nowUTC.getUTCHours() >= 18) {
-    const [todayArchive] = await rawDb.execute(sql`
+    const [todayArchiveInDb] = await rawDb.execute(sql`
+      SELECT 1 FROM ai_lab_archives WHERE date = ${today} LIMIT 1
+    `) as unknown as [unknown?];
+
+    const [todayArchiveInQueue] = await rawDb.execute(sql`
       SELECT 1 FROM ai_queue
-      WHERE  action_type         = 'archive_day'
+      WHERE  action_type           = 'archive_day'
         AND  prompt_context->>'date' = ${today}
-        AND  status              IN ('pending', 'in_progress', 'done')
+        AND  status                IN ('pending', 'in_progress')
       LIMIT 1
     `) as unknown as [unknown?];
 
-    if (!todayArchive) {
+    if (!todayArchiveInDb && !todayArchiveInQueue) {
       console.log(`[process-queue] No archive for ${today} — queuing archive`);
       await queueDailyArchive(today);
     }
@@ -124,13 +138,33 @@ async function main() {
   // 1. Self-heal: ensure today's theme and ideas are queued
   await ensureDailyWorkQueued();
 
-  // 2. Reset any items stuck in_progress from a previous timeout
+  // 2. Purge redundant archive_day queue items that accumulated due to a previous
+  //    bug in ensureDailyWorkQueued (used status='done' which doesn't exist, causing
+  //    re-queuing on every run after the archive completed). Any pending archive_day
+  //    item whose date already has a row in ai_lab_archives is a duplicate — cancel it.
+  const purged = await rawDb.execute(sql`
+    UPDATE ai_queue
+    SET    status = 'failed',
+           error_message = 'cancelled: duplicate archive_day — archive already exists in ai_lab_archives'
+    WHERE  action_type = 'archive_day'
+      AND  status      = 'pending'
+      AND  EXISTS (
+        SELECT 1 FROM ai_lab_archives
+        WHERE  date = (prompt_context->>'date')::text
+      )
+  `);
+  const purgedCount = (purged as { rowCount?: number }).rowCount ?? 0;
+  if (purgedCount > 0) {
+    console.log(`[process-queue] Purged ${purgedCount} redundant archive_day item(s)`);
+  }
+
+  // 3. Reset any items stuck in_progress from a previous timeout
   const recovered = await resetStuckQueueItems();
   if (recovered > 0) {
     console.log(`[process-queue] Reset ${recovered} stuck in_progress item(s)`);
   }
 
-  // 3. Advance all overdue pending items to now() so processQueue picks them up
+  // 4. Advance all overdue pending items to now() so processQueue picks them up
   const advanced = await rawDb.execute(sql`
     UPDATE ai_queue
     SET    scheduled_for = now()
@@ -142,7 +176,7 @@ async function main() {
     console.log(`[process-queue] Advanced ${advancedCount} pending item(s) to now()`);
   }
 
-  // 4. Drain the queue in batches (max 5 passes per run to stay within GHA limits)
+  // 5. Drain the queue in batches (max 5 passes per run to stay within GHA limits)
   let totalProcessed = 0;
   let totalFailed    = 0;
   const allErrors: Array<{ id: string; agentId: string; actionType: string; error: string }> = [];
