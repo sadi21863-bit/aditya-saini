@@ -170,7 +170,7 @@ async function main() {
       AND  status      = 'pending'
       AND  EXISTS (
         SELECT 1 FROM ai_lab_archives
-        WHERE  date = (prompt_context->>'date')::text
+        WHERE  date = (prompt_context->>'date')::date
       )
   `);
   const purgedCount = (purged as { rowCount?: number }).rowCount ?? 0;
