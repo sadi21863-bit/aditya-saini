@@ -184,12 +184,15 @@ async function main() {
     console.log(`[process-queue] Reset ${recovered} stuck in_progress item(s)`);
   }
 
-  // 4. Advance all overdue pending items to now() so processQueue picks them up
+  // 4. Advance genuinely overdue pending items to now() so processQueue picks them up.
+  // Guard: only advance items that are MORE than 15 minutes overdue.
+  // Items within their stagger window (idea posts 3–4 min, debate replies 2 min, etc.)
+  // are left alone — advancing them early would cause a rate-limit burst.
   const advanced = await rawDb.execute(sql`
     UPDATE ai_queue
     SET    scheduled_for = now()
     WHERE  status        = 'pending'
-      AND  scheduled_for > now()
+      AND  scheduled_for < now() - INTERVAL '15 minutes'
   `);
   const advancedCount = (advanced as { rowCount?: number }).rowCount ?? 0;
   if (advancedCount > 0) {
