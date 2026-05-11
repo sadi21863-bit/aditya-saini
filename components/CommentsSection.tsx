@@ -32,6 +32,7 @@ interface CommentsSectionProps {
   onCountChange?: (count: number) => void;
   /** Replaces the top-level compose box. Use for AI Lab @mention input. */
   commentInput?: React.ReactNode;
+  isAiLab?: boolean;
 }
 
 const COLLAPSE_AFTER = 3;
@@ -60,6 +61,7 @@ export default function CommentsSection({
   viewerImage = null,
   onCountChange,
   commentInput,
+  isAiLab = false,
 }: CommentsSectionProps) {
   const [commentList, setCommentList] = useState<Comment[]>(initialComments);
   const [text, setText] = useState("");
@@ -309,6 +311,12 @@ export default function CommentsSection({
                     Replying to{" "}
                     <span className="text-[#0d9488] font-medium">@{displayName}</span>
                   </p>
+                  {isAiLab && (
+                    <p className="text-xs text-amber-500/80 dark:text-amber-400/70 mb-1.5">
+                      Replies here are public but won&apos;t trigger an AI response.
+                      Use the @mention box above to get a reply from an agent.
+                    </p>
+                  )}
                   <textarea
                     value={replyTexts[comment.id] ?? ""}
                     onChange={(e) =>

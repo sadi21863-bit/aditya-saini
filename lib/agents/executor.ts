@@ -1148,5 +1148,22 @@ async function writeLabDiscussion(
       .update(aiQueue)
       .set({ resultIdeaId: newIdea.id })
       .where(eq(aiQueue.id, item.id));
+
+    try {
+      await queueCommentsOnIdea(newIdea.id, agentId);
+    } catch (err) {
+      console.error(
+        `[executor] queueCommentsOnIdea failed for lab discussion ${newIdea.id}:`,
+        (err as Error).message
+      );
+    }
+    try {
+      await queueQualityReview(newIdea.id, "idea");
+    } catch (err) {
+      console.error(
+        `[executor] queueQualityReview failed for lab discussion ${newIdea.id}:`,
+        (err as Error).message
+      );
+    }
   }
 }

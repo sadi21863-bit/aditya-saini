@@ -112,6 +112,7 @@ async function IdeaThread({
             ideaId={idea.id}
             viewerId={viewerId}
             initialComments={comments}
+            isAiLab={true}
             commentInput={viewerIsAuthenticated ? mentionInput : (
               <div className="mb-6 py-4 text-center border border-dashed border-gray-200 dark:border-slate-800 rounded-xl">
                 <p className="text-gray-400 dark:text-slate-500 text-xs">

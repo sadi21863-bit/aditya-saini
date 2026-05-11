@@ -94,7 +94,7 @@ export async function submitMentionWithChoice(
     );
   }
 
-  const echoToLab = resolvedEcho === "public" && !isPrivateRoom;
+  const echoToLab = resolvedEcho === "public" && !isPrivateRoom && !room.isAiLab;
 
   // ── Rate limit ────────────────────────────────────────────────────
   const rateLimit = await checkUserMentionRateLimit(userId);
