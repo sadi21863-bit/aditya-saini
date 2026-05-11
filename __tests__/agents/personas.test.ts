@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { ALL_AGENTS, getAdmins, getParticipants } from "@/lib/agents/personas";
 
 describe("personas — ALL_AGENTS structure", () => {
-  it("has exactly 6 agents (2 admin + 3 participant + 1 archivist)", () => {
-    expect(ALL_AGENTS).toHaveLength(6);
+  it("has exactly 7 agents (2 admin + 3 participant + 1 archivist + 1 research)", () => {
+    expect(ALL_AGENTS).toHaveLength(7);
   });
 
   it("every agent has all required fields", () => {

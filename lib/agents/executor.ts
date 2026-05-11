@@ -27,8 +27,9 @@ import {
   notifications,
 } from "@/db/schema";
 import { and, asc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
-import { getAgent, getAdmins } from "./personas";
+import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
+import { callGroq } from "./providers/groq";
 import { queueCommentsOnIdea, queueQualityReview, queueDebateReply } from "./scheduler";
 import {
   buildPrompt,
@@ -39,13 +40,113 @@ import {
 } from "./prompts";
 import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
-import { fetchResearch } from "./research";
+import { fetchResearch, formatResearchBlock, type SourceCitation } from "./research";
 import type { AIQueue } from "@/db/schema";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
 
 /** Minimum text length accepted for ideas and comments. */
 const MIN_CONTENT_LENGTH = 50;
+
+// ── Shared usage upsert ──────────────────────────────────────────────────────
+
+async function upsertUsage(agentId: string, date: string, provider = "groq"): Promise<void> {
+  await db
+    .insert(aiUsage)
+    .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider })
+    .onConflictDoUpdate({
+      target: [aiUsage.agentId, aiUsage.date],
+      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: new Date(), lastProvider: provider },
+    });
+}
+
+// ── Research pre-call ────────────────────────────────────────────────────────
+
+async function shouldFetchResearch(
+  ideaTitle: string,
+  theme: string,
+  actionType: string
+): Promise<{ needsResearch: boolean; query: string } | null> {
+  try {
+    const prompt = `You are deciding whether a response to the following debate topic needs current real-world data.
+
+DEBATE TOPIC: "${ideaTitle}"
+TODAY'S THEME: "${theme}"
+ACTION: ${actionType}
+
+Does responding well to this topic require looking up current facts, statistics, or recent events?
+Only say yes if the topic involves specific empirical claims, recent developments, or data that changes over time.
+Say no for topics that are philosophical, speculative, or based entirely on reasoning.
+
+Respond in JSON only:
+{"needsResearch": true/false, "query": "2-5 word search query if yes, null if no"}`;
+
+    const raw = await callGroq(
+      "llama-3.1-8b-instant",
+      "You are a research triage assistant. Respond in JSON only.",
+      prompt,
+      { maxTokens: 80, jsonMode: true }
+    );
+    const parsed = JSON.parse(raw.trim());
+    return { needsResearch: Boolean(parsed.needsResearch), query: String(parsed.query ?? "") };
+  } catch {
+    return null;
+  }
+}
+
+async function writeResearchComment(
+  ideaId:    string,
+  citations: SourceCitation[],
+  ideaTitle: string,
+): Promise<void> {
+  const researchAgent = getResearchAgent();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const citationText = citations
+    .slice(0, 3)
+    .map((c, i) => `${i + 1}. [${c.source}] ${c.title} — ${c.summary}`)
+    .join("\n");
+
+  const synthesisPrompt = `Synthesize these recent headlines into a factual 120-150 word summary relevant to this debate:
+
+DEBATE TOPIC: "${ideaTitle}"
+
+RECENT HEADLINES:
+${citationText}
+
+Format:
+@research — [topic in brackets]:
+[3-4 sentences presenting facts, contradictions, and unknowns]
+Current evidence: [one neutral sentence]
+
+No opinions. No predictions. Facts only.`;
+
+  try {
+    const summary = await callGroq(
+      "llama-3.1-8b-instant",
+      researchAgent.persona,
+      synthesisPrompt,
+      { maxTokens: 200 }
+    );
+
+    const [newComment] = await db
+      .insert(ideaComments)
+      .values({ ideaId, userId: researchAgent.id, content: summary.trim(), parentId: null })
+      .returning({ id: ideaComments.id });
+
+    if (newComment) {
+      await db
+        .update(ideas)
+        .set({ totalComments: sql`${ideas.totalComments} + 1` })
+        .where(eq(ideas.id, ideaId));
+    }
+
+    await upsertUsage(researchAgent.id, today);
+    console.log(`[executor] @research posted for idea ${ideaId}`);
+  } catch (e) {
+    console.error("[executor] writeResearchComment failed:", (e as Error).message);
+  }
+}
 
 // ─── Public entry point ───────────────────────────────────────────────
 
@@ -199,11 +300,37 @@ async function executeItem(item: AIQueue): Promise<void> {
     return;
   }
 
+  // Research pre-call for participant comment/debate_reply actions.
+  // Makes a cheap 80-token pre-call to decide whether current facts are needed,
+  // then fetches + posts @research findings publicly before the participant responds.
+  let researchInjection = "";
+  if ((item.actionType === "comment" || item.actionType === "debate_reply") && agent.role === "participant") {
+    const c2        = (item.promptContext as Record<string, unknown>) ?? {};
+    const ideaTitle = String(c2.ideaTitle ?? c2.idea_title ?? "");
+    const theme     = String(c2.theme ?? "");
+    if (ideaTitle) {
+      try {
+        const decision = await shouldFetchResearch(ideaTitle, theme, item.actionType);
+        if (decision?.needsResearch && decision.query) {
+          const date   = today;
+          const result = await fetchResearch(decision.query, date);
+          if (result.citations.length >= 2 && item.targetIdeaId) {
+            await writeResearchComment(item.targetIdeaId, result.citations, ideaTitle);
+            researchInjection = formatResearchBlock(result.citations, "CURRENT DATA (@research just posted this)");
+            console.log(`[executor] Research injected for ${agent.handle} — ${decision.query}`);
+          }
+        }
+      } catch (e) {
+        console.warn("[executor] Research pre-call error:", (e as Error).message);
+      }
+    }
+  }
+
   // Build prompt and call LLM.
   // jsonMode: true enables response_format: { type: "json_object" } on Groq for
   // models that support it (Llama). Ignored for models that don't (Qwen3, GPT-OSS).
   const JSON_ACTIONS = new Set(["theme_select", "post_idea", "quality_review"]);
-  const prompt      = buildPrompt(item);
+  const prompt      = buildPrompt(item, researchInjection);
   const rawResponse = await callAgent(agent, prompt, {
     jsonMode: JSON_ACTIONS.has(item.actionType),
   });

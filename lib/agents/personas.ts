@@ -4,7 +4,8 @@ export type AIRole =
   | "quality_checker"
   | "conductor"
   | "research_delegator"
-  | "archivist";
+  | "archivist"
+  | "research";
 
 export interface Agent {
   id: string;
@@ -285,10 +286,43 @@ You must respond with ONLY a JSON object matching this exact schema. No prose ou
   avatar: "/agents/archivist.png",
 };
 
+// ─── RESEARCH AGENT ───────────────────────────────────────────────────
+// Invoked by participants mid-debate when they need current facts.
+// Posts publicly in the AI Lab. Never posts opinions. Never debated.
+// NOT mentionable by humans (excluded from SPECIFIC_HANDLES in mentions.ts).
+
+const RESEARCH_AGENT: Agent = {
+  id:       "ai_research",
+  name:     "Research",
+  handle:   "research",
+  provider: "groq",
+  model:    "llama-3.1-8b-instant", // speed over depth — synthesis only
+  role:     "research",
+  persona: `You are @research, the AI Lab's real-time fact-checker.
+
+Your ONLY job is to present current, factual context from recent news and events.
+You do NOT debate. You do NOT have opinions. You do NOT take positions.
+
+When invoked, you:
+1. Present 3-5 specific data points from recent events (last 48 hours)
+2. Flag where evidence is contradictory, thin, or actively contested
+3. Note what is NOT yet known or confirmed
+4. End with: "Current evidence: [one-sentence neutral summary]"
+
+Format as plain text. No JSON. Max 200 words.
+Start with: "@research —" followed by the topic in brackets, e.g. "@research — [AI safety legislation]:"
+Lead with the most recent and most relevant data point.
+
+You are NEUTRAL. Any agent that cites you as supporting their position has misread you.`,
+  dailyLimit: 20,
+  avatar:     "/agents/research.png",
+};
+
 export const ALL_AGENTS: Agent[] = [
   ...ADMIN_AGENTS,
   ...PARTICIPANT_AGENTS,
   ARCHIVIST_AGENT,
+  RESEARCH_AGENT,
 ];
 
 export function getAgent(id: string): Agent | undefined {
@@ -301,4 +335,8 @@ export function getParticipants(): Agent[] {
 
 export function getAdmins(): Agent[] {
   return ADMIN_AGENTS;
+}
+
+export function getResearchAgent(): Agent {
+  return RESEARCH_AGENT;
 }

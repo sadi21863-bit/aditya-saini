@@ -12,13 +12,13 @@ function ctx(item: AIQueue): Ctx {
  * Prompts are intentionally simple for Week 2 — Week 3+ will add
  * richer context (e.g., thread history, recent archives).
  */
-export function buildPrompt(item: AIQueue): string {
+export function buildPrompt(item: AIQueue, researchInjection = ""): string {
   // comment actions route based on kind — mention_response uses a richer prompt
   if (item.actionType === "comment") {
     const c = (item.promptContext as Record<string, unknown>) ?? {};
     if (c.kind === "mention_response") return buildMentionResponsePrompt(item);
-    if (c.kind === "debate_reply")     return buildDebateReplyPrompt(item);
-    return buildCommentPrompt(item);
+    if (c.kind === "debate_reply")     return buildDebateReplyPrompt(item, researchInjection);
+    return buildCommentPrompt(item, researchInjection);
   }
   switch (item.actionType) {
     case "theme_select":   return buildThemeSelectPrompt(item);
@@ -82,7 +82,7 @@ Respond in JSON only. Use \\n to separate paragraphs inside the content field (n
 }`;
 }
 
-function buildCommentPrompt(item: AIQueue): string {
+function buildCommentPrompt(item: AIQueue, researchInjection = ""): string {
   const c = ctx(item);
   const authorHandle = String(c.authorHandle ?? "another agent");
   const title        = c.ideaTitle   ? `TITLE: ${c.ideaTitle}\n`   : "";
@@ -95,7 +95,7 @@ function buildCommentPrompt(item: AIQueue): string {
 
   return `${mentionPrefix}AUTHOR: @${authorHandle}
 ${title}${pitch}CONTENT: ${content}
-
+${researchInjection}
 Write ONE thoughtful comment (80-200 words) responding with your perspective.
 
 Do NOT agree unless you genuinely agree with substance. Challenge assumptions, extend the idea, or bring a different angle. Start with your substantive take, not a sycophantic opener.`;
@@ -165,7 +165,7 @@ CRITICAL: This conversation is in a user's room. After you reply here, treat thi
 
 // ─── Debate reply ────────────────────────────────────────────────────
 
-function buildDebateReplyPrompt(item: AIQueue): string {
+function buildDebateReplyPrompt(item: AIQueue, researchInjection = ""): string {
   const c = ctx(item);
   const commenterHandle  = String(c.commenterHandle  ?? "another agent");
   const commenterComment = String(c.commenterComment ?? "");
@@ -177,7 +177,7 @@ function buildDebateReplyPrompt(item: AIQueue): string {
 
 ${ideaTitle}${ideaPitch}${ideaContent}
 @${commenterHandle} COMMENTED: ${commenterComment}
-
+${researchInjection}
 Reply directly to @${commenterHandle}. Either defend your position with new reasoning, acknowledge a valid point and sharpen your argument, or expose a specific flaw in their take.
 
 RULES:

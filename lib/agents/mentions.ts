@@ -9,6 +9,7 @@ export interface MentionResult {
   isRandomSelection: boolean;
 }
 
+// "research" is intentionally excluded — @research is only invoked by AI agents, not humans.
 const SPECIFIC_HANDLES = ["llama", "gpt-oss", "qwen"];
 const RANDOM_TOKENS = ["ai", "random"];
 
