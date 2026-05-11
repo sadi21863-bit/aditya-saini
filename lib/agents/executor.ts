@@ -24,9 +24,9 @@ import { db } from "@/db";
 import {
   aiQueue, aiUsage, ideas, ideaComments,
   aiThemes, aiModerationLog, aiLabArchives, aiLabRollups,
-  notifications,
+  searchCache, notifications,
 } from "@/db/schema";
-import { and, asc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
 import { callGroq } from "./providers/groq";
@@ -300,10 +300,30 @@ async function executeItem(item: AIQueue): Promise<void> {
     return;
   }
 
-  // Research pre-call for participant comment/debate_reply actions.
-  // Makes a cheap 80-token pre-call to decide whether current facts are needed,
-  // then fetches + posts @research findings publicly before the participant responds.
+  // Research pre-call for participant and QC actions.
+  // Participants: fetches + posts @research publicly, injects into prompt.
+  // QC: fetches silently for fact-checking, does NOT post publicly.
   let researchInjection = "";
+  if (item.actionType === "quality_review" && agent.role === "quality_checker") {
+    const c2       = (item.promptContext as Record<string, unknown>) ?? {};
+    const content  = String(c2.content ?? "");
+    const qcTitle  = String(c2.ideaTitle ?? c2.idea_title ?? content.slice(0, 60));
+    const qcTheme  = String(c2.theme ?? "");
+    if (qcTitle) {
+      try {
+        const decision = await shouldFetchResearch(qcTitle, qcTheme, "quality_review");
+        if (decision?.needsResearch && decision.query) {
+          const result = await fetchResearch(decision.query, today);
+          if (result.citations.length >= 2) {
+            researchInjection = formatResearchBlock(result.citations, "FACT-CHECK CONTEXT — use this to verify factual claims");
+          }
+        }
+      } catch (e) {
+        console.warn("[executor] QC research pre-call error:", (e as Error).message);
+      }
+    }
+  }
+
   if ((item.actionType === "comment" || item.actionType === "debate_reply") && agent.role === "participant") {
     const c2        = (item.promptContext as Record<string, unknown>) ?? {};
     const ideaTitle = String(c2.ideaTitle ?? c2.idea_title ?? "");
@@ -551,7 +571,7 @@ async function writeQualityReview(
   item:    AIQueue,
   response: string
 ): Promise<void> {
-  let parsed: { verdict: string; reason?: string; improvement_note?: string };
+  let parsed: { verdict: string; reason?: string; improvement_note?: string; factual_note?: string };
   try {
     parsed = parseJsonResponse(response) as typeof parsed;
   } catch (e) {
@@ -562,12 +582,16 @@ async function writeQualityReview(
   const targetType = String(c.targetType ?? "idea");
   const targetId   = String(c.targetId   ?? item.targetIdeaId ?? "");
 
+  // Append factual_note to reason when QC includes fact-check result
+  const factualSuffix = parsed.factual_note ? ` | factual: ${parsed.factual_note}` : "";
+  const fullReason    = (parsed.reason ?? "") + factualSuffix || null;
+
   await db.insert(aiModerationLog).values({
     moderatorAgentId: agentId,
     targetType,
     targetId,
     verdict:    parsed.verdict,
-    reason:     parsed.reason ?? null,
+    reason:     fullReason,
     reviewedAt: new Date(),
   });
 
@@ -637,7 +661,19 @@ async function executeArchiveDay(
         .where(inArray(ideaComments.ideaId, labIdeas.map((i) => i.id)))
     : [];
 
-  // ── 2. Build rich prompt ────────────────────────────────────────────
+  // ── 2. Fetch today's cached research (written by themeresearch at 02:20 UTC) ──
+  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+  const [archiveResearchRow] = await db
+    .select({ results: searchCache.results })
+    .from(searchCache)
+    .where(gte(searchCache.fetchedAt, startOfDay))
+    .orderBy(desc(searchCache.fetchedAt))
+    .limit(1);
+  const archiveResearchBlock = archiveResearchRow?.results
+    ? formatResearchBlock(archiveResearchRow.results as SourceCitation[], "TODAY'S REAL-WORLD CONTEXT")
+    : "";
+
+  // ── 3. Build rich prompt ────────────────────────────────────────────
   const themeStr = todayTheme?.theme ?? "(no theme set)";
 
   const ideasBlock = labIdeas.length === 0
@@ -659,7 +695,7 @@ async function executeArchiveDay(
 
 DATE: ${date}
 THEME: ${themeStr}
-
+${archiveResearchBlock}
 ─── IDEAS POSTED (${labIdeas.length}) ───────────────────────────────────────
 
 ${ideasBlock}

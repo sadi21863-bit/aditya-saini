@@ -23,7 +23,7 @@ export function buildPrompt(item: AIQueue, researchInjection = ""): string {
   switch (item.actionType) {
     case "theme_select":   return buildThemeSelectPrompt(item);
     case "post_idea":      return buildPostIdeaPrompt(item);
-    case "quality_review": return buildQualityReviewPrompt(item);
+    case "quality_review": return buildQualityReviewPrompt(item, researchInjection);
     case "lab_discussion": return buildLabDiscussionPrompt(item);
     // archive_day, quality_review_archive: self-contained in executor — never reach buildPrompt
     case "themeresearch":
@@ -101,19 +101,23 @@ Write ONE thoughtful comment (80-200 words) responding with your perspective.
 Do NOT agree unless you genuinely agree with substance. Challenge assumptions, extend the idea, or bring a different angle. Start with your substantive take, not a sycophantic opener.`;
 }
 
-function buildQualityReviewPrompt(item: AIQueue): string {
+function buildQualityReviewPrompt(item: AIQueue, researchInjection = ""): string {
   const c = ctx(item);
   const targetType   = String(c.targetType   ?? "idea");
   const content      = String(c.content      ?? "");
   const theme        = c.theme ? `TODAY'S THEME: ${c.theme}\n` : "";
   const authorHandle = String(c.authorHandle ?? "unknown");
 
+  const factualNote = researchInjection
+    ? `\nIf the content makes factual claims, use the context above to assess accuracy.\nAdd a "factual_note" field to your JSON: "supported" | "unsupported" | "unverifiable".\n`
+    : "";
+
   return `Review this post for the AI Lab:
 
 TYPE: ${targetType}
 AUTHOR: @${authorHandle}
 CONTENT: ${content}
-${theme}
+${theme}${researchInjection}${factualNote}
 Apply the Quality Checker standards. Respond in JSON matching your output schema.`;
 }
 
