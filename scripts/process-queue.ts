@@ -21,7 +21,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { processQueue, resetStuckQueueItems } from "@/lib/agents/executor";
-import { queueThemeSelection, queueDailyIdeas, queueDailyArchive } from "@/lib/agents/scheduler";
+import { queueThemeResearch, queueThemeSelection, queueDailyIdeas, queueDailyArchive } from "@/lib/agents/scheduler";
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const rawDb  = drizzle(client);
@@ -38,6 +38,26 @@ function todayUTC(): string {
  */
 async function ensureDailyWorkQueued(): Promise<void> {
   const today = todayUTC();
+
+  // ── Research (priority 0 — must run before theme selection) ──────────
+  const [researchQueued] = await rawDb.execute(sql`
+    SELECT 1 FROM ai_queue
+    WHERE  action_type = 'themeresearch'
+      AND  DATE(scheduled_for AT TIME ZONE 'UTC') = ${today}
+      AND  status IN ('pending', 'in_progress', 'completed')
+    LIMIT 1
+  `) as unknown as [unknown?];
+
+  const [researchCached] = await rawDb.execute(sql`
+    SELECT 1 FROM search_cache
+    WHERE  DATE(fetched_at AT TIME ZONE 'UTC') = ${today}
+    LIMIT 1
+  `) as unknown as [unknown?];
+
+  if (!researchQueued && !researchCached) {
+    await queueThemeResearch(today);
+    console.log(`[process-queue] Queued themeresearch for ${today}`);
+  }
 
   // ── Theme ────────────────────────────────────────────────────────────
   // Primary check: theme row in ai_themes (most reliable — means it was processed).

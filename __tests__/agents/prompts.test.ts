@@ -1,4 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { vi, describe, it, expect } from "vitest";
+
+// research.ts imports @/db — mock it so prompts.test.ts doesn't need DATABASE_URL
+vi.mock("@/lib/agents/research", () => ({
+  formatResearchBlock: () => "",
+}));
+
 import { buildPrompt } from "@/lib/agents/prompts";
 import type { AIQueue } from "@/db/schema";
 

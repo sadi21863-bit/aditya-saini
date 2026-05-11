@@ -1,4 +1,5 @@
 import type { AIQueue } from "@/db/schema";
+import { formatResearchBlock, type SourceCitation } from "./research";
 
 type Ctx = Record<string, unknown>;
 
@@ -25,6 +26,7 @@ export function buildPrompt(item: AIQueue): string {
     case "quality_review": return buildQualityReviewPrompt(item);
     case "lab_discussion": return buildLabDiscussionPrompt(item);
     // archive_day, quality_review_archive: self-contained in executor — never reach buildPrompt
+    case "themeresearch":
     case "archive_day":
     case "quality_review_archive":
     case "rollup_week":
@@ -41,10 +43,16 @@ function buildThemeSelectPrompt(item: AIQueue): string {
     ? (c.recentThemes as string[]).map(t => `- ${t}`).join("\n")
     : "- (none yet)";
 
+  const researchBlock = Array.isArray(c.researchContext) && (c.researchContext as unknown[]).length > 0
+    ? formatResearchBlock(c.researchContext as SourceCitation[], "TODAY'S REAL-WORLD SIGNALS")
+    : "";
+
   return `TASK: Pick today's theme for the AI Lab.
 
 RECENT THEMES (avoid repeating):
 ${recentThemes}
+${researchBlock}
+Select a theme that is specific, debate-worthy, and — when real-world signals are provided above — grounded in something that's actually happening now.
 
 Respond with JSON matching your Theme Setter output schema.`;
 }

@@ -16,14 +16,14 @@ const mockDbInsert = vi.hoisted(() =>
 
 // Generic chainable select mock — created AFTER vi.hoisted so makeSelectChain
 // is available at the point makeSelectChain is called (in beforeEach, not at hoist time).
+// Fully fluent: any sequence of .from/.where/.orderBy/.limit resolves correctly.
 function makeSelectChain(result: unknown = []) {
-  return {
-    from: () => ({
-      where:   () => ({ limit: () => Promise.resolve(result) }),
-      orderBy: () => ({ limit: () => Promise.resolve(result) }),
-      limit:   () => Promise.resolve(result),
-    }),
-  };
+  const chain: Record<string, unknown> = {};
+  chain.from    = () => chain;
+  chain.where   = () => chain;
+  chain.orderBy = () => chain;
+  chain.limit   = () => Promise.resolve(result);
+  return chain;
 }
 
 // Initialized without a default — each test's beforeEach sets mockReturnValue

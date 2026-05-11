@@ -39,6 +39,7 @@ import {
 } from "./prompts";
 import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
+import { fetchResearch } from "./research";
 import type { AIQueue } from "@/db/schema";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
@@ -166,6 +167,18 @@ async function executeItem(item: AIQueue): Promise<void> {
 
   // Self-contained handlers — fetch their own data, manage their own LLM calls
   // and usage tracking, then return early, bypassing the generic callAgent path.
+
+  // themeresearch: pure API fetch + cache write. No LLM call, no usage increment.
+  if (item.actionType === "themeresearch") {
+    const c    = (item.promptContext as { date: string; query: string });
+    const date = c.date ?? new Date().toISOString().slice(0, 10);
+    const query = c.query ?? "";
+    const { citations, source } = await fetchResearch(query, date);
+    console.log(`[executor] themeresearch: ${citations.length} citations from ${source}`);
+    await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
+
   if (item.actionType === "archive_day") {
     await executeArchiveDay(agent, item, today);
     return;

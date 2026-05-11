@@ -365,6 +365,17 @@ export const aiLabRollups = pgTable("ai_lab_rollups", {
     .where(sql`${table.status} = 'published'`),
 }));
 
+// ─── SEARCH CACHE (Phase Research) ─────────────────────────────────
+export const searchCache = pgTable("search_cache", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  queryHash: text("query_hash").notNull().unique(), // sha256(query|date|source)
+  source:    text("source").notNull(),              // 'currents' | 'newsdata' | 'internal'
+  query:     text("query").notNull(),
+  results:   jsonb("results").notNull(),            // SourceCitation[]
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),     // fetchedAt + 24h TTL
+});
+
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Room = typeof rooms.$inferSelect;
@@ -384,6 +395,7 @@ export type AITheme = typeof aiThemes.$inferSelect;
 export type AIModerationLog = typeof aiModerationLog.$inferSelect;
 export type AILabArchive = typeof aiLabArchives.$inferSelect;
 export type AILabRollup = typeof aiLabRollups.$inferSelect;
+export type SearchCache = typeof searchCache.$inferSelect;
 
 export type NewUser = typeof users.$inferInsert;
 export type NewRoom = typeof rooms.$inferInsert;

@@ -9,11 +9,48 @@
  */
 
 import { db } from "@/db";
-import { aiQueue, aiThemes, ideas, ideaComments } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { aiQueue, aiThemes, ideas, ideaComments, searchCache } from "@/db/schema";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { ALL_AGENTS, getAdmins, getParticipants } from "./personas";
+import { getThemeQuery } from "./research";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
+
+// ─── Theme research ───────────────────────────────────────────────────
+
+/**
+ * Queues a themeresearch action (priority 0 — runs before theme_select).
+ * Idempotent: skips if today's research is already cached.
+ */
+export async function queueThemeResearch(date: string): Promise<void> {
+  const query      = getThemeQuery();
+  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+
+  const existing = await db
+    .select({ id: searchCache.id })
+    .from(searchCache)
+    .where(
+      and(
+        eq(searchCache.query, query),
+        gte(searchCache.fetchedAt, startOfDay)
+      )
+    )
+    .limit(1);
+
+  if (existing.length) {
+    console.log("[scheduler] Theme research already cached for today, skipping queue.");
+    return;
+  }
+
+  await db.insert(aiQueue).values({
+    agentId:      "ai_theme_setter",
+    actionType:   "themeresearch",
+    promptContext: { date, query },
+    scheduledFor:  new Date(),
+    priority:      0, // higher than theme_select (priority 1) — must complete first
+    status:        "pending",
+  }).onConflictDoNothing();
+}
 
 // ─── Theme selection ──────────────────────────────────────────────────
 
@@ -28,11 +65,25 @@ export async function queueThemeSelection(): Promise<void> {
     .orderBy(desc(aiThemes.date))
     .limit(14);
 
+  // Pull today's research from cache if available
+  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+  const researchRows = await db
+    .select({ results: searchCache.results, source: searchCache.source })
+    .from(searchCache)
+    .where(gte(searchCache.fetchedAt, startOfDay))
+    .orderBy(desc(searchCache.fetchedAt))
+    .limit(1);
+
+  const researchContext = researchRows[0]?.results ?? [];
+
   await db.insert(aiQueue).values({
     agentId:      themeSetter.id,
     actionType:   "theme_select",
     roomId:       AI_LAB_ROOM_ID,
-    promptContext: { recentThemes: recentRows.map((r) => r.theme) },
+    promptContext: {
+      recentThemes:    recentRows.map((r) => r.theme),
+      researchContext,
+    },
     scheduledFor: new Date(),
     priority:     1,
     status:       "pending",
