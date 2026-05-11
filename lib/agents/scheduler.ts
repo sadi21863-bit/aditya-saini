@@ -11,10 +11,117 @@
 import { db } from "@/db";
 import { aiQueue, aiThemes, ideas, ideaComments, searchCache } from "@/db/schema";
 import { and, desc, eq, gte } from "drizzle-orm";
+import { z } from "zod";
 import { ALL_AGENTS, getAdmins, getParticipants } from "./personas";
 import { getThemeQuery } from "./research";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
+
+// ─── promptContext Zod schemas ─────────────────────────────────────────────
+// One schema per action type. Validated before every db.insert(aiQueue) call.
+// If validation fails the queue row is NOT written and the error is logged.
+
+const ThemeResearchContext = z.object({
+  date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+  query: z.string().min(1).max(300),
+});
+
+const SourceCitationSchema = z.object({
+  title:       z.string(),
+  summary:     z.string(),
+  publishedAt: z.string(),
+  source:      z.string(),
+  url:         z.string(),
+});
+
+const ThemeSelectContext = z.object({
+  recentThemes:    z.array(z.string()),
+  researchContext: z.array(SourceCitationSchema).max(10).optional(),
+});
+
+const PostIdeaContext = z.object({
+  theme:           z.string().min(1),
+  rationale:       z.string().nullable(),
+  suggestedAngles: z.array(z.string()),
+});
+
+const LabCommentContext = z.object({
+  authorHandle: z.string().min(1),
+  ideaTitle:    z.string(),
+  ideaPitch:    z.string(),
+  ideaContent:  z.string(),
+});
+
+const MentionResponseContext = z.object({
+  kind:              z.literal("mention_response"),
+  mention_room_id:   z.string().min(1),
+  mention_idea_id:   z.string().nullable(),
+  mention_user_id:   z.string().min(1),
+  mention_text:      z.string().min(1),
+  target_handles:    z.array(z.string()),
+  echo_to_lab:       z.boolean(),
+  is_private_room:   z.boolean(),
+  ideaTitle:         z.string(),
+  ideaContent:       z.string(),
+  isFromMention:     z.boolean(),
+  isRandomSelection: z.boolean(),
+});
+
+const DebateReplyContext = z.object({
+  kind:             z.literal("debate_reply"),
+  parentCommentId:  z.string().uuid(),
+  commenterHandle:  z.string().min(1),
+  commenterComment: z.string(),
+  ideaTitle:        z.string(),
+  ideaPitch:        z.string(),
+  ideaContent:      z.string(),
+});
+
+const LabDiscussionCtxSchema = z.object({
+  kind:                z.literal("lab_discussion"),
+  source_room_id:      z.string().min(1),
+  source_idea_id:      z.string().min(1),
+  source_idea_summary: z.string(),
+  is_private_room:     z.boolean(),
+});
+
+const QualityReviewContext = z.object({
+  targetType:   z.enum(["idea", "comment"]),
+  targetId:     z.string().min(1),
+  content:      z.string().min(1),
+  theme:        z.string(),
+  authorHandle: z.string(),
+});
+
+const RollupContext = z.object({
+  periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  periodEnd:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const ArchiveDayContext = z.object({
+  date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  theme: z.string(),
+});
+
+// ── Validation helper ──────────────────────────────────────────────────────
+// Returns true if valid. Logs the error and returns false if invalid.
+// Caller must return/continue early on false so no broken row is written.
+
+function validateContext<T>(
+  schema: z.ZodType<T>,
+  data:   unknown,
+  actionType: string
+): data is T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    console.error(
+      `[scheduler] Invalid promptContext for ${actionType}:`,
+      result.error.flatten()
+    );
+    return false;
+  }
+  return true;
+}
 
 // ─── Theme research ───────────────────────────────────────────────────
 
@@ -42,10 +149,13 @@ export async function queueThemeResearch(date: string): Promise<void> {
     return;
   }
 
+  const ctx_themeresearch = { date, query };
+  if (!validateContext(ThemeResearchContext, ctx_themeresearch, "themeresearch")) return;
+
   await db.insert(aiQueue).values({
     agentId:      "ai_theme_setter",
     actionType:   "themeresearch",
-    promptContext: { date, query },
+    promptContext: ctx_themeresearch,
     scheduledFor:  new Date(),
     priority:      0, // higher than theme_select (priority 1) — must complete first
     status:        "pending",
@@ -76,14 +186,17 @@ export async function queueThemeSelection(): Promise<void> {
 
   const researchContext = researchRows[0]?.results ?? [];
 
+  const ctx_themeselect = {
+    recentThemes:    recentRows.map((r) => r.theme),
+    researchContext,
+  };
+  if (!validateContext(ThemeSelectContext, ctx_themeselect, "theme_select")) return;
+
   await db.insert(aiQueue).values({
     agentId:      themeSetter.id,
     actionType:   "theme_select",
     roomId:       AI_LAB_ROOM_ID,
-    promptContext: {
-      recentThemes:    recentRows.map((r) => r.theme),
-      researchContext,
-    },
+    promptContext: ctx_themeselect,
     scheduledFor: new Date(),
     priority:     1,
     status:       "pending",
@@ -118,11 +231,14 @@ export async function queueDailyIdeas(): Promise<void> {
     const baseDelayMs = i * 3 * 60 * 1000;
     const jitterMs    = Math.random() * 60 * 1000;
 
+    const ctx_postidea = { theme, rationale, suggestedAngles };
+    if (!validateContext(PostIdeaContext, ctx_postidea, "post_idea")) continue;
+
     await db.insert(aiQueue).values({
       agentId:      agent.id,
       actionType:   "post_idea",
       roomId:       AI_LAB_ROOM_ID,
-      promptContext: { theme, rationale, suggestedAngles },
+      promptContext: ctx_postidea,
       scheduledFor: new Date(Date.now() + baseDelayMs + jitterMs),
       priority:     7,
       status:       "pending",
@@ -157,17 +273,20 @@ export async function queueCommentsOnIdea(
   for (const agent of commenters) {
     const delayMs = (1 + Math.random()) * 60 * 1000; // 1–2 min
 
+    const ctx_labcomment = {
+      authorHandle,
+      ideaTitle:   idea.title,
+      ideaPitch:   idea.context ?? "",
+      ideaContent: idea.content ?? "",
+    };
+    if (!validateContext(LabCommentContext, ctx_labcomment, "comment:lab")) continue;
+
     await db.insert(aiQueue).values({
       agentId:      agent.id,
       actionType:   "comment",
       roomId:       AI_LAB_ROOM_ID,
       targetIdeaId: ideaId,
-      promptContext: {
-        authorHandle,
-        ideaTitle:   idea.title,
-        ideaPitch:   idea.context ?? "",
-        ideaContent: idea.content ?? "",
-      },
+      promptContext: ctx_labcomment,
       scheduledFor: new Date(Date.now() + delayMs),
       priority:     6,
       status:       "pending",
@@ -221,26 +340,28 @@ export async function queueMentionResponse(ctx: HumanMentionContext): Promise<vo
 
   const delayMs = (10 + Math.random() * 20) * 60 * 1000; // 10–30 min
 
+  const ctx_mention: z.infer<typeof MentionResponseContext> = {
+    kind:              "mention_response",
+    mention_room_id:   ctx.roomId,
+    mention_idea_id:   ctx.ideaId,
+    mention_user_id:   ctx.mentionUserId,
+    mention_text:      ctx.mentionText,
+    target_handles:    [ctx.agentHandle],
+    echo_to_lab:       safeEchoToLab,
+    is_private_room:   ctx.isPrivateRoom,
+    ideaTitle:         ctx.ideaTitle,
+    ideaContent:       ctx.ideaContent,
+    isFromMention:     true,
+    isRandomSelection: ctx.isRandomSelection,
+  };
+  if (!validateContext(MentionResponseContext, ctx_mention, "comment:mention_response")) return;
+
   await db.insert(aiQueue).values({
     agentId:      ctx.agentId,
     actionType:   "comment",
     roomId:       ctx.roomId,
     targetIdeaId: ctx.ideaId,
-    promptContext: {
-      kind:             "mention_response",
-      mention_room_id:  ctx.roomId,
-      mention_idea_id:  ctx.ideaId,
-      mention_user_id:  ctx.mentionUserId,
-      mention_text:     ctx.mentionText,
-      target_handles:   [ctx.agentHandle],
-      echo_to_lab:      safeEchoToLab,
-      is_private_room:  ctx.isPrivateRoom,
-      // Pre-fetched for prompt building — avoids a DB lookup in the executor
-      ideaTitle:        ctx.ideaTitle,
-      ideaContent:      ctx.ideaContent,
-      isFromMention:    true,
-      isRandomSelection: ctx.isRandomSelection,
-    },
+    promptContext: ctx_mention,
     scheduledFor: new Date(Date.now() + delayMs),
     priority:     1,                                  // highest priority — before all Lab actions
     status:       "pending",
@@ -271,18 +392,21 @@ export async function queueLabDiscussion(ctx: LabDiscussionContext): Promise<voi
 
   const delayMs = (60 + Math.random() * 120) * 60 * 1000; // 1–3 hours
 
+  const ctx_labdiscussion: z.infer<typeof LabDiscussionCtxSchema> = {
+    kind:                "lab_discussion",
+    source_room_id:      ctx.sourceRoomId,
+    source_idea_id:      ctx.sourceIdeaId,
+    source_idea_summary: ctx.sourceIdeasummary,
+    is_private_room:     false,
+  };
+  if (!validateContext(LabDiscussionCtxSchema, ctx_labdiscussion, "lab_discussion")) return;
+
   await db.insert(aiQueue).values({
     agentId:      ctx.agentId,
     actionType:   "lab_discussion",
     roomId:       AI_LAB_ROOM_ID,
     targetIdeaId: ctx.sourceIdeaId,
-    promptContext: {
-      kind:               "lab_discussion",
-      source_room_id:     ctx.sourceRoomId,
-      source_idea_id:     ctx.sourceIdeaId,
-      source_idea_summary: ctx.sourceIdeasummary,
-      is_private_room:    false,
-    },
+    promptContext: ctx_labdiscussion,
     scheduledFor: new Date(Date.now() + delayMs),
     priority:     7,
     status:       "pending",
@@ -330,18 +454,21 @@ export async function queueQualityReview(
     .where(eq(aiThemes.date, today))
     .limit(1);
 
+  const ctx_qr = {
+    targetType,
+    targetId:    targetPostId,
+    content,
+    theme:       todayTheme?.theme ?? "",
+    authorHandle,
+  };
+  if (!validateContext(QualityReviewContext, ctx_qr, "quality_review")) return;
+
   await db.insert(aiQueue).values({
     agentId:         qualityChecker.id,
     actionType:      "quality_review",
     targetIdeaId:    targetType === "idea"    ? targetPostId : undefined,
     targetCommentId: targetType === "comment" ? targetPostId : undefined,
-    promptContext: {
-      targetType,
-      targetId:    targetPostId,
-      content,
-      theme:       todayTheme?.theme ?? "",
-      authorHandle,
-    },
+    promptContext:   ctx_qr,
     scheduledFor: new Date(Date.now() + 30_000), // 30 seconds
     priority:     2,
     status:       "pending",
@@ -363,14 +490,17 @@ export async function queueWeeklyRollup(): Promise<void> {
   const periodStart = new Date();
   periodStart.setUTCDate(periodStart.getUTCDate() - 7);
 
+  const ctx_rollup = {
+    periodStart: periodStart.toISOString().slice(0, 10),
+    periodEnd:   periodEnd.toISOString().slice(0, 10),
+  };
+  if (!validateContext(RollupContext, ctx_rollup, "rollup_week")) return;
+
   await db.insert(aiQueue).values({
     agentId:      archivist.id,
     actionType:   "rollup_week",
     roomId:       AI_LAB_ROOM_ID,
-    promptContext: {
-      periodStart: periodStart.toISOString().slice(0, 10),
-      periodEnd:   periodEnd.toISOString().slice(0, 10),
-    },
+    promptContext: ctx_rollup,
     scheduledFor: new Date(),
     priority:     1,
     status:       "pending",
@@ -393,14 +523,17 @@ export async function queueMonthlyRollup(): Promise<void> {
   // First day of the previous month
   const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
 
+  const ctx_rollup = {
+    periodStart: periodStart.toISOString().slice(0, 10),
+    periodEnd:   periodEnd.toISOString().slice(0, 10),
+  };
+  if (!validateContext(RollupContext, ctx_rollup, "rollup_month")) return;
+
   await db.insert(aiQueue).values({
     agentId:      archivist.id,
     actionType:   "rollup_month",
     roomId:       AI_LAB_ROOM_ID,
-    promptContext: {
-      periodStart: periodStart.toISOString().slice(0, 10),
-      periodEnd:   periodEnd.toISOString().slice(0, 10),
-    },
+    promptContext: ctx_rollup,
     scheduledFor: new Date(),
     priority:     1,
     status:       "pending",
@@ -430,20 +563,23 @@ export async function queueDebateReply(
   const [idea] = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
   if (!idea) return;
 
+  const ctx_reply: z.infer<typeof DebateReplyContext> = {
+    kind:             "debate_reply",
+    parentCommentId:  commentId,
+    commenterHandle,
+    commenterComment: commentContent.slice(0, 300),
+    ideaTitle:        idea.title   ?? "",
+    ideaPitch:        idea.context ?? "",
+    ideaContent:      idea.content ?? "",
+  };
+  if (!validateContext(DebateReplyContext, ctx_reply, "comment:debate_reply")) return;
+
   await db.insert(aiQueue).values({
     agentId:      ideaAuthorAgentId,
     actionType:   "comment",
     roomId:       AI_LAB_ROOM_ID,
     targetIdeaId: ideaId,
-    promptContext: {
-      kind:            "debate_reply",
-      parentCommentId: commentId,
-      commenterHandle,
-      commenterComment: commentContent.slice(0, 300),
-      ideaTitle:        idea.title   ?? "",
-      ideaPitch:        idea.context ?? "",
-      ideaContent:      idea.content ?? "",
-    },
+    promptContext: ctx_reply,
     scheduledFor: new Date(Date.now() + 2 * 60 * 1000), // 2 min after comment
     priority:     6,
     status:       "pending",
@@ -463,14 +599,17 @@ export async function queueDailyArchive(dateStr?: string): Promise<void> {
     .where(eq(aiThemes.date, today))
     .limit(1);
 
+  const ctx_archive = {
+    date:  today,
+    theme: todayTheme?.theme ?? "(no theme set today)",
+  };
+  if (!validateContext(ArchiveDayContext, ctx_archive, "archive_day")) return;
+
   await db.insert(aiQueue).values({
     agentId:      archivist.id,
     actionType:   "archive_day",
     roomId:       AI_LAB_ROOM_ID,
-    promptContext: {
-      date:  today,
-      theme: todayTheme?.theme ?? "(no theme set today)",
-    },
+    promptContext: ctx_archive,
     scheduledFor: new Date(),
     priority:     1,
     status:       "pending",
