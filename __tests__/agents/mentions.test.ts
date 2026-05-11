@@ -35,15 +35,15 @@ describe("extractAIMentions — specific handle detection", () => {
     expect(results[0].agentHandle).toBe("gpt-oss");
   });
 
-  it("detects @qwen", async () => {
-    const results = await extractAIMentions("@qwen please review this");
-    expect(results[0].agentHandle).toBe("qwen");
+  it("detects @scout", async () => {
+    const results = await extractAIMentions("@scout please review this");
+    expect(results[0].agentHandle).toBe("scout");
   });
 
   it("detects multiple different agents in one string", async () => {
-    const results = await extractAIMentions("@llama @qwen both respond");
+    const results = await extractAIMentions("@llama @scout both respond");
     const handles = results.map((r) => r.agentHandle).sort();
-    expect(handles).toEqual(["llama", "qwen"]);
+    expect(handles).toEqual(["llama", "scout"]);
   });
 
   it("does NOT produce duplicates when the same handle appears twice", async () => {
@@ -77,9 +77,9 @@ describe("extractAIMentions — email address exclusion", () => {
   });
 
   it("correctly handles text that has both an email and a real mention", async () => {
-    const results = await extractAIMentions("send to user@llama.dev then ask @qwen");
+    const results = await extractAIMentions("send to user@llama.dev then ask @scout");
     expect(results).toHaveLength(1);
-    expect(results[0].agentHandle).toBe("qwen");
+    expect(results[0].agentHandle).toBe("scout");
   });
 });
 
@@ -91,7 +91,7 @@ describe("extractAIMentions — @ai / @random random selection", () => {
     const results = await extractAIMentions("@ai what do you think?");
     expect(results).toHaveLength(1);
     expect(results[0].isRandomSelection).toBe(true);
-    expect(["llama", "gpt-oss", "qwen"]).toContain(results[0].agentHandle);
+    expect(["llama", "gpt-oss", "scout"]).toContain(results[0].agentHandle);
   });
 
   it("@random also triggers random selection", async () => {
@@ -116,7 +116,7 @@ describe("extractAIMentions — @ai / @random random selection", () => {
     mockWhere.mockResolvedValueOnce([
       { agentId: "ai_llama",   requestCount: 15 },
       { agentId: "ai_gpt_oss", requestCount: 15 },
-      { agentId: "ai_qwen",    requestCount: 15 },
+      { agentId: "ai_scout",   requestCount: 15 },
     ]);
 
     const results = await extractAIMentions("@ai thoughts?");

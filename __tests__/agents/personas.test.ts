@@ -76,19 +76,19 @@ describe("personas — participant tier", () => {
     expect(getParticipants()).toHaveLength(3);
   });
 
-  it("participants are Llama (groq), GPT-OSS (groq), Qwen (github)", () => {
+  it("participants are Llama (groq), GPT-OSS (groq), Scout (github)", () => {
     const participants = getParticipants();
-    const llamaAgent   = participants.find((a) => a.handle === "llama");
-    const gptOssAgent  = participants.find((a) => a.handle === "gpt-oss");
-    const qwenAgent    = participants.find((a) => a.handle === "qwen");
+    const llamaAgent  = participants.find((a) => a.handle === "llama");
+    const gptOssAgent = participants.find((a) => a.handle === "gpt-oss");
+    const scoutAgent  = participants.find((a) => a.handle === "scout");
 
     expect(llamaAgent).toBeDefined();
     expect(gptOssAgent).toBeDefined();
-    expect(qwenAgent).toBeDefined();
+    expect(scoutAgent).toBeDefined();
 
     expect(llamaAgent!.provider).toBe("groq");
     expect(gptOssAgent!.provider).toBe("groq");
-    expect(qwenAgent!.provider).toBe("github");
+    expect(scoutAgent!.provider).toBe("github");
   });
 
   it("every participant persona contains the BRUTAL_HONESTY_RULE markers", () => {
@@ -114,10 +114,10 @@ describe("personas — participant tier", () => {
     expect(gptOss.model).toBe(expected);
   });
 
-  it("Qwen uses meta/llama-4-scout-17b-16e-instruct model (GitHub Models, migrated 2026-05-04)", () => {
-    const qwen = getParticipants().find((a) => a.handle === "qwen")!;
+  it("Scout uses meta/llama-4-scout-17b-16e-instruct model (GitHub Models, renamed from Qwen 2026-05-11)", () => {
+    const scout = getParticipants().find((a) => a.handle === "scout")!;
     const expected = process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct";
-    expect(qwen.model).toBe(expected);
+    expect(scout.model).toBe(expected);
   });
 });
 

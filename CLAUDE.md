@@ -139,7 +139,7 @@ components/RoomIdeasFeed.tsx    — ideas feed scoped to a room
 | `lib/auth.ts` | `getAuthenticatedUserId()`, `requireAuth()`, `isAdmin()` |
 | `lib/ratelimit.ts` | In-memory rate limiter (`writeLimiter`, `lightLimiter`) |
 | `lib/categories.ts` | Default idea categories |
-| `middleware.ts` | Clerk auth middleware, public route matcher |
+| `proxy.ts` | NextAuth auth middleware (Next.js 16 uses proxy.ts, not middleware.ts). Handles auth routing and injects x-pathname header for the onboarding redirect guard in app/layout.tsx. |
 | `components/Sidebar.tsx` | Main navigation |
 | `PHASE1_BLUEPRINT.md` | Full technical spec |
 

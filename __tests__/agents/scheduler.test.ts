@@ -158,7 +158,7 @@ describe("queueDailyIdeas", () => {
     await queueDailyIdeas();
     const agentIds = capturedInserts.map((r) => r.agentId as string);
     expect(new Set(agentIds).size).toBe(3);
-    expect(agentIds).toEqual(expect.arrayContaining(["ai_llama", "ai_gpt_oss", "ai_qwen"]));
+    expect(agentIds).toEqual(expect.arrayContaining(["ai_llama", "ai_gpt_oss", "ai_scout"]));
   });
 
   it("rows are spread across 0–120 min (scheduledFor increases)", async () => {

@@ -256,7 +256,7 @@ describe("End-to-end: private room mention never creates AI Lab idea", () => {
     const result = await submitMentionWithChoice({
       roomId:     "private-room",
       ideaId:     "idea-1",
-      content:    "@qwen is this feasible?",
+      content:    "@scout is this feasible?",
       echoChoice: "public",
     });
 
