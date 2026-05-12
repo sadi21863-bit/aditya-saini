@@ -127,14 +127,14 @@ describe("personas — archivist tier", () => {
     expect(archivists).toHaveLength(1);
   });
 
-  it("Archivist uses Groq as provider (migrated from Cerebras in Week 6)", () => {
+  it("Archivist uses GitHub Models as provider (migrated from Groq 2026-05-12 — TPM cap)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    expect(archivist.provider).toBe("groq");
+    expect(archivist.provider).toBe("github");
   });
 
-  it("Archivist uses openai/gpt-oss-120b model", () => {
+  it("Archivist uses meta/llama-3.3-70b-instruct model", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b";
+    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct";
     expect(archivist.model).toBe(expected);
   });
 

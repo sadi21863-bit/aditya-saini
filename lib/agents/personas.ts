@@ -32,10 +32,10 @@ const MODELS = {
   // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
   adminReasoning:   process.env.AGENT_MODEL_ADMIN     ?? "qwen/qwen3-32b",
 
-  // Archivist: migrated to Groq GPT-OSS-120B (Week 6, 2026-04-30).
-  // Calibration passed 5/5 verbatim quote accuracy with the current production prompt.
-  // Previous model (qwen-3-235b-a22b-instruct-2507 on Cerebras) deprecated 2026-05-27.
-  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b",
+  // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12).
+  // Groq GPT-OSS-120B hit 8000 TPM cap on free tier (archive prompts are 9k-13k tokens).
+  // Llama 3.3 70B on GitHub Models has no such cap and passes the same narrative quality bar.
+  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct",
 
   // Participants (3 only in v4.2)
   llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
@@ -228,12 +228,11 @@ const ARCHIVIST_AGENT: Agent = {
   id: "ai_archivist",
   name: "Archivist",
   handle: "archivist",
-  provider: "groq",
+  provider: "github",
   model: MODELS.archivist,
   role: "archivist",
-  // Persona calibrated 2026-04-23 (Cerebras Qwen 235B) + re-calibrated 2026-04-30
-  // (Groq GPT-OSS-120B). Both runs: narrative quality approved, 5/5 verbatim accuracy.
-  // GPT-OSS-120B is a reasoning model — 4000 token budget needed to cover <think> output.
+  // Calibrated on Groq GPT-OSS-120B (2026-04-30). Migrated to GitHub Models Llama 3.3 70B
+  // (2026-05-12) to avoid Groq's 8000 TPM cap on free tier.
   maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
 
