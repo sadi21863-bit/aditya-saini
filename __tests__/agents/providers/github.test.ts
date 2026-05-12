@@ -45,7 +45,8 @@ describe("callGitHub — primary usage", () => {
           { role: "system", content: "You are Qwen." },
           { role: "user",   content: "What do you think?" },
         ],
-      })
+      }),
+      expect.anything()
     );
     expect(result).toBe("github says hi");
   });
@@ -56,7 +57,8 @@ describe("callGitHub — primary usage", () => {
     await callGitHub("any-model", "sys", "usr");
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.8, max_tokens: 600 })
+      expect.objectContaining({ temperature: 0.8, max_tokens: 600 }),
+      expect.anything()
     );
   });
 
@@ -66,7 +68,8 @@ describe("callGitHub — primary usage", () => {
     await callGitHub("model", "sys", "usr", { temperature: 0.5, maxTokens: 400 });
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.5, max_tokens: 400 })
+      expect.objectContaining({ temperature: 0.5, max_tokens: 400 }),
+      expect.anything()
     );
   });
 

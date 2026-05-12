@@ -43,7 +43,8 @@ describe("callGroq — requests", () => {
           { role: "system", content: "You are helpful." },
           { role: "user",   content: "Say hi" },
         ],
-      })
+      }),
+      expect.anything()
     );
     expect(result).toBe("hello from groq");
   });
@@ -56,7 +57,8 @@ describe("callGroq — requests", () => {
     await callGroq("some-model", "system", "user");
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.8, max_tokens: 600 })
+      expect.objectContaining({ temperature: 0.8, max_tokens: 600 }),
+      expect.anything()
     );
   });
 
@@ -68,7 +70,8 @@ describe("callGroq — requests", () => {
     await callGroq("some-model", "system", "user", { temperature: 0.2, maxTokens: 200 });
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.2, max_tokens: 200 })
+      expect.objectContaining({ temperature: 0.2, max_tokens: 200 }),
+      expect.anything()
     );
   });
 

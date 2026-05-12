@@ -30,6 +30,6 @@ export async function callGitHub(
     temperature: opts.temperature ?? 0.8,
     max_tokens:  opts.maxTokens  ?? 600,
     stream:      false,
-  }) as unknown as { choices: Array<{ message: { content: string | null } }> };
+  }, { signal: AbortSignal.timeout(30_000) }) as unknown as { choices: Array<{ message: { content: string | null } }> };
   return resp.choices[0]?.message?.content ?? "";
 }
