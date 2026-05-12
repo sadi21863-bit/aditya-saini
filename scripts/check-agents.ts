@@ -65,10 +65,10 @@ async function probe(
 
 async function main() {
   console.log("\n🔍 IdeaConnect Agent Diagnostic\n");
-  console.log(`ENV: GROQ_API_KEY    = ${process.env.GROQ_API_KEY     ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GITHUB_TOKEN    = ${process.env.GITHUB_TOKEN     ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GH_MODELS_TOKEN = ${process.env.GH_MODELS_TOKEN  ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: CEREBRAS_API_KEY= ${process.env.CEREBRAS_API_KEY ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GROQ_API_KEY     = ${process.env.GROQ_API_KEY     ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GITHUB_TOKEN     = ${process.env.GITHUB_TOKEN     ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GH_MODELS_TOKEN  = ${process.env.GH_MODELS_TOKEN  ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: CEREBRAS_API_KEY = ${process.env.CEREBRAS_API_KEY ? "✓ set" : "✗ MISSING"}`);
   console.log("");
 
   const groq     = getGroqClient();

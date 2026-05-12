@@ -39,7 +39,7 @@ export async function callCerebras(
     temperature: opts.temperature ?? 0.8,
     max_tokens: opts.maxTokens ?? 600,
     stream:     false,
-  });
+  }, { signal: AbortSignal.timeout(30_000) });
   // Cast through unknown: create() returns ChatCompletion|Stream union; we never use streaming.
   const result = resp as unknown as { choices: Array<{ message: { content: string | null } }> };
   return result.choices[0]?.message?.content ?? "";

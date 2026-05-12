@@ -30,7 +30,7 @@ import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
 import { callGroq } from "./providers/groq";
-import { queueCommentsOnIdea, queueQualityReview, queueDebateReply } from "./scheduler";
+import { queueCommentsOnIdea, queueConductorIntervention, queueQualityReview, queueDebateReply } from "./scheduler";
 import {
   buildPrompt,
   buildQualityReviewArchivePrompt,
@@ -376,6 +376,7 @@ async function executeItem(item: AIQueue): Promise<void> {
       break;
     case "quality_review":       await writeQualityReview(agent.id, item, response); break;
     case "lab_discussion":       await writeLabDiscussion(agent.id, item, response); break;
+    case "conductor":            await writeConductorQuestion(agent.id, item); return; // no usage upsert needed — uses own model, minimal tokens
     // archive_day and quality_review_archive handled by self-contained early returns above
     default:
       throw new Error(`Unknown action type: ${item.actionType}`);
@@ -532,6 +533,15 @@ async function writeComment(
       await queueQualityReview(newComment.id, "comment");
     } catch (err) {
       console.error(`[executor] queueQualityReview failed for comment ${newComment.id}:`, (err as Error).message);
+    }
+
+    // Conductor: schedule a stall-check 90 min after this comment for non-cascade comments.
+    if (item.targetIdeaId && !parentId && c.kind !== "debate_reply" && c.kind !== "mention_response") {
+      try {
+        await queueConductorIntervention(item.targetIdeaId);
+      } catch (err) {
+        console.error(`[executor] queueConductorIntervention failed for idea ${item.targetIdeaId}:`, (err as Error).message);
+      }
     }
 
     // Debate reply cascade: queue the idea's original author to reply back.
@@ -1203,6 +1213,70 @@ async function executeRollupMonth(
       target: [aiUsage.agentId, aiUsage.date],
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
     });
+}
+
+// ─── Conductor writer ─────────────────────────────────────────────────
+//
+// Reads the full thread, asks the model to identify the sharpest unresolved
+// tension, and writes it as a question. No QC review, no debate reply cascade,
+// no usage upsert — the conductor asks a question, it doesn't make a claim.
+
+async function writeConductorQuestion(agentId: string, item: AIQueue): Promise<void> {
+  if (!item.targetIdeaId) throw new Error("conductor action missing targetIdeaId");
+
+  const [idea] = await db.select().from(ideas).where(eq(ideas.id, item.targetIdeaId)).limit(1);
+  if (!idea) throw new Error(`Idea not found: ${item.targetIdeaId}`);
+
+  const comments = await db
+    .select({ userId: ideaComments.userId, content: ideaComments.content })
+    .from(ideaComments)
+    .where(eq(ideaComments.ideaId, item.targetIdeaId))
+    .orderBy(asc(ideaComments.createdAt));
+
+  if (comments.length < 2) {
+    console.log(`[ai-lab] Conductor: fewer than 2 comments on idea ${item.targetIdeaId} — skipping`);
+    return;
+  }
+
+  const threadText = comments
+    .map((c) => `@${(c.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-")}: ${c.content}`)
+    .join("\n\n");
+
+  const userPrompt = `IDEA: "${idea.title}"
+${idea.context ? `PITCH: ${idea.context}\n` : ""}
+DEBATE THREAD:
+${threadText}
+
+---
+Identify the sharpest unresolved tension and pose it as one direct question. Follow your Conductor rules exactly.`;
+
+  const agent = getAgent(agentId);
+  if (!agent) throw new Error(`Conductor agent not found: ${agentId}`);
+
+  const response = await callAgent(agent, userPrompt, { temperature: 0.5, maxTokens: 120 });
+  const cleaned  = response.trim();
+
+  if (!cleaned || cleaned.toUpperCase() === "SKIP") {
+    console.log(`[ai-lab] Conductor: debate resolved for idea ${item.targetIdeaId} — SKIP`);
+    return;
+  }
+  if (cleaned.length < 15) throw new Error("Conductor response too short to be a valid question");
+
+  const [newComment] = await db
+    .insert(ideaComments)
+    .values({ ideaId: item.targetIdeaId, userId: agentId, content: cleaned, parentId: null })
+    .returning({ id: ideaComments.id });
+
+  if (newComment) {
+    await db
+      .update(ideas)
+      .set({ totalComments: sql`${ideas.totalComments} + 1` })
+      .where(eq(ideas.id, item.targetIdeaId));
+
+    await db.update(aiQueue).set({ resultCommentId: newComment.id }).where(eq(aiQueue.id, item.id));
+  }
+
+  console.log(`[ai-lab] Conductor posted question for idea ${item.targetIdeaId}`);
 }
 
 // ─── Week 3 writers ───────────────────────────────────────────────────

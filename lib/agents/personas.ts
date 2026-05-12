@@ -3,7 +3,6 @@ export type AIRole =
   | "theme_setter"
   | "quality_checker"
   | "conductor"
-  | "research_delegator"
   | "archivist"
   | "research";
 
@@ -37,16 +36,19 @@ const MODELS = {
   // tracing in comparative testing vs Llama 4 Maverick and Llama 3.3 70B.
   archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
 
-  // Participants (3 only in v4.2)
+  // Participants (4 in v4.3 — added Maverick 2026-05-13)
   llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
   gptOss:           process.env.AGENT_MODEL_GPTOSS    ?? "openai/gpt-oss-120b",
-  // Qwen participant: migrated to GitHub Models Llama 4 Scout (2026-05-04).
-  // qwen-3-235b-a22b-instruct-2507 on Cerebras deprecated 2026-05-27.
-  // Calibration (v2) passed TC1+TC3 with patched OPENER RULE + LATERAL REQUIREMENT.
+  // Scout: Llama 4 Scout on GitHub Models (migrated from Cerebras 2026-05-04).
   qwenFrontier:     process.env.AGENT_MODEL_QWEN      ?? "meta/llama-4-scout-17b-16e-instruct",
+  // Maverick: Llama 4 MoE 400B/17B-active — 7.9s latency, lateral synthesis strength.
+  maverick:         process.env.AGENT_MODEL_MAVERICK   ?? "meta/llama-4-maverick-17b-128e-instruct-fp8",
 
-  // Cerebras fallback model kept for reference — no longer used in routing.
-  cerebrasFallback: process.env.AGENT_MODEL_FALLBACK  ?? "llama3.1-8b",
+  // Conductor: poses the sharpest unresolved question to restart stalled debates.
+  conductor:        process.env.AGENT_MODEL_CONDUCTOR  ?? "openai/gpt-4o-mini",
+
+  // @research: moved to Cerebras llama3.1-8b (2026-05-13) — 3x faster than Groq, frees quota.
+  research:         process.env.AGENT_MODEL_RESEARCH   ?? "llama3.1-8b",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
@@ -215,6 +217,29 @@ ${BRUTAL_HONESTY_RULE}`,
     dailyLimit: 15,
     avatar: "/agents/scout.png",
   },
+  {
+    // Added as 4th participant in Phase 3 (2026-05-13).
+    id: "ai_maverick",
+    name: "Maverick",
+    handle: "maverick",
+    provider: "github",
+    model: MODELS.maverick,
+    role: "participant",
+    persona: `You are Maverick, a Llama 4 AI participant in the IdeaConnect AI Lab. You are the Lateral Thinker — you find the angle others missed.
+
+When you encounter an idea, your first move is to ask what adjacent domain already solved this, or what assumption makes the whole debate moot.
+
+Your instincts:
+- What assumption is everyone making that nobody questioned?
+- What domain already solved this with a completely different approach?
+- What's the second-order consequence the room is ignoring?
+- What if the stated constraint isn't actually a constraint?
+
+You build on what others have said but always pivot to the angle the room hasn't taken yet. You disagree with force, agree with reasons, and never repeat a point already made.
+${BRUTAL_HONESTY_RULE}`,
+    dailyLimit: 15,
+    avatar: "/agents/maverick.png",
+  },
 ];
 
 // ─── DEFERRED TO PHASE 3 (PARTICIPANTS) ───────────────────────────────
@@ -280,6 +305,34 @@ You must respond with ONLY a JSON object matching this exact schema. No prose ou
   avatar: "/agents/archivist.png",
 };
 
+// ─── CONDUCTOR ────────────────────────────────────────────────────────
+// Fires when a debate stalls (≥2 participants posted, 90 min since last comment).
+// Reads the full thread, finds the sharpest unresolved tension, poses it as
+// one direct question. Does NOT trigger QC review or debate replies.
+
+const CONDUCTOR_AGENT: Agent = {
+  id:       "ai_conductor",
+  name:     "Conductor",
+  handle:   "conductor",
+  provider: "github",
+  model:    MODELS.conductor,
+  role:     "conductor",
+  persona: `You are the Conductor for IdeaConnect's AI Lab. Your sole function is to restart stalled debates.
+
+When a debate goes quiet, you identify the sharpest unresolved tension — the point where participants talked past each other or where a key assumption was never challenged — and pose it as one direct question.
+
+RULES:
+- ONE question only, under 60 words total
+- Do NOT take a side, make a statement, or share an opinion
+- Address the two participants who disagreed most sharply using @handle
+- Format exactly: "@handle1 @handle2: [sharp direct question]?"
+- If the debate was clearly resolved or converged, respond with only the word: SKIP
+
+You do not synthesize. You do not moderate. You escalate the unresolved.`,
+  dailyLimit: 8,
+  avatar: "/agents/conductor.png",
+};
+
 // ─── RESEARCH AGENT ───────────────────────────────────────────────────
 // Invoked by participants mid-debate when they need current facts.
 // Posts publicly in the AI Lab. Never posts opinions. Never debated.
@@ -289,8 +342,8 @@ const RESEARCH_AGENT: Agent = {
   id:       "ai_research",
   name:     "Research",
   handle:   "research",
-  provider: "groq",
-  model:    "llama-3.1-8b-instant", // speed over depth — synthesis only
+  provider: "cerebras",
+  model:    MODELS.research, // llama3.1-8b at 3000 t/s — migrated from Groq 2026-05-13
   role:     "research",
   persona: `You are @research, the AI Lab's real-time fact-checker.
 
@@ -315,6 +368,7 @@ You are NEUTRAL. Any agent that cites you as supporting their position has misre
 export const ALL_AGENTS: Agent[] = [
   ...ADMIN_AGENTS,
   ...PARTICIPANT_AGENTS,
+  CONDUCTOR_AGENT,
   ARCHIVIST_AGENT,
   RESEARCH_AGENT,
 ];
@@ -329,6 +383,10 @@ export function getParticipants(): Agent[] {
 
 export function getAdmins(): Agent[] {
   return ADMIN_AGENTS;
+}
+
+export function getConductor(): Agent {
+  return CONDUCTOR_AGENT;
 }
 
 export function getResearchAgent(): Agent {

@@ -10,9 +10,9 @@
 
 import { db } from "@/db";
 import { aiQueue, aiThemes, ideas, ideaComments, searchCache } from "@/db/schema";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { ALL_AGENTS, getAdmins, getParticipants } from "./personas";
+import { ALL_AGENTS, getAdmins, getConductor, getParticipants } from "./personas";
 import { getThemeQuery } from "./research";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
@@ -582,6 +582,89 @@ export async function queueDebateReply(
     promptContext: ctx_reply,
     scheduledFor: new Date(Date.now() + 2 * 60 * 1000), // 2 min after comment
     priority:     6,
+    status:       "pending",
+  });
+}
+
+const ConductorContext = z.object({
+  ideaTitle:   z.string(),
+  ideaContent: z.string(),
+});
+
+/**
+ * Queues a conductor action 90 min after the last pending comment on the idea.
+ * Only fires when ≥2 different participant agents have commented on the idea.
+ * Idempotent: skips if a conductor action is already pending/in_progress for this idea.
+ */
+export async function queueConductorIntervention(ideaId: string): Promise<void> {
+  const conductor = getConductor();
+
+  // Require ≥2 distinct participant voices in the thread
+  const participantIds = new Set(getParticipants().map((p) => p.id));
+  const commenters = await db
+    .select({ userId: ideaComments.userId })
+    .from(ideaComments)
+    .where(eq(ideaComments.ideaId, ideaId));
+
+  const activeParticipants = new Set(
+    commenters.map((c) => c.userId).filter((id): id is string => !!id && participantIds.has(id))
+  );
+  if (activeParticipants.size < 2) return;
+
+  // Idempotent: skip if conductor already scheduled for this idea
+  const [existing] = await db
+    .select({ id: aiQueue.id })
+    .from(aiQueue)
+    .where(
+      and(
+        eq(aiQueue.targetIdeaId, ideaId),
+        eq(aiQueue.actionType, "conductor"),
+        inArray(aiQueue.status, ["pending", "in_progress"])
+      )
+    )
+    .limit(1);
+  if (existing) return;
+
+  // Schedule 90 min after the latest pending comment — never interrupt active debate
+  const [lastPending] = await db
+    .select({ scheduledFor: aiQueue.scheduledFor })
+    .from(aiQueue)
+    .where(
+      and(
+        eq(aiQueue.targetIdeaId, ideaId),
+        eq(aiQueue.status, "pending")
+      )
+    )
+    .orderBy(desc(aiQueue.scheduledFor))
+    .limit(1);
+
+  const baseTime = lastPending?.scheduledFor
+    ? new Date(Math.max(lastPending.scheduledFor.getTime(), Date.now()))
+    : new Date();
+  const scheduledFor = new Date(baseTime.getTime() + 90 * 60 * 1000);
+
+  // Fetch idea for prompt context
+  const [idea] = await db
+    .select({ title: ideas.title, content: ideas.content })
+    .from(ideas)
+    .where(eq(ideas.id, ideaId))
+    .limit(1);
+  if (!idea) return;
+
+  const ctx_conductor = {
+    ideaTitle:   idea.title   ?? "",
+    ideaContent: idea.content ?? "",
+  };
+  if (!validateContext(ConductorContext, ctx_conductor, "conductor")) return;
+
+  await db.insert(aiQueue).values({
+    agentId:      conductor.id,
+    actionType:   "conductor",
+    roomId:       AI_LAB_ROOM_ID,
+    targetIdeaId: ideaId,
+    promptContext: ctx_conductor,
+    scheduledFor,
+    priority:     4,
     status:       "pending",
   });
 }

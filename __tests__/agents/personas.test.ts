@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { ALL_AGENTS, getAdmins, getParticipants } from "@/lib/agents/personas";
 
 describe("personas — ALL_AGENTS structure", () => {
-  it("has exactly 7 agents (2 admin + 3 participant + 1 archivist + 1 research)", () => {
-    expect(ALL_AGENTS).toHaveLength(7);
+  it("has exactly 9 agents (2 admin + 4 participant + 1 conductor + 1 archivist + 1 research)", () => {
+    expect(ALL_AGENTS).toHaveLength(9);
   });
 
   it("every agent has all required fields", () => {
@@ -72,23 +72,26 @@ describe("personas — admin tier", () => {
 });
 
 describe("personas — participant tier", () => {
-  it("getParticipants returns exactly 3 agents", () => {
-    expect(getParticipants()).toHaveLength(3);
+  it("getParticipants returns exactly 4 agents", () => {
+    expect(getParticipants()).toHaveLength(4);
   });
 
-  it("participants are Llama (groq), GPT-OSS (groq), Scout (github)", () => {
-    const participants = getParticipants();
-    const llamaAgent  = participants.find((a) => a.handle === "llama");
-    const gptOssAgent = participants.find((a) => a.handle === "gpt-oss");
-    const scoutAgent  = participants.find((a) => a.handle === "scout");
+  it("participants are Llama (groq), GPT-OSS (groq), Scout (github), Maverick (github)", () => {
+    const participants  = getParticipants();
+    const llamaAgent    = participants.find((a) => a.handle === "llama");
+    const gptOssAgent   = participants.find((a) => a.handle === "gpt-oss");
+    const scoutAgent    = participants.find((a) => a.handle === "scout");
+    const maverickAgent = participants.find((a) => a.handle === "maverick");
 
     expect(llamaAgent).toBeDefined();
     expect(gptOssAgent).toBeDefined();
     expect(scoutAgent).toBeDefined();
+    expect(maverickAgent).toBeDefined();
 
     expect(llamaAgent!.provider).toBe("groq");
     expect(gptOssAgent!.provider).toBe("groq");
     expect(scoutAgent!.provider).toBe("github");
+    expect(maverickAgent!.provider).toBe("github");
   });
 
   it("every participant persona contains the BRUTAL_HONESTY_RULE markers", () => {
@@ -118,6 +121,12 @@ describe("personas — participant tier", () => {
     const scout = getParticipants().find((a) => a.handle === "scout")!;
     const expected = process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct";
     expect(scout.model).toBe(expected);
+  });
+
+  it("Maverick uses meta/llama-4-maverick-17b-128e-instruct-fp8 (GitHub Models, added Phase 3)", () => {
+    const maverick = getParticipants().find((a) => a.handle === "maverick")!;
+    const expected = process.env.AGENT_MODEL_MAVERICK ?? "meta/llama-4-maverick-17b-128e-instruct-fp8";
+    expect(maverick.model).toBe(expected);
   });
 });
 
@@ -149,14 +158,16 @@ describe("personas — archivist tier", () => {
   });
 });
 
-describe("personas — no deferred agents", () => {
-  it("no Conductor agent exists (deferred to Phase 3)", () => {
+describe("personas — Phase 3 agents", () => {
+  it("Conductor agent exists with role=conductor and provider=github", () => {
     const conductor = ALL_AGENTS.find((a) => a.role === "conductor");
-    expect(conductor).toBeUndefined();
+    expect(conductor).toBeDefined();
+    expect(conductor!.provider).toBe("github");
+    expect(conductor!.id).toBe("ai_conductor");
   });
 
-  it("no Research Delegator agent exists (deferred to Phase 3)", () => {
-    const delegator = ALL_AGENTS.find((a) => a.role === "research_delegator");
+  it("no Research Delegator agent exists (permanently deferred — @research handles this)", () => {
+    const delegator = ALL_AGENTS.find((a) => a.role === ("research_delegator" as string));
     expect(delegator).toBeUndefined();
   });
 

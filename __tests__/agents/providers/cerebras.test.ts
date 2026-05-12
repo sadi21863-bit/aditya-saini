@@ -45,7 +45,8 @@ describe("callCerebras — primary usage", () => {
           { role: "system", content: "You are the Archivist." },
           { role: "user",   content: "Summarise today" },
         ],
-      })
+      }),
+      expect.anything()
     );
     expect(result).toBe("cerebras says hi");
   });
@@ -58,7 +59,8 @@ describe("callCerebras — primary usage", () => {
     await callCerebras("any-model", "sys", "usr");
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.8, max_tokens: 600 })
+      expect.objectContaining({ temperature: 0.8, max_tokens: 600 }),
+      expect.anything()
     );
   });
 
@@ -70,7 +72,8 @@ describe("callCerebras — primary usage", () => {
     await callCerebras("model", "sys", "usr", { temperature: 0.3, maxTokens: 300 });
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0.3, max_tokens: 300 })
+      expect.objectContaining({ temperature: 0.3, max_tokens: 300 }),
+      expect.anything()
     );
   });
 });
@@ -87,7 +90,8 @@ describe("callCerebrasFallback", () => {
 
     // env var AGENT_MODEL_FALLBACK is not set in test env → default is llama3.1-8b
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "llama3.1-8b" })
+      expect.objectContaining({ model: "llama3.1-8b" }),
+      expect.anything()
     );
     expect(result).toBe("fallback ok");
   });

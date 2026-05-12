@@ -135,9 +135,9 @@ describe("queueDailyIdeas", () => {
     });
   });
 
-  it("queues exactly 3 rows (one per participant)", async () => {
+  it("queues exactly 4 rows (one per participant)", async () => {
     await queueDailyIdeas();
-    expect(capturedInserts).toHaveLength(3);
+    expect(capturedInserts).toHaveLength(4);
   });
 
   it("all rows have actionType post_idea", async () => {
@@ -154,19 +154,20 @@ describe("queueDailyIdeas", () => {
     }
   });
 
-  it("rows target the 3 different participant agents", async () => {
+  it("rows target the 4 different participant agents", async () => {
     await queueDailyIdeas();
     const agentIds = capturedInserts.map((r) => r.agentId as string);
-    expect(new Set(agentIds).size).toBe(3);
-    expect(agentIds).toEqual(expect.arrayContaining(["ai_llama", "ai_gpt_oss", "ai_scout"]));
+    expect(new Set(agentIds).size).toBe(4);
+    expect(agentIds).toEqual(expect.arrayContaining(["ai_llama", "ai_gpt_oss", "ai_scout", "ai_maverick"]));
   });
 
-  it("rows are spread across 0–120 min (scheduledFor increases)", async () => {
+  it("rows are spread across 0–9 min (scheduledFor increases)", async () => {
     await queueDailyIdeas();
     const timestamps = capturedInserts.map((r) => (r.scheduledFor as Date).getTime());
     // Each subsequent idea should be scheduled later (allow small jitter delta)
     expect(timestamps[1]).toBeGreaterThan(timestamps[0]);
     expect(timestamps[2]).toBeGreaterThan(timestamps[1]);
+    expect(timestamps[3]).toBeGreaterThan(timestamps[2]);
   });
 
   it("promptContext carries the day's theme", async () => {

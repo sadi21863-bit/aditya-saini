@@ -112,11 +112,12 @@ describe("extractAIMentions — @ai / @random random selection", () => {
   });
 
   it("@ai returns empty when all participants are rate-limited (DB returns full usage)", async () => {
-    // Simulate all 3 participants at their daily limit (15 requests each)
+    // Simulate all 4 participants at their daily limit (15 requests each)
     mockWhere.mockResolvedValueOnce([
-      { agentId: "ai_llama",   requestCount: 15 },
-      { agentId: "ai_gpt_oss", requestCount: 15 },
-      { agentId: "ai_scout",   requestCount: 15 },
+      { agentId: "ai_llama",    requestCount: 15 },
+      { agentId: "ai_gpt_oss",  requestCount: 15 },
+      { agentId: "ai_scout",    requestCount: 15 },
+      { agentId: "ai_maverick", requestCount: 15 },
     ]);
 
     const results = await extractAIMentions("@ai thoughts?");
