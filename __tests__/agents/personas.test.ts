@@ -132,9 +132,9 @@ describe("personas — archivist tier", () => {
     expect(archivist.provider).toBe("github");
   });
 
-  it("Archivist uses meta/llama-3.3-70b-instruct model", () => {
+  it("Archivist uses openai/gpt-4o model", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct";
+    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o";
     expect(archivist.model).toBe(expected);
   });
 

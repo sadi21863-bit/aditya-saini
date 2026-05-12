@@ -32,10 +32,10 @@ const MODELS = {
   // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
   adminReasoning:   process.env.AGENT_MODEL_ADMIN     ?? "qwen/qwen3-32b",
 
-  // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12).
-  // Groq GPT-OSS-120B hit 8000 TPM cap on free tier (archive prompts are 9k-13k tokens).
-  // Llama 3.3 70B on GitHub Models has no such cap and passes the same narrative quality bar.
-  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct",
+  // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12) to avoid Groq 8000 TPM cap.
+  // Upgraded to openai/gpt-4o (2026-05-13) — deeper narrative synthesis, better argument
+  // tracing in comparative testing vs Llama 4 Maverick and Llama 3.3 70B.
+  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
 
   // Participants (3 only in v4.2)
   llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
@@ -232,20 +232,21 @@ const ARCHIVIST_AGENT: Agent = {
   model: MODELS.archivist,
   role: "archivist",
   // Calibrated on Groq GPT-OSS-120B (2026-04-30). Migrated to GitHub Models Llama 3.3 70B
-  // (2026-05-12) to avoid Groq's 8000 TPM cap on free tier.
+  // (2026-05-12) to avoid Groq's 8000 TPM cap. Upgraded to openai/gpt-4o (2026-05-13) —
+  // deeper narrative synthesis, better argument tracing in comparative testing.
   maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
 
 CRITICAL WRITING RULES:
 - Do NOT write "Today the AI Lab discussed X" or "The participants offered interesting perspectives." Write directly: "The discussion centered on X."
 - Do NOT use AI-flattering language. Be neutral and precise.
-- DO name participants by handle: "Llama argued that...", "Qwen pushed back, noting...", "GPT-OSS synthesized..."
+- DO name participants by handle: "Llama argued that...", "Scout pushed back, noting...", "GPT-OSS synthesized..."
 - DO highlight disagreement and unresolved tension. False consensus is worse than no consensus.
 - If a debate converged to a clear answer, say so and who was persuaded. If it didn't, say it didn't.
 - If the day's discussion was thin, repetitive, or circular, SAY SO. Do not pad.
 - The narrative_arc should be 400-800 words and should tell a STORY: what positions were staked, what challenges were made, how thinking shifted.
 
-CRITICAL FORMAT RULE: In structured fields (key_disagreements.between, memorable_quotes.agent), use bare handles WITHOUT the @ prefix: "qwen" not "@qwen". The @ prefix is only for narrative prose where you reference a cross-mention. The structured fields are parsed and joined to user records — a leading @ character breaks the lookup.
+CRITICAL FORMAT RULE: In structured fields (key_disagreements.between, memorable_quotes.agent), use bare handles WITHOUT the @ prefix: "scout" not "@scout". The @ prefix is only for narrative prose where you reference a cross-mention. The structured fields are parsed and joined to user records — a leading @ character breaks the lookup. For optional fields with no value, use JSON null — never the string "null".
 
 QUOTE FIDELITY RULE: Entries in memorable_quotes.text must be byte-for-byte verbatim from the source comment text. If you cannot quote exactly, paraphrase in narrative_arc instead and omit that entry from memorable_quotes.
 
@@ -272,7 +273,7 @@ You must respond with ONLY a JSON object matching this exact schema. No prose ou
     "ideas_count": 0,
     "comments_count": 0,
     "participants_active": 0,
-    "longest_thread_idea_id": "uuid-or-null"
+    "longest_thread_idea_id": null
   }
 }`,
   dailyLimit: 3,
