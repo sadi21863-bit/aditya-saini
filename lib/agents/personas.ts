@@ -34,7 +34,7 @@ const MODELS = {
   // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12) to avoid Groq 8000 TPM cap.
   // Upgraded to openai/gpt-4o (2026-05-13) — deeper narrative synthesis, better argument migrated again to llama 3.3-70b instruct because gpt-4o mini cannot handle 8000 token context.
   // tracing in comparative testing vs Llama 4 Maverick and Llama 3.3 70B.
-  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct",
+  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "llama-3.3-70b-versatile",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
   llama: process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile",
@@ -256,7 +256,7 @@ const ARCHIVIST_AGENT: Agent = {
   id: "ai_archivist",
   name: "Archivist",
   handle: "archivist",
-  provider: "github",
+  provider: "groq",
   model: MODELS.archivist,
   role: "archivist",
   // Calibrated on Groq GPT-OSS-120B (2026-04-30). Migrated to GitHub Models Llama 3.3 70B
