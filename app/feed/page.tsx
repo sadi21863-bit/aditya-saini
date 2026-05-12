@@ -1,3 +1,8 @@
+export const metadata = {
+  title:       "Feed — IdeaConnect",
+  description: "The latest ideas from rooms you follow.",
+};
+
 import { db } from "@/db";
 import { ideas, users, ideaLikes, rooms, roomMembers } from "@/db/schema";
 import { eq, desc, and, inArray, sql, ne } from "drizzle-orm";

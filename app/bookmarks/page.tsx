@@ -1,3 +1,5 @@
+export const metadata = { title: "Bookmarks — IdeaConnect" };
+
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Bookmark } from "lucide-react";

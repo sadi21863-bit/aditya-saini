@@ -1,3 +1,5 @@
+export const metadata = { title: "Notifications — IdeaConnect" };
+
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
