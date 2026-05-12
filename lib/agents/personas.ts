@@ -29,29 +29,29 @@ export interface Agent {
 
 const MODELS = {
   // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
-  adminReasoning:   process.env.AGENT_MODEL_ADMIN     ?? "qwen/qwen3-32b",
+  adminReasoning: process.env.AGENT_MODEL_ADMIN ?? "qwen/qwen3-32b",
 
   // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12) to avoid Groq 8000 TPM cap.
-  // Upgraded to openai/gpt-4o (2026-05-13) — deeper narrative synthesis, better argument
+  // Upgraded to openai/gpt-4o (2026-05-13) — deeper narrative synthesis, better argument migrated again to llama 3.3-70b instruct because gpt-4o mini cannot handle 8000 token context.
   // tracing in comparative testing vs Llama 4 Maverick and Llama 3.3 70B.
-  archivist:        process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
+  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "meta/llama-3.3-70b-instruct",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
-  llama:            process.env.AGENT_MODEL_LLAMA     ?? "llama-3.3-70b-versatile",
-  gptOss:           process.env.AGENT_MODEL_GPTOSS    ?? "openai/gpt-oss-120b",
+  llama: process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile",
+  gptOss: process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b",
   // Scout: Llama 4 Scout on GitHub Models (migrated from Cerebras 2026-05-04).
-  qwenFrontier:     process.env.AGENT_MODEL_QWEN      ?? "meta/llama-4-scout-17b-16e-instruct",
+  qwenFrontier: process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct",
   // Maverick: Llama 4 MoE 400B/17B-active — 7.9s latency, lateral synthesis strength.
-  maverick:         process.env.AGENT_MODEL_MAVERICK   ?? "meta/llama-4-maverick-17b-128e-instruct-fp8",
+  maverick: process.env.AGENT_MODEL_MAVERICK ?? "meta/llama-4-maverick-17b-128e-instruct-fp8",
 
   // Conductor: poses the sharpest unresolved question to restart stalled debates.
-  conductor:        process.env.AGENT_MODEL_CONDUCTOR  ?? "openai/gpt-4o-mini",
+  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "openai/gpt-4o-mini",
 
   // @research: GitHub Models openai/gpt-4o-mini (2026-05-13).
   // Cerebras llama3.1-8b was briefly used but deprecates 2026-05-27;
   // gpt-oss-120b on Cerebras free tier returned 401. gpt-4o-mini is fast,
   // format-compliant, and within the 150 RPD free budget.
-  research:         process.env.AGENT_MODEL_RESEARCH   ?? "openai/gpt-4o-mini",
+  research: process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-4o-mini",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
@@ -80,10 +80,10 @@ Output format: JSON
 }
 
 /no_think`,
-// /no_think: Qwen3 directive that suppresses extended chain-of-thought output.
-// Probe (2026-04-25): reduces response from ~475 chars to ~31 chars by producing
-// an empty <think></think> block instead of full reasoning. stripThinkingTags
-// handles the empty block. Saves ~93% of thinking tokens on every admin call.
+    // /no_think: Qwen3 directive that suppresses extended chain-of-thought output.
+    // Probe (2026-04-25): reduces response from ~475 chars to ~31 chars by producing
+    // an empty <think></think> block instead of full reasoning. stripThinkingTags
+    // handles the empty block. Saves ~93% of thinking tokens on every admin call.
     dailyLimit: 5,
     avatar: "/agents/theme-setter.png",
   },
@@ -260,7 +260,7 @@ const ARCHIVIST_AGENT: Agent = {
   model: MODELS.archivist,
   role: "archivist",
   // Calibrated on Groq GPT-OSS-120B (2026-04-30). Migrated to GitHub Models Llama 3.3 70B
-  // (2026-05-12) to avoid Groq's 8000 TPM cap. Upgraded to openai/gpt-4o (2026-05-13) —
+  // (2026-05-12) to avoid Groq's 8000 TPM cap. Upgraded to openai/gpt-4o (2026-05-13) —Migrated back to GitHub Models Llama 3.3 70B
   // deeper narrative synthesis, better argument tracing in comparative testing.
   maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
@@ -314,12 +314,12 @@ You must respond with ONLY a JSON object matching this exact schema. No prose ou
 // one direct question. Does NOT trigger QC review or debate replies.
 
 const CONDUCTOR_AGENT: Agent = {
-  id:       "ai_conductor",
-  name:     "Conductor",
-  handle:   "conductor",
+  id: "ai_conductor",
+  name: "Conductor",
+  handle: "conductor",
   provider: "github",
-  model:    MODELS.conductor,
-  role:     "conductor",
+  model: MODELS.conductor,
+  role: "conductor",
   persona: `You are the Conductor for IdeaConnect's AI Lab. Your sole function is to restart stalled debates.
 
 When a debate goes quiet, you identify the sharpest unresolved tension — the point where participants talked past each other or where a key assumption was never challenged — and pose it as one direct question.
@@ -342,14 +342,14 @@ You do not synthesize. You do not moderate. You escalate the unresolved.`,
 // NOT mentionable by humans (excluded from SPECIFIC_HANDLES in mentions.ts).
 
 const RESEARCH_AGENT: Agent = {
-  id:       "ai_research",
-  name:     "Research",
-  handle:   "research",
+  id: "ai_research",
+  name: "Research",
+  handle: "research",
   provider: "github",
-  model:    MODELS.research,
+  model: MODELS.research,
   // Migrated: Groq → Cerebras llama3.1-8b (2026-05-13) → GitHub Models gpt-4o-mini (2026-05-13).
   // Cerebras llama3.1-8b deprecates 2026-05-27; gpt-oss-120b returned 401 on free tier.
-  role:     "research",
+  role: "research",
   persona: `You are @research, the AI Lab's real-time fact-checker.
 
 Your ONLY job is to present current, factual context from recent news and events.
@@ -367,7 +367,7 @@ Lead with the most recent and most relevant data point.
 
 You are NEUTRAL. Any agent that cites you as supporting their position has misread you.`,
   dailyLimit: 20,
-  avatar:     "/agents/research.png",
+  avatar: "/agents/research.png",
 };
 
 export const ALL_AGENTS: Agent[] = [
