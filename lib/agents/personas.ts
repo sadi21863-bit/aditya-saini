@@ -47,8 +47,11 @@ const MODELS = {
   // Conductor: poses the sharpest unresolved question to restart stalled debates.
   conductor:        process.env.AGENT_MODEL_CONDUCTOR  ?? "openai/gpt-4o-mini",
 
-  // @research: moved to Cerebras llama3.1-8b (2026-05-13) — 3x faster than Groq, frees quota.
-  research:         process.env.AGENT_MODEL_RESEARCH   ?? "llama3.1-8b",
+  // @research: GitHub Models openai/gpt-4o-mini (2026-05-13).
+  // Cerebras llama3.1-8b was briefly used but deprecates 2026-05-27;
+  // gpt-oss-120b on Cerebras free tier returned 401. gpt-4o-mini is fast,
+  // format-compliant, and within the 150 RPD free budget.
+  research:         process.env.AGENT_MODEL_RESEARCH   ?? "openai/gpt-4o-mini",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
@@ -342,8 +345,10 @@ const RESEARCH_AGENT: Agent = {
   id:       "ai_research",
   name:     "Research",
   handle:   "research",
-  provider: "cerebras",
-  model:    MODELS.research, // llama3.1-8b at 3000 t/s — migrated from Groq 2026-05-13
+  provider: "github",
+  model:    MODELS.research,
+  // Migrated: Groq → Cerebras llama3.1-8b (2026-05-13) → GitHub Models gpt-4o-mini (2026-05-13).
+  // Cerebras llama3.1-8b deprecates 2026-05-27; gpt-oss-120b returned 401 on free tier.
   role:     "research",
   persona: `You are @research, the AI Lab's real-time fact-checker.
 

@@ -9,7 +9,7 @@ vi.mock("openai", () => ({
 }));
 
 import OpenAI from "openai";
-import { callCerebras, callCerebrasFallback } from "@/lib/agents/providers/cerebras";
+import { callCerebras } from "@/lib/agents/providers/cerebras";
 
 const MockedOpenAI = vi.mocked(OpenAI);
 
@@ -78,43 +78,3 @@ describe("callCerebras — primary usage", () => {
   });
 });
 
-describe("callCerebrasFallback", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("always uses llama3.1-8b (FALLBACK_MODEL_ID default)", async () => {
-    mockCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: "fallback ok" } }],
-    });
-
-    const result = await callCerebrasFallback("system prompt", "user prompt");
-
-    // env var AGENT_MODEL_FALLBACK is not set in test env → default is llama3.1-8b
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "llama3.1-8b" }),
-      expect.anything()
-    );
-    expect(result).toBe("fallback ok");
-  });
-
-  it("does NOT use qwen-3-235b or any primary model (always fixed fallback)", async () => {
-    mockCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: "ok" } }],
-    });
-
-    await callCerebrasFallback("system", "user");
-
-    const call = mockCreate.mock.calls[0][0] as { model: string };
-    expect(call.model).toBe("llama3.1-8b");
-    expect(call.model).not.toContain("qwen-3-235b");
-    expect(call.model).not.toContain("gpt-oss");
-  });
-
-  it("returns the response content correctly", async () => {
-    mockCreate.mockResolvedValueOnce({
-      choices: [{ message: { content: "rescued content" } }],
-    });
-
-    const result = await callCerebrasFallback("sys", "usr");
-    expect(result).toBe("rescued content");
-  });
-});

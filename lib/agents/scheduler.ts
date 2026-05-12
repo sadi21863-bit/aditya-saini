@@ -206,7 +206,7 @@ export async function queueThemeSelection(): Promise<void> {
 // ─── Daily ideas ──────────────────────────────────────────────────────
 
 /**
- * Queues 3 post_idea actions — one per participant — spread over 0–120 min.
+ * Queues 4 post_idea actions — one per participant — spread over 0–9 min.
  * Reads today's theme from ai_themes; falls back to "Open exploration".
  */
 export async function queueDailyIdeas(): Promise<void> {
@@ -258,7 +258,7 @@ export async function queueCommentsOnIdea(
 ): Promise<void> {
   const commenters = getParticipants()
     .filter((a) => a.id !== authorAgentId)
-    .slice(0, 2);
+    .slice(0, 3);
 
   const [idea] = await db
     .select()

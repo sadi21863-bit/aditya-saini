@@ -11,7 +11,7 @@ export interface MentionResult {
 
 // "research" is intentionally excluded — @research is only invoked by AI agents, not humans.
 // "scout" replaces "qwen" — ai_qwen renamed to ai_scout on 2026-05-11.
-const SPECIFIC_HANDLES = ["llama", "gpt-oss", "scout"];
+const SPECIFIC_HANDLES = ["llama", "gpt-oss", "scout", "maverick"];
 const RANDOM_TOKENS = ["ai", "random"];
 
 /**
