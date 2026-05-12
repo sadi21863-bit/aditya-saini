@@ -9,6 +9,7 @@ interface SparkProps {
   ideaId: string;
   viewerId: string;
   initialLikes: number;
+  initialHasLiked?: boolean;
   onSuccess?: () => void;
   disabled?: boolean;
 }
@@ -17,12 +18,13 @@ export default function SparkButton({
   ideaId,
   viewerId,
   initialLikes,
+  initialHasLiked = false,
   onSuccess,
   disabled = false,
 }: SparkProps) {
   const [count, setCount]       = useState(initialLikes);
   const [isActive, setIsActive] = useState(false);
-  const [hasLiked, setHasLiked] = useState(false);
+  const [hasLiked, setHasLiked] = useState(initialHasLiked);
 
   void viewerId;
 

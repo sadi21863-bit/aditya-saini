@@ -138,6 +138,7 @@ export default function IdeaDetailClient({
               ideaId={idea.id}
               viewerId={viewerId}
               initialLikes={idea.totalLikes ?? 0}
+              initialHasLiked={hasLiked}
             />
           )}
 
