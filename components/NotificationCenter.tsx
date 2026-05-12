@@ -9,6 +9,7 @@ import Link from "next/link";
 import {
     getMyNotifications,
     markAllRead,
+    markOneRead,
     getUnreadCount,
 } from "@/app/actions/notificationActions";
 
@@ -198,7 +199,20 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                                 );
 
                                 return notif.link ? (
-                                    <Link href={notif.link} key={notif.id} onClick={() => setIsOpen(false)}>
+                                    <Link
+                                        href={notif.link}
+                                        key={notif.id}
+                                        onClick={() => {
+                                            setIsOpen(false);
+                                            if (!notif.read) {
+                                                markOneRead(notif.id);
+                                                setNotifications((prev) =>
+                                                    prev.map((n) => n.id === notif.id ? { ...n, read: true } : n)
+                                                );
+                                                setUnreadCount((c) => Math.max(0, c - 1));
+                                            }
+                                        }}
+                                    >
                                         {content}
                                     </Link>
                                 ) : (

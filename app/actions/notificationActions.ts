@@ -55,6 +55,27 @@ export async function markAllRead() {
     revalidatePath("/notifications"); // ✅ add this so the page refreshes after marking read
 }
 
+export async function markOneRead(notificationId: string): Promise<void> {
+  let userId: string;
+  try {
+    userId = await requireAuth();
+  } catch {
+    return;
+  }
+
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      )
+    );
+
+  revalidatePath("/notifications");
+}
+
 export async function createNotification({
     userId,
     type,
