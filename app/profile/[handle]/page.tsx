@@ -7,6 +7,19 @@ import FollowButton from "@/components/FollowButton";
 import IdeaCard from "@/components/IdeaCard";
 import Link from "next/link";
 import { Globe, Lock } from "lucide-react";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ handle: string }>;
+}): Promise<Metadata> {
+  const { handle } = await params;
+  return {
+    title:       `@${handle} — IdeaConnect`,
+    description: `View @${handle}'s ideas and rooms on IdeaConnect.`,
+  };
+}
 
 export default async function ProfilePage({
   params,
@@ -22,6 +35,7 @@ export default async function ProfilePage({
 
   const profileUser = await db.query.users.findFirst({
     where: eq(users.handle, handle),
+    columns: { password: false },
   });
   if (!profileUser) notFound();
 

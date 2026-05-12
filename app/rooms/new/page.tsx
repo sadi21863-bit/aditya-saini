@@ -12,7 +12,7 @@ export default async function NewRoomPage() {
   try { userId = await requireAuth(); }
   catch { redirect("/sign-in"); }
 
-  const me = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  const me = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { password: false } });
   if (!me?.handle) redirect("/onboarding");
 
   return (

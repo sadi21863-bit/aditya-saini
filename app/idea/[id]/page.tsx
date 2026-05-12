@@ -28,7 +28,11 @@ const getIdea = cache(async (id: string) => {
 });
 
 const getIdeaAuthor = cache(async (userId: string) => {
-  const [author] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [author] = await db
+    .select({ id: users.id, name: users.name, handle: users.handle, avatarUrl: users.avatarUrl, isAi: users.isAi })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
   return author ?? null;
 });
 

@@ -1,3 +1,8 @@
+export const metadata = {
+  title:       "Dashboard — IdeaConnect",
+  description: "Your rooms and ideas.",
+};
+
 import { db } from "@/db";
 import { ideas, users, rooms, roomMembers } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
@@ -12,7 +17,7 @@ export default async function DashboardPage() {
   try { userId = await requireAuth(); }
   catch { redirect("/sign-in"); }
 
-  const me = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  const me = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { password: false } });
   if (!me?.handle) redirect("/onboarding");
 
   // Get all rooms the user is a member of

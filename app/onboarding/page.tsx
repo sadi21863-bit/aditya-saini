@@ -1,3 +1,8 @@
+export const metadata = {
+  title:       "Get started — IdeaConnect",
+  description: "Claim your handle and join the conversation.",
+};
+
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
@@ -12,6 +17,7 @@ export default async function OnboardingPage() {
 
     const existing = await db.query.users.findFirst({
         where: eq(users.id, userId),
+        columns: { password: false },
     });
 
     if (existing?.handle) redirect("/feed");

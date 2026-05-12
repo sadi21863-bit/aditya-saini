@@ -27,6 +27,7 @@ export default async function ProfileEditPage({
 
     const me = await db.query.users.findFirst({
         where: eq(users.id, userId),
+        columns: { password: false },
     });
 
     if (!me) redirect("/sign-in");
@@ -61,6 +62,7 @@ export default async function ProfileEditPage({
 
         const existing = await db.query.users.findFirst({
             where: eq(users.handle, newHandle),
+            columns: { password: false },
         });
         if (existing && existing.id !== callerId) {
             redirect(`/profile/${handle}/edit?error=handle_taken`);
