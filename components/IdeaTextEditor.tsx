@@ -235,9 +235,9 @@ export default function IdeaTextEditor({
       {required && <input type="text" required className="sr-only" value={value} onChange={() => {}} tabIndex={-1} />}
 
       {/* Editor container */}
-      <div className="relative rounded-2xl border border-slate-200 bg-slate-50 focus-within:border-[#0d9488] focus-within:ring-2 focus-within:ring-[#0d9488]/20 transition-all overflow-hidden">
+      <div className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus-within:border-[#0d9488] focus-within:ring-2 focus-within:ring-[#0d9488]/20 transition-all overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3 text-[11px] text-slate-400">
             <span>{wordCount} words</span>
             <span className="text-slate-200">|</span>
@@ -319,7 +319,7 @@ export default function IdeaTextEditor({
 
       {/* Suggestions panel */}
       {panelOpen && matches.length > 0 && (
-        <div className="mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="mt-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
               <Wand2 size={13} className="text-[#0d9488]" />
@@ -395,8 +395,8 @@ export default function IdeaTextEditor({
                                 key={ri}
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); applySuggestion(idx, r.value); }}
-                                className="text-[11px] px-2 py-0.5 rounded-lg border border-slate-200
-                                  text-slate-600 hover:border-[#0d9488] hover:text-[#0d9488] transition-all"
+                                className="text-[11px] px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700
+                                  text-slate-600 dark:text-slate-400 hover:border-[#0d9488] hover:text-[#0d9488] transition-all"
                               >
                                 {r.value}
                               </button>
