@@ -51,6 +51,7 @@ async function IdeaThread({
       ideaId={idea.id}
       roomId={AI_LAB_ROOM_ID}
       roomIsPrivate={false}
+      isAiLab={true}
       viewerId={viewerId}
       onSubmit={handleMentionSubmit}
     />

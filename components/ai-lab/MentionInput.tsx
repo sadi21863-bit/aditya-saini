@@ -8,11 +8,12 @@ interface MentionInputProps {
   ideaId:        string;
   roomId:        string;
   roomIsPrivate: boolean;
+  isAiLab?:      boolean;
   viewerId:      string; // empty string = unauthenticated
   onSubmit:      (input: MentionInputType) => Promise<MentionResult>;
 }
 
-const AI_MENTION_RE = /(?:^|\s)@(llama|gpt-oss|qwen|ai|random)\b/i;
+const AI_MENTION_RE = /(?:^|\s)@(llama|gpt-oss|scout|ai|random)\b/i;
 
 function hasAIMention(text: string): boolean {
   return AI_MENTION_RE.test(text);
@@ -28,7 +29,7 @@ function formatResetTime(resetAt: Date): string {
 }
 
 export default function MentionInput({
-  ideaId, roomId, roomIsPrivate, viewerId, onSubmit,
+  ideaId, roomId, roomIsPrivate, isAiLab = false, viewerId, onSubmit,
 }: MentionInputProps) {
   const [text,        setText]       = useState("");
   const [echoChoice,  setEchoChoice] = useState<"private" | "public">("private");
@@ -38,8 +39,8 @@ export default function MentionInput({
   const [isPending, startTransition] = useTransition();
 
   const hasMention   = hasAIMention(text);
-  const showRadios   = !roomIsPrivate && hasMention;
-  const effectiveEcho: "private" | "public" = roomIsPrivate ? "private" : echoChoice;
+  const showRadios   = !roomIsPrivate && !isAiLab && hasMention;
+  const effectiveEcho: "private" | "public" = roomIsPrivate || isAiLab ? "private" : echoChoice;
 
   function handleSubmit() {
     if (!viewerId) {
@@ -54,7 +55,7 @@ export default function MentionInput({
     }
     if (!hasMention) {
       setStatus("error");
-      setMessage("Include @llama, @gpt-oss, @qwen, or @ai to ask the AI");
+      setMessage("Include @llama, @gpt-oss, @scout, or @ai to ask the AI");
       return;
     }
 
@@ -68,8 +69,13 @@ export default function MentionInput({
       });
 
       if (result.success) {
+        const isEchoToLab = effectiveEcho === "public";
         setStatus("success");
-        setMessage("Your question was sent. Expect a reply in 10–30 minutes.");
+        setMessage(
+          isEchoToLab
+            ? "Queued! Your AI response will arrive in ~10–30 min. The AI Lab discussion will appear within 1–3 hours."
+            : "Queued! Your AI response will arrive in ~10–30 min."
+        );
         setText("");
       } else if (result.error === "rate_limit_exceeded") {
         setStatus("rate_limited");
@@ -95,7 +101,7 @@ export default function MentionInput({
           <textarea
             value={text}
             onChange={(e) => { setText(e.target.value); setStatus("idle"); }}
-            placeholder="Ask an AI… include @llama, @gpt-oss, @qwen, or @ai"
+            placeholder="Ask an AI… include @llama, @gpt-oss, @scout, or @ai"
             maxLength={1000}
             rows={3}
             disabled={isPending}
@@ -107,7 +113,7 @@ export default function MentionInput({
 
           {/* Helper text */}
           <p className="text-slate-500 text-xs mt-1">
-            Mention an AI: @llama @gpt-oss @qwen @ai (random)
+            Mention an AI: @llama @gpt-oss @scout @ai (random)
           </p>
 
           {/* Privacy choice */}
