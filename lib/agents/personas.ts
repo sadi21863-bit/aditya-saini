@@ -31,10 +31,11 @@ const MODELS = {
   // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
   adminReasoning: process.env.AGENT_MODEL_ADMIN ?? "qwen/qwen3-32b",
 
-  // Archivist: migrated to GitHub Models Llama 3.3 70B (2026-05-12) to avoid Groq 8000 TPM cap.
-  // Upgraded to openai/gpt-4o (2026-05-13) — deeper narrative synthesis, better argument migrated again to llama 3.3-70b instruct because gpt-4o mini cannot handle 8000 token context.
-  // tracing in comparative testing vs Llama 4 Maverick and Llama 3.3 70B.
-  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "llama-3.3-70b-versatile",
+  // Archivist: two-pass approach (2026-05-18). All free-tier providers enforce an 8k token
+  // hard limit per request (Groq TPM cap, GitHub Models per-request — confirmed on gpt-4o,
+  // gpt-4o-mini, llama-3.3-70b-instruct, llama-4-maverick). Pass 1 = gpt-4o-mini per idea
+  // (~1.5k tokens each). This model is used for Pass 2 synthesis (~3k tokens).
+  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
   llama: process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile",
@@ -256,12 +257,11 @@ const ARCHIVIST_AGENT: Agent = {
   id: "ai_archivist",
   name: "Archivist",
   handle: "archivist",
-  provider: "groq",
+  provider: "github",
   model: MODELS.archivist,
   role: "archivist",
-  // Calibrated on Groq GPT-OSS-120B (2026-04-30). Migrated to GitHub Models Llama 3.3 70B
-  // (2026-05-12) to avoid Groq's 8000 TPM cap. Upgraded to openai/gpt-4o (2026-05-13) —Migrated back to GitHub Models Llama 3.3 70B
-  // deeper narrative synthesis, better argument tracing in comparative testing.
+  // Two-pass archive (2026-05-18): this agent is the Pass 2 synthesizer (openai/gpt-4o).
+  // Pass 1 uses gpt-4o-mini directly in executeArchiveDay — not this agent's model.
   maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
 

@@ -30,9 +30,11 @@ import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
 import { callGroq } from "./providers/groq";
+import { callGitHub } from "./providers/github";
 import { queueCommentsOnIdea, queueConductorIntervention, queueQualityReview, queueDebateReply } from "./scheduler";
 import {
   buildPrompt,
+  buildIdeaSummaryPrompt,
   buildQualityReviewArchivePrompt,
   buildQualityReviewRollupPrompt,
   buildRollupWeekPrompt,
@@ -650,8 +652,9 @@ async function executeArchiveDay(
   const c    = (item.promptContext as Record<string, unknown>) ?? {};
   const date = String(c.date ?? today);
 
-  // ── 1. Fetch today's Lab data ───────────────────────────────────────
+  // ── 1. Fetch the day's Lab data ────────────────────────────────────────────
   const [todayTheme] = await db.select().from(aiThemes).where(eq(aiThemes.date, date)).limit(1);
+  const themeStr = todayTheme?.theme ?? "(no theme set)";
 
   const labIdeas = await db
     .select()
@@ -664,79 +667,121 @@ async function executeArchiveDay(
       )
     );
 
-  const commentRows = labIdeas.length > 0
-    ? await db
-        .select({ id: ideaComments.id, ideaId: ideaComments.ideaId, userId: ideaComments.userId, content: ideaComments.content })
-        .from(ideaComments)
-        .where(inArray(ideaComments.ideaId, labIdeas.map((i) => i.id)))
-    : [];
+  if (labIdeas.length === 0) {
+    console.log(`[executor] archive_day: no ideas for ${date}, marking completed`);
+    await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
 
-  // ── 2. Fetch today's cached research (written by themeresearch at 02:20 UTC) ──
-  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+  const allCommentRows = await db
+    .select({ id: ideaComments.id, ideaId: ideaComments.ideaId, userId: ideaComments.userId, content: ideaComments.content })
+    .from(ideaComments)
+    .where(inArray(ideaComments.ideaId, labIdeas.map((i) => i.id)));
+
+  // ── 2. Fetch cached research for the archive date (not necessarily today) ──
+  const startOfDay = new Date(`${date}T00:00:00Z`);
+  const endOfDay   = new Date(`${date}T23:59:59Z`);
   const [archiveResearchRow] = await db
     .select({ results: searchCache.results })
     .from(searchCache)
-    .where(gte(searchCache.fetchedAt, startOfDay))
+    .where(and(gte(searchCache.fetchedAt, startOfDay), lte(searchCache.fetchedAt, endOfDay)))
     .orderBy(desc(searchCache.fetchedAt))
     .limit(1);
-  const archiveResearchBlock = archiveResearchRow?.results
+  const researchBlock = archiveResearchRow?.results
     ? formatResearchBlock(archiveResearchRow.results as SourceCitation[], "TODAY'S REAL-WORLD CONTEXT")
     : "";
 
-  // ── 3. Build rich prompt ────────────────────────────────────────────
-  const themeStr = todayTheme?.theme ?? "(no theme set)";
+  // ── PASS 1: per-idea debate summaries (gpt-4o-mini, ~1,500–2,000 tokens each) ──
+  // GitHub Models enforces an 8,000 token hard per-request limit on all free-tier models.
+  // The full prompt (9k–13k tokens on busy days) exceeds this. Summarising each idea
+  // individually keeps every Pass 1 call well within budget.
+  const ideaSummaries: Array<{
+    title:   string;
+    summary: string;
+    quotes:  Array<{ agent: string; text: string; context: string }>;
+  }> = [];
 
-  const ideasBlock = labIdeas.length === 0
-    ? "(no ideas posted today)"
-    : labIdeas.map((idea, n) => {
-        const ideaCommentCount = commentRows.filter((c) => c.ideaId === idea.id).length;
-        const agentHandle = idea.userId?.replace(/^ai_/, "").replace(/_/g, "-") ?? "unknown";
-        return `IDEA ${n + 1} by @${agentHandle}: "${idea.title}"\n${idea.content ?? idea.context ?? ""}`;
-      }).join("\n\n");
+  for (const idea of labIdeas) {
+    const commentList = allCommentRows
+      .filter((r) => r.ideaId === idea.id)
+      .map((r) => ({
+        handle:     (r.userId ?? "unknown").replace(/^ai_/, "").replace(/_/g, "-"),
+        content:    r.content ?? "",
+        isResearch: r.userId === "ai_research",
+      }));
 
-  const commentsBlock = commentRows.length === 0
-    ? "(no comments)"
-    : commentRows.map((comment, n) => {
-        const agentHandle = comment.userId?.replace(/^ai_/, "").replace(/_/g, "-") ?? "unknown";
-        return `COMMENT ${n + 1} by @${agentHandle}: ${comment.content}`;
-      }).join("\n\n");
+    const summaryPrompt = buildIdeaSummaryPrompt(
+      idea.title   ?? "(untitled)",
+      idea.content ?? idea.context ?? "",
+      commentList
+    );
 
-  const userPrompt = `Generate the archive narrative for the following AI Lab session.
+    try {
+      const raw     = await callGitHub(
+        "openai/gpt-4o-mini",
+        "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
+        summaryPrompt,
+        { temperature: 0.3, maxTokens: 400 }
+      );
+      const p = parseJsonResponse(raw) as { summary: string; quotes: Array<{ agent: string; text: string; context: string }> };
+      ideaSummaries.push({
+        title:   idea.title ?? "(untitled)",
+        summary: String(p.summary ?? ""),
+        quotes:  Array.isArray(p.quotes) ? p.quotes : [],
+      });
+    } catch (e) {
+      console.warn(`[executor] archive Pass 1 failed for idea ${idea.id}:`, (e as Error).message);
+      ideaSummaries.push({ title: idea.title ?? "(untitled)", summary: "(summary unavailable)", quotes: [] });
+    }
+  }
 
-DATE: ${date}
+  // ── PASS 2: synthesis (openai/gpt-4o, ~3,000 tokens) ──────────────────────
+  // Structured summaries from Pass 1 replace the raw idea/comment dump.
+  // Input is ~3k tokens — comfortably within the 8k limit, so GPT-4o is viable here.
+  const summaryBlock = ideaSummaries
+    .map((s, i) =>
+      `IDEA ${i + 1}: "${s.title}"\n${s.summary}${
+        s.quotes.length > 0
+          ? `\nQuote candidates: ${s.quotes.map((q) => `@${q.agent}: "${q.text}"`).join(" | ")}`
+          : ""
+      }`
+    )
+    .join("\n\n---\n\n");
+
+  const synthesisPrompt = `Generate the archive for the AI Lab session on ${date}.
+
 THEME: ${themeStr}
-${archiveResearchBlock}
-─── IDEAS POSTED (${labIdeas.length}) ───────────────────────────────────────
+${researchBlock}
+DEBATE SUMMARIES (${labIdeas.length} ideas, ${allCommentRows.length} total comments):
 
-${ideasBlock}
+${summaryBlock}
 
-─── COMMENTS (${commentRows.length}) ───────────────────────────────────────
+STATS:
+- ideas_count: ${labIdeas.length}
+- comments_count: ${allCommentRows.length}
+- participants_active: ${new Set(allCommentRows.map((r) => r.userId).filter(Boolean)).size}
 
-${commentsBlock}
+Write the full archive narrative following your Archivist instructions.
+Use the quote candidates above for memorable_quotes — copy verbatim, do not paraphrase.
+Output ONLY the JSON object.`;
 
-─── END OF SOURCE DATA ──────────────────────────────────────────────────
+  const rawResponse = await callGitHub(
+    agent.model,   // openai/gpt-4o
+    agent.persona,
+    synthesisPrompt,
+    { temperature: 0.7, maxTokens: agent.maxTokens ?? 4000 }
+  );
 
-Write the archive narrative following your Archivist instructions. Output ONLY the JSON object.`;
+  if (!rawResponse.trim()) throw new Error("Empty response from archivist synthesis");
 
-  // ── 3. Call Archivist — token budget comes from agent.maxTokens (4000 for GPT-OSS) ──
-  const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], userPrompt, {
-    temperature: 0.7,
-  });
-
-  // stripThinkingTags already applied by callAgent; apply again to narrative_arc field below
-  const cleaned = rawResponse;
-  if (!cleaned.trim()) throw new Error("Empty response after cleanup");
-
-  // ── 4. Parse structured JSON response ───────────────────────────────
+  // ── 4. Parse ──────────────────────────────────────────────────────────────
   let parsed: ArchivistOutput;
   try {
-    parsed = parseJsonResponse(cleaned) as unknown as ArchivistOutput;
+    parsed = parseJsonResponse(rawResponse) as unknown as ArchivistOutput;
   } catch (e) {
     throw new Error(`Archivist produced invalid JSON: ${(e as Error).message}`);
   }
 
-  // Defense-in-depth: strip thinking tags from the narrative_arc string field
-  // (Cerebras Qwen can occasionally embed them inside JSON string values)
   const narrativeArc = stripThinkingTags(String(parsed.narrative_arc ?? "")).trim();
   if (!narrativeArc) throw new Error("Empty narrative_arc after cleanup");
 

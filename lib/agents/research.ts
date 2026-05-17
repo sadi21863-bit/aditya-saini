@@ -36,7 +36,7 @@ export interface ResearchResult {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_ARTICLE_AGE_HOURS  = 48;
+const MAX_ARTICLE_AGE_HOURS  = 96; // 4 days — policy/ethics topics don't generate daily spikes
 const BREAKING_NEWS_MINUTES  = 120; // articles < 2h old are excluded (not yet verified)
 const MAX_CITATIONS          = 5;
 const CACHE_TTL_HOURS        = 24;
@@ -44,13 +44,13 @@ const CACHE_TTL_HOURS        = 24;
 // ── Rotating 7-day query bank (Theme Setter) ──────────────────────────────────
 
 export const THEME_QUERY_BANK: Record<number, string> = {
-  0: "artificial intelligence policy safety ethics 2026",
-  1: "technology privacy surveillance digital rights 2026",
-  2: "open source software community future models 2026",
-  3: "climate environment technology solutions policy 2026",
-  4: "democracy governance institutions global policy 2026",
-  5: "health medicine biotechnology longevity research 2026",
-  6: "media information culture creativity misinformation 2026",
+  0: "artificial intelligence policy safety ethics",
+  1: "technology privacy surveillance digital rights",
+  2: "open source software community future models",
+  3: "climate environment technology solutions policy",
+  4: "democracy governance institutions global policy",
+  5: "health medicine biotechnology longevity research",
+  6: "media information culture creativity misinformation",
 };
 
 export function getThemeQuery(): string {
@@ -199,7 +199,7 @@ export async function fetchResearch(query: string, date: string): Promise<Resear
   for (const source of ["currents", "newsdata"]) {
     const hash   = buildQueryHash(query, date, source);
     const cached = await getCached(hash);
-    if (cached && cached.length >= 2) {
+    if (cached && cached.length >= 1) {
       return { citations: cached, source: `${source}:cache`, fromCache: true };
     }
   }
@@ -207,7 +207,7 @@ export async function fetchResearch(query: string, date: string): Promise<Resear
   // 2. Currents API (primary)
   try {
     const citations = await fetchFromCurrents(query);
-    if (citations.length >= 2) {
+    if (citations.length >= 1) {
       await setCache(buildQueryHash(query, date, "currents"), query, "currents", citations);
       return { citations, source: "currents", fromCache: false };
     }
@@ -218,7 +218,7 @@ export async function fetchResearch(query: string, date: string): Promise<Resear
   // 3. NewsData.io (fallback)
   try {
     const citations = await fetchFromNewsData(query);
-    if (citations.length >= 2) {
+    if (citations.length >= 1) {
       await setCache(buildQueryHash(query, date, "newsdata"), query, "newsdata", citations);
       return { citations, source: "newsdata", fromCache: false };
     }

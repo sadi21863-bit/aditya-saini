@@ -136,12 +136,12 @@ describe("personas — archivist tier", () => {
     expect(archivists).toHaveLength(1);
   });
 
-  it("Archivist uses GitHub Models as provider (migrated from Groq 2026-05-12 — TPM cap)", () => {
+  it("Archivist uses GitHub Models as provider (two-pass: gpt-4o is Pass 2 synthesizer)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
     expect(archivist.provider).toBe("github");
   });
 
-  it("Archivist uses openai/gpt-4o model", () => {
+  it("Archivist uses openai/gpt-4o model (Pass 2 synthesis in two-pass approach)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
     const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o";
     expect(archivist.model).toBe(expected);

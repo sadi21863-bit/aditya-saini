@@ -91,7 +91,7 @@ describe("extractAIMentions — @ai / @random random selection", () => {
     const results = await extractAIMentions("@ai what do you think?");
     expect(results).toHaveLength(1);
     expect(results[0].isRandomSelection).toBe(true);
-    expect(["llama", "gpt-oss", "scout"]).toContain(results[0].agentHandle);
+    expect(["llama", "gpt-oss", "scout", "maverick"]).toContain(results[0].agentHandle);
   });
 
   it("@random also triggers random selection", async () => {

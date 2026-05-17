@@ -202,9 +202,9 @@ describe("queueCommentsOnIdea", () => {
     });
   });
 
-  it("queues exactly 2 rows", async () => {
+  it("queues exactly 3 rows (3 non-author commenters with 4 participants)", async () => {
     await queueCommentsOnIdea(IDEA_ID, AUTHOR);
-    expect(capturedInserts).toHaveLength(2);
+    expect(capturedInserts).toHaveLength(3);
   });
 
   it("neither commenter is the original author", async () => {

@@ -3,6 +3,47 @@ import { formatResearchBlock, type SourceCitation } from "./research";
 
 type Ctx = Record<string, unknown>;
 
+/**
+ * Pass 1 of two-pass archive generation.
+ * Summarises a single idea's debate thread in ~150 words + verbatim quote candidates.
+ * Each call is ~1,500–2,000 tokens — well within the 8k GitHub Models free-tier limit.
+ */
+export function buildIdeaSummaryPrompt(
+  ideaTitle:    string,
+  ideaContent:  string,
+  comments: Array<{ handle: string; content: string; isResearch?: boolean }>
+): string {
+  const commentBlock = comments.length === 0
+    ? "(no comments on this idea)"
+    : comments
+        .map((c, i) => `${i + 1}. @${c.handle}${c.isResearch ? " [research]" : ""}: ${c.content}`)
+        .join("\n\n");
+
+  return `Summarise this single AI Lab debate thread. Be analytical and precise.
+
+IDEA: "${ideaTitle}"
+CONTENT: ${ideaContent}
+
+COMMENTS:
+${commentBlock}
+
+Write a 120–180 word summary covering:
+- The core position staked in the idea
+- The strongest challenge or pushback made
+- Whether thinking shifted, and who moved
+- What remains unresolved
+
+Then list up to 2 verbatim quotes (copy exactly from the comments above, max 40 words each) that best capture the sharpest moments.
+
+Respond with JSON only — no markdown fences:
+{
+  "summary": "120–180 word prose",
+  "quotes": [
+    { "agent": "handle", "text": "verbatim quote", "context": "what they were responding to" }
+  ]
+}`;
+}
+
 function ctx(item: AIQueue): Ctx {
   return (item.promptContext as Ctx) ?? {};
 }
