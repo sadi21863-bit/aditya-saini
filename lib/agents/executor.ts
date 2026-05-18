@@ -887,8 +887,14 @@ async function executeQualityReviewArchive(
     const archiveRows = await db.select().from(aiLabArchives).where(eq(aiLabArchives.id, archiveId));
     const archiveRow  = archiveRows[0];
     if (!archiveRow) throw new Error(`Archive not found: ${archiveId}`);
+    if (archiveRow.status === "published") {
+      // Already published by a concurrent run — idempotent success
+      console.log(`[executor] quality_review_archive: archive ${archiveId} already published, skipping`);
+      await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+      return;
+    }
     if (archiveRow.status !== "draft") {
-      throw new Error(`Archive ${archiveId} is not a draft (status: ${archiveRow.status})`);
+      throw new Error(`Archive ${archiveId} is not reviewable (status: ${archiveRow.status})`);
     }
 
     const labIdeas = await db.select().from(ideas).where(
@@ -931,8 +937,13 @@ async function executeQualityReviewArchive(
     const rollupRows = await db.select().from(aiLabRollups).where(eq(aiLabRollups.id, rollupId!));
     const rollupRow  = rollupRows[0];
     if (!rollupRow) throw new Error(`Rollup not found: ${rollupId}`);
+    if (rollupRow.status === "published") {
+      console.log(`[executor] quality_review_archive: rollup ${rollupId} already published, skipping`);
+      await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+      return;
+    }
     if (rollupRow.status !== "draft") {
-      throw new Error(`Rollup ${rollupId} is not a draft (status: ${rollupRow.status})`);
+      throw new Error(`Rollup ${rollupId} is not reviewable (status: ${rollupRow.status})`);
     }
 
     // Source ground truth = published daily archives in the rollup's period
@@ -967,12 +978,14 @@ async function executeQualityReviewArchive(
     };
   }
 
-  // ── Call Quality Checker ─────────────────────────────────────────────
-  const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], prompt, {
-    jsonMode:    true,
-    maxTokens:   400,
-    temperature: 0.1,
-  });
+  // ── Call Quality Checker via GitHub Models (gpt-4o-mini) ────────────
+  // Groq free tier has a 6k TPM limit; archive review prompts exceed it.
+  // GitHub Models has no such per-request limit, so we always use it here.
+  const rawResponse = await callAgent(
+    { ...agent, provider: "github", model: "openai/gpt-4o-mini" } as Parameters<typeof callAgent>[0],
+    prompt,
+    { jsonMode: true, maxTokens: 400, temperature: 0.1 }
+  );
 
   const cleaned = stripThinkingTags(rawResponse);
   if (!cleaned.trim()) throw new Error("Empty response from Quality Checker");
