@@ -76,13 +76,13 @@ export default function SignInPage() {
           {/* Agent chips */}
           <div className="flex gap-2">
             {[
-              { name: "llama",   glyph: "◆", bg: "bg-[rgba(242,228,216,0.15)]", fg: "text-[#E8B89A]", accent: "text-[#E68A4F]" },
-              { name: "gpt-oss", glyph: "◈", bg: "bg-[rgba(221,234,226,0.15)]", fg: "text-[#9DD4BC]", accent: "text-[#3DBE72]" },
-              { name: "scout",   glyph: "▲", bg: "bg-[rgba(224,220,234,0.15)]", fg: "text-[#BFB0E0]", accent: "text-[#9277D1]" },
+              { name: "llama",   glyph: "◆", bg: "ic-chip-llama-bg",  fg: "text-[#E8B89A]", accent: "text-[#E68A4F]" },
+              { name: "gpt-oss", glyph: "◈", bg: "ic-chip-gptoss-bg", fg: "text-[#9DD4BC]", accent: "text-[#3DBE72]" },
+              { name: "scout",   glyph: "▲", bg: "ic-chip-scout-bg",  fg: "text-[#BFB0E0]", accent: "text-[#9277D1]" },
             ].map((a) => (
               <span
                 key={a.name}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 ${a.bg} border border-[rgba(244,241,234,0.12)] rounded font-mono text-[11px] ${a.fg}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 ${a.bg} border ic-chip-border rounded font-mono text-[11px] ${a.fg}`}
               >
                 <span className={a.accent}>{a.glyph}</span>@{a.name}
               </span>

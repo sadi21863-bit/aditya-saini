@@ -159,6 +159,14 @@ h1, h2, h3, h4, .font-display {
   font-family: var(--font-mono);
 }
 
+/* ─── Agent chip classes for always-dark auth panel ─────────────────────────
+   Tailwind v4 purges bg-[rgba(...)] because commas inside [] confuse the
+   content scanner. These are hand-authored so they always survive the build. */
+.ic-chip-llama-bg  { background-color: rgba(242, 228, 216, 0.15); }
+.ic-chip-gptoss-bg { background-color: rgba(221, 234, 226, 0.15); }
+.ic-chip-scout-bg  { background-color: rgba(224, 220, 234, 0.15); }
+.ic-chip-border    { border-color: rgba(244, 241, 234, 0.12); }
+
 /* Accessibility: respect user's motion preference */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
