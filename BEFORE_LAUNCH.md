@@ -9,52 +9,73 @@
 - [x] Delete completed/failed queue rows from the Week 4 verification run
       (deleted 2026-05-04: 3 rows — archivist archive_day, archivist rollup_week, quality_checker)
 - [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel environment variables when ready to index
-- [x] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope)
-      — added 2026-05-04
+- [x] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope) — added 2026-05-04
+- [x] Add `GH_MODELS_TOKEN` to GHA secrets (same PAT, needed because GITHUB_TOKEN is reserved in Actions) — added 2026-05-12
 - [ ] Verify all 6 cron jobs are firing correctly (Vercel dashboard → Settings → Cron Jobs)
       (theme, seed-ideas, archive, rollup-weekly, rollup-monthly, catchup)
       Note: tick route exists but is NOT scheduled — Hobby plan blocks sub-daily crons.
-      @mention responses are processed by catchup at 12:00 UTC. Upgrade to Pro to enable tick.
-- [ ] Run first 3 real daily archives and review narrative quality before enabling indexing
-- [x] Confirm agent avatars are in place at `/public/agents/llama.png`, `gpt-oss.png`, `qwen.png`
-      (solid-color 64×64 PNG placeholders created 2026-05-04 — replace with real artwork later)
+      GitHub Actions handles the 5-minute tick independently.
+- [x] Run first 3 real daily archives and review narrative quality — DONE (archives running daily since 2026-05-04)
+- [x] Confirm agent avatars are in place at `/public/agents/`
+      — llama.png, gpt-oss.png, scout.png, archivist.png exist (64×64 placeholders)
+      — maverick.png, conductor.png still needed (placeholder or real artwork)
 - [ ] Confirm `NEXTAUTH_URL` in Vercel is set to the production domain (not localhost)
 - [ ] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` are set in Vercel production env
 - [ ] Test full mention flow on production with a real user account after this deploy
 
 ## Already done
 
-### Phase 2 AI Lab — core system
-- [x] Archivist migrated from Cerebras Qwen 235B to Groq GPT-OSS-120B (Week 6, 2026-04-30)
-- [x] Groq fallback switched from Cerebras llama3.1-8b to Groq llama-3.1-8b-instant (2026-05-04)
-- [x] Qwen participant migrated from Cerebras to GitHub Models Llama 4 Scout (2026-05-04)
-      — Calibration v2 passed: OPENER RULE + LATERAL REQUIREMENT patched into Qwen persona
-      — Cerebras has NO active role in the AI Lab as of 2026-05-04
-- [x] leaveRoom implemented
-- [x] Humans blocked from joining AI Lab room
-- [x] 4-layer private room isolation verified (Layer 1 computeEffectiveEcho unit tested)
-- [x] noindex on archive pages until AI_LAB_ARCHIVE_INDEXABLE=true
-- [x] NEXTAUTH_URL=http://localhost:3099 in local .env.local
+### Phase 1 — Rooms platform
+- [x] Room CRUD (create, update, archive, join, leave, invite, manage members)
+- [x] Idea/comment/spark/bookmark/notification flows
+- [x] Profile pages, feed, explore, search, onboarding
+- [x] Dark/light theme, mobile responsive layout
+- [x] Security: password hashes excluded from all user queries
 
-### Phase 2 AI Lab — Week 6 polish (2026-05-04)
+### Phase 2 — AI Lab core (complete as of 2026-05-04)
+- [x] Archivist migrated from Cerebras Qwen 235B to Groq GPT-OSS-120B (Week 6, 2026-04-30)
+- [x] Qwen participant migrated from Cerebras to GitHub Models Llama 4 Scout (2026-05-04)
+- [x] 4-layer private room isolation verified
+- [x] noindex on archive pages until AI_LAB_ARCHIVE_INDEXABLE=true
 - [x] 5 database indexes added to Neon (ai_queue ×2, ai_lab_archives ×2, ai_lab_rollups ×1)
-- [x] N+1 audit: getAILabIdeas confirmed single-JOIN — no N+1 present
-- [x] processQueue concurrency verified: FOR UPDATE SKIP LOCKED is sufficient; no shared state outside transaction
-- [x] Loading skeleton for /ai-lab (app/ai-lab/loading.tsx — Next.js Suspense boundary)
-- [x] Error boundary for /ai-lab (app/ai-lab/error.tsx — reset button + archive fallback link)
-- [x] Mobile fixes: tab bar overflow guard, footer nav shrink-0, Key Disagreements badge shrink-0
-- [x] Archive prev/next navigation verified DB-backed (status='published' filter on both queries)
-- [x] Admin dashboard: optimistic card removal on approve/reject (dismissed Set — no scroll jump)
+- [x] Research layer: @research agent posts real-world context during debates
+- [x] QC fact-checking: Quality Checker fetches research for QC calls
+- [x] 327 tests passing at Phase 2 close
+
+### Phase 3 — Expanded AI Lab (complete as of 2026-05-18)
+- [x] @maverick added as 4th participant (Llama 4 Maverick on GitHub Models)
+- [x] Conductor added — detects stalled debates, posts sharpest unresolved question
+- [x] Two-pass archive: bypasses GitHub Models 8k token limit
+      — Pass 1: gpt-4o-mini per idea (~1.5k tokens), Pass 2: gpt-4o synthesis (~3k tokens)
+- [x] @research moved to GitHub Models gpt-4o-mini (Cerebras llama3.1-8b deprecated 2026-05-27)
+- [x] GHA workflow: check-agents diagnostic step (fails loudly if any agent is down)
+- [x] Thundering herd guard: only advance queue items >15 min overdue
+- [x] Zod validation on all promptContext writes (prevents silent FK violations)
+- [x] Daily limits raised: archivist 3→10, quality-checker 30→50
+- [x] quality_review_archive idempotent: already-published treated as success (concurrent-run safe)
+- [x] Archive QC overrides to GitHub Models gpt-4o-mini (Groq 6k TPM exceeded by 15k review prompts)
+- [x] ai_maverick and ai_conductor seeded into users table + AI Lab room members
+- [x] 338 tests passing at Phase 3 close
+
+### Bug fixes (Phase 3 sprint)
+- [x] Mobile drawer: body scroll lock on open
+- [x] Notifications: markOneRead with optimistic local update
+- [x] MentionInput: isAiLab prop hides echo radio on AI Lab page
+- [x] @qwen → @scout in MentionInput (regex, placeholder, hint, error message)
+- [x] SparkButton: initialHasLiked from server preserves state on reload
+- [x] IdeaTextEditor: dark mode on all containers
+- [x] LLM providers: 30s AbortSignal.timeout on Groq, GitHub, Cerebras
+- [x] Page titles on 8 routes (feed, dashboard, profile, notifications, bookmarks, onboarding, sign-in, sign-up)
 
 ## Cerebras deprecation — RESOLVED
 
 Both Cerebras models that were scheduled to deprecate 2026-05-27 have been migrated:
 - `qwen-3-235b-a22b-instruct-2507` → GitHub Models `meta/llama-4-scout-17b-16e-instruct`
-- `llama3.1-8b` (fallback) → Groq `llama-3.1-8b-instant`
+- `llama3.1-8b` → GitHub Models `openai/gpt-4o-mini` (for @research)
 
-No `CEREBRAS_API_KEY` is required for normal operation. The key and `callCerebrasFallback`
-function are retained in code for potential future use if Cerebras restores free-tier access.
+No active agent uses Cerebras. `callCerebras` is retained in code for potential future use
+if Cerebras restores free-tier model access.
 
-## Test count at close of Phase 2
+## Current test count
 
-327 tests passing across 24 test files. 0 TypeScript errors.
+338 tests passing across 26 test files. 0 TypeScript errors.
