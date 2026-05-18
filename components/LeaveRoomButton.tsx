@@ -43,7 +43,7 @@ export default function LeaveRoomButton({ roomId }: { roomId: string }) {
             onClick={handleClick}
             disabled={isPending}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl
-              bg-red-700 hover:bg-red-600 text-white text-xs font-semibold transition
+              bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition
               disabled:opacity-50"
           >
             {isPending ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />}
@@ -51,8 +51,8 @@ export default function LeaveRoomButton({ roomId }: { roomId: string }) {
           </button>
           <button
             onClick={() => setConfirm(false)}
-            className="flex-1 px-3 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700
-              text-gray-600 dark:text-slate-300 text-xs font-semibold transition"
+            className="flex-1 px-3 py-2 rounded-xl bg-ic-paper-deep border border-ic-rule
+              hover:bg-ic-rule text-ic-muted text-xs font-medium transition"
           >
             Cancel
           </button>
@@ -67,9 +67,8 @@ export default function LeaveRoomButton({ roomId }: { roomId: string }) {
       <button
         onClick={handleClick}
         className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl
-          bg-gray-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/40
-          border border-gray-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700
-          text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-300 text-sm font-semibold transition"
+          bg-ic-paper-deep border border-ic-rule hover:border-red-400
+          text-ic-muted hover:text-red-500 text-sm font-medium transition"
       >
         <LogOut size={14} />
         Leave Room

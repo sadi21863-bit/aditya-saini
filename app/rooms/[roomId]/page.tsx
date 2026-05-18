@@ -10,7 +10,7 @@ import RoomMemberList from "@/components/RoomMemberList";
 import JoinRoomButton from "@/components/JoinRoomButton";
 import LeaveRoomButton from "@/components/LeaveRoomButton";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Plus } from "lucide-react";
 
 export async function generateMetadata({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await params;
@@ -35,7 +35,7 @@ export default async function RoomPage({
   const canInvite = callerMembership?.role === "owner" || callerMembership?.role === "moderator";
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-5xl mx-auto px-6 py-10">
       <RoomHeader
         room={room}
         memberCount={members.length}
@@ -69,9 +69,8 @@ export default async function RoomPage({
             <Link
               href={`/rooms/${roomId}/settings#invite`}
               className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl
-                bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700
-                text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white
-                text-sm font-semibold border border-gray-200 dark:border-slate-700 transition"
+                bg-ic-paper-deep border border-ic-rule hover:border-ic-accent
+                text-ic-muted hover:text-ic-ink font-mono text-sm font-medium transition"
             >
               <UserPlus size={14} />
               Invite Members
@@ -81,6 +80,19 @@ export default async function RoomPage({
           <RoomMemberList members={members} callerId={callerId} />
         </div>
       </div>
+
+      {/* Mobile FAB — Post idea, fixed above future bottom nav */}
+      {isMember && (
+        <Link
+          href={`/rooms/${roomId}/new-idea`}
+          className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full
+            bg-ic-accent text-white shadow-card flex items-center justify-center
+            hover:opacity-90 transition"
+          aria-label="Post idea"
+        >
+          <Plus size={22} />
+        </Link>
+      )}
     </div>
   );
 }

@@ -28,7 +28,7 @@ export default function JoinRoomButton({ roomId }: { roomId: string }) {
         onClick={handleJoin}
         disabled={isPending}
         className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl
-          bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold text-sm transition"
+          bg-ic-paper-deep border border-ic-rule hover:border-ic-accent text-ic-ink font-medium text-sm transition disabled:opacity-50"
       >
         {isPending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
         {isPending ? "Joining…" : "Join Room"}

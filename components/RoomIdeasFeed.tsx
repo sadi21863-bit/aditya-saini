@@ -34,12 +34,12 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Ideas</h2>
+        <h2 className="font-display text-2xl font-normal text-ic-ink">Ideas</h2>
         {isMember && (
           <Link
             href={`/rooms/${roomId}/new-idea`}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white
-              bg-teal-600 hover:bg-teal-500 rounded-lg transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-xs font-medium text-white
+              bg-ic-accent rounded-lg hover:opacity-90 transition"
           >
             <Plus size={13} /> New Idea
           </Link>
@@ -47,13 +47,13 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
       </div>
 
       {roomIdeas.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl py-16 text-center">
-          <p className="text-gray-400 dark:text-slate-500 text-sm">No ideas yet.</p>
+        <div className="bg-ic-card border border-ic-rule rounded-2xl py-16 text-center">
+          <p className="font-mono text-sm text-ic-muted">No ideas yet.</p>
           {isMember && (
             <Link
               href={`/rooms/${roomId}/new-idea`}
-              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 text-sm font-bold
-                text-white bg-teal-600 hover:bg-teal-500 rounded-lg transition"
+              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 font-mono text-sm font-medium
+                text-white bg-ic-accent rounded-lg hover:opacity-90 transition"
             >
               <Plus size={14} /> Post the first idea
             </Link>
