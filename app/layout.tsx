@@ -1,7 +1,7 @@
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import type { Metadata } from "next";
-// FIX #22: Import Inter so --font-inter CSS variable is actually defined
-import { Playfair_Display, Inter } from "next/font/google";
+import { Source_Serif_4, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/lib/auth";
 import { Toaster } from "react-hot-toast";
@@ -16,15 +16,30 @@ import { redirect } from "next/navigation";
 
 const ONBOARDING_EXEMPT = ["/onboarding", "/sign-in", "/sign-up", "/api", "/onboarding/welcome"];
 
-const playfair = Playfair_Display({
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
 });
 
-// FIX #22: Inter loaded and exposed as --font-inter CSS variable
-const inter = Inter({
+const geist = localFont({
+  src: [
+    { path: "../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2",  weight: "400" },
+    { path: "../node_modules/geist/dist/fonts/geist-sans/Geist-Medium.woff2",   weight: "500" },
+    { path: "../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2", weight: "600" },
+    { path: "../node_modules/geist/dist/fonts/geist-sans/Geist-Bold.woff2",     weight: "700" },
+  ],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -61,7 +76,7 @@ export default async function RootLayout({
   return (
     <SessionProvider session={session}>
       <html lang="en" suppressHydrationWarning
-        className={`${playfair.variable} ${inter.variable}`}>
+        className={`${sourceSerif.variable} ${geist.variable} ${jetbrainsMono.variable}`}>
         <body className="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
           <ThemeProvider>
             <GlobalErrorBoundary>

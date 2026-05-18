@@ -3,33 +3,161 @@
 /* Tailwind v4: enable dark: variant via .dark class on <html> */
 @variant dark (&:where(.dark, .dark *));
 
-/*
- * DESIGN SYSTEM NOTE
- * Current: Playfair Display (headings) + Inter (body) + teal accent (#0d9488)
- * Target (Claude Design migration, post-viva): Source Serif 4 + Geist + JetBrains Mono + moss green
- * Migration happens screen-by-screen AFTER Claude Design Phase 2 output is received (11 May).
- * Do not partially migrate fonts — swap entire screen at once.
- */
-
+/* ─── IC Design tokens – light mode ─────────────────────────────────────── */
 :root {
-  --teal-600: #0d9488;
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  /* Surfaces */
+  --ic-paper:       #F4F1EA;
+  --ic-paper-deep:  #EBE7DD;
+  --ic-card:        #FFFFFF;
+
+  /* Text */
+  --ic-ink:         #1A1814;
+  --ic-ink-soft:    #3D3A33;
+  --ic-muted:       #6B665B;
+
+  /* Borders */
+  --ic-rule:        #D8D2C4;
+  --ic-rule-soft:   #E5E0D2;
+
+  /* Brand */
+  --ic-accent:      #0F4D2E;
+  --ic-accent-bright: #22C55E;
+  --ic-accent-ink:  #0A2E1B;
+  --ic-highlight:   #E8FF6B;
+
+  /* Shadows */
+  --ic-shadow-soft: 0 1px 0 rgba(26,24,20,0.04), 0 4px 18px rgba(26,24,20,0.06);
+  --ic-shadow-card: 0 1px 0 rgba(26,24,20,0.05), 0 8px 28px rgba(26,24,20,0.08);
 }
 
-/* FIX #22: Use --font-inter (now properly defined in layout.tsx via next/font) */
+/* ─── IC Design tokens – dark mode ─────────────────────────────────────── */
+.dark {
+  --ic-paper:       #1A1814;
+  --ic-paper-deep:  #141210;
+  --ic-card:        #211E19;
+
+  --ic-ink:         #F4F1EA;
+  --ic-ink-soft:    #C8C0B0;
+  --ic-muted:       #7A7268;
+
+  --ic-rule:        #2E2A24;
+  --ic-rule-soft:   #252118;
+
+  --ic-accent:      #3DBE72;
+  --ic-accent-bright: #22C55E;
+  --ic-accent-ink:  #0A2E1B;
+  --ic-highlight:   #E8FF6B;
+
+  --ic-shadow-soft: 0 1px 0 rgba(0,0,0,0.4), 0 4px 18px rgba(0,0,0,0.3);
+  --ic-shadow-card: 0 1px 0 rgba(0,0,0,0.5), 0 8px 28px rgba(0,0,0,0.4);
+}
+
+/* ─── AI agent colours – light mode ─────────────────────────────────────── */
+:root {
+  --ic-ai-llama-fg:     #7A3A1F;
+  --ic-ai-llama-bg:     #F2E4D8;
+  --ic-ai-llama-accent: #C9682E;
+
+  --ic-ai-gptoss-fg:     #1F4A3A;
+  --ic-ai-gptoss-bg:     #DDEAE2;
+  --ic-ai-gptoss-accent: #2F8862;
+
+  --ic-ai-scout-fg:     #3A2F5A;
+  --ic-ai-scout-bg:     #E0DCEA;
+  --ic-ai-scout-accent: #6B4FB0;
+
+  --ic-ai-maverick-fg:     #5A4010;
+  --ic-ai-maverick-bg:     #F0E8D4;
+  --ic-ai-maverick-accent: #D49020;
+
+  --ic-ai-research-fg:     #2A3050;
+  --ic-ai-research-bg:     #E8EAF0;
+  --ic-ai-research-accent: #4A5FA0;
+}
+
+/* ─── AI agent colours – dark mode ─────────────────────────────────────── */
+.dark {
+  --ic-ai-llama-fg:     #E8B89A;
+  --ic-ai-llama-bg:     rgba(242,228,216,0.15);
+  --ic-ai-llama-accent: #E68A4F;
+
+  --ic-ai-gptoss-fg:     #9DD4BC;
+  --ic-ai-gptoss-bg:     rgba(221,234,226,0.15);
+  --ic-ai-gptoss-accent: #3DBE72;
+
+  --ic-ai-scout-fg:     #BFB0E0;
+  --ic-ai-scout-bg:     rgba(224,220,234,0.15);
+  --ic-ai-scout-accent: #9277D1;
+
+  --ic-ai-maverick-fg:     #E0C080;
+  --ic-ai-maverick-bg:     rgba(240,232,212,0.15);
+  --ic-ai-maverick-accent: #E0A830;
+
+  --ic-ai-research-fg:     #B5BFD4;
+  --ic-ai-research-bg:     rgba(232,234,240,0.15);
+  --ic-ai-research-accent: #7E91D4;
+}
+
+/* ─── Register tokens as Tailwind utilities ─────────────────────────────── */
+@theme inline {
+  /* Colours */
+  --color-ic-paper:        var(--ic-paper);
+  --color-ic-paper-deep:   var(--ic-paper-deep);
+  --color-ic-card:         var(--ic-card);
+  --color-ic-ink:          var(--ic-ink);
+  --color-ic-ink-soft:     var(--ic-ink-soft);
+  --color-ic-muted:        var(--ic-muted);
+  --color-ic-rule:         var(--ic-rule);
+  --color-ic-rule-soft:    var(--ic-rule-soft);
+  --color-ic-accent:       var(--ic-accent);
+  --color-ic-accent-bright:var(--ic-accent-bright);
+  --color-ic-accent-ink:   var(--ic-accent-ink);
+  --color-ic-highlight:    var(--ic-highlight);
+
+  /* Agent colours */
+  --color-ic-ai-llama-fg:       var(--ic-ai-llama-fg);
+  --color-ic-ai-llama-bg:       var(--ic-ai-llama-bg);
+  --color-ic-ai-llama-accent:   var(--ic-ai-llama-accent);
+  --color-ic-ai-gptoss-fg:      var(--ic-ai-gptoss-fg);
+  --color-ic-ai-gptoss-bg:      var(--ic-ai-gptoss-bg);
+  --color-ic-ai-gptoss-accent:  var(--ic-ai-gptoss-accent);
+  --color-ic-ai-scout-fg:       var(--ic-ai-scout-fg);
+  --color-ic-ai-scout-bg:       var(--ic-ai-scout-bg);
+  --color-ic-ai-scout-accent:   var(--ic-ai-scout-accent);
+  --color-ic-ai-maverick-fg:    var(--ic-ai-maverick-fg);
+  --color-ic-ai-maverick-bg:    var(--ic-ai-maverick-bg);
+  --color-ic-ai-maverick-accent:var(--ic-ai-maverick-accent);
+  --color-ic-ai-research-fg:    var(--ic-ai-research-fg);
+  --color-ic-ai-research-bg:    var(--ic-ai-research-bg);
+  --color-ic-ai-research-accent:var(--ic-ai-research-accent);
+
+  /* Fonts */
+  --font-display: var(--font-display), "Source Serif 4", Georgia, serif;
+  --font-sans:    var(--font-sans), "Geist", system-ui, sans-serif;
+  --font-mono:    var(--font-mono), "JetBrains Mono", monospace;
+
+  /* Shadows */
+  --shadow-soft: var(--ic-shadow-soft);
+  --shadow-card: var(--ic-shadow-card);
+}
+
+/* ─── Base styles ─────────────────────────────────────────────────────────── */
 body {
-  font-family: var(--font-inter), sans-serif;
+  background-color: var(--ic-paper);
+  color: var(--ic-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3,
-.font-display {
-  font-family: var(--font-playfair), serif;
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
-/* FIX #39: Removed .tab-active and .tab-inactive — never used anywhere in codebase */
+.font-mono, code, kbd, pre {
+  font-family: var(--font-mono);
+}
 
 /* Accessibility: respect user's motion preference */
 @media (prefers-reduced-motion: reduce) {
