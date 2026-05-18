@@ -73,32 +73,35 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
+
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">AI Lab Archive</h1>
-        <p className="text-gray-500 dark:text-slate-400">Every day's discussion, permanently recorded.</p>
+        <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-2">
+          AI Lab
+        </p>
+        <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink">Archive</h1>
       </div>
 
-      {/* Tabs — overflow-x-auto guards against very narrow viewports cracking the rounded container */}
-      <div className="overflow-x-auto mb-8">
-      <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 rounded-xl p-1 w-fit">
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-ic-rule mb-8">
         {TABS.map((t) => (
           <Link
             key={t}
             href={buildUrl(1, t)}
-            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all capitalize ${
-              tab === t ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+            className={`shrink-0 pb-3 font-mono text-[12px] font-medium capitalize transition-colors ${
+              tab === t
+                ? "border-b-2 border-ic-ink text-ic-ink -mb-px"
+                : "text-ic-muted hover:text-ic-ink-soft"
             }`}
           >
             {t}
           </Link>
         ))}
       </div>
-      </div>
 
       {/* Archive list */}
       {items.length === 0 ? (
-        <p className="text-gray-400 dark:text-slate-500 text-center py-20">{EMPTY_MSG}</p>
+        <p className="font-mono text-sm text-ic-muted text-center py-20">{EMPTY_MSG}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {tab === "daily" && (items as Array<Record<string, unknown>>).map((archive) => {
@@ -111,24 +114,24 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(archive.id)}
                 href={`/ai-lab/archive/${date}`}
-                className="block bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
+                className="block bg-ic-card border border-ic-rule rounded-2xl p-5 hover:border-ic-accent transition-colors"
               >
                 <div className="flex items-start justify-between gap-4 mb-2">
-                  <span className="text-gray-500 dark:text-slate-400 text-xs">{formatDate(date)}</span>
+                  <span className="font-mono text-[11px] text-ic-muted">{formatDate(date)}</span>
                   <div className="flex items-center gap-3 shrink-0">
                     {[
                       { icon: <Lightbulb size={11} />,    v: stats.ideas_count        ?? 0 },
                       { icon: <MessageSquare size={11} />, v: stats.comments_count     ?? 0 },
                       { icon: <Users size={11} />,         v: stats.participants_active ?? 0 },
                     ].map(({ icon, v }, i) => (
-                      <span key={i} className="flex items-center gap-1 text-gray-400 dark:text-slate-500 text-xs">
-                        <span className="text-teal-500">{icon}</span>{v}
+                      <span key={i} className="flex items-center gap-1 font-mono text-[11px] text-ic-muted">
+                        <span className="text-ic-accent">{icon}</span>{v}
                       </span>
                     ))}
                   </div>
                 </div>
-                <h3 className="text-gray-900 dark:text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{theme}</h3>
-                {excerpt && <p className="text-gray-400 dark:text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
+                <h3 className="font-display italic text-ic-ink mb-1 leading-snug">{theme}</h3>
+                {excerpt && <p className="text-ic-ink-soft text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
               </Link>
             );
           })}
@@ -146,11 +149,11 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(rollup.id)}
                 href={href}
-                className="block bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-5 hover:border-teal-600 transition-colors group"
+                className="block bg-ic-card border border-ic-rule rounded-2xl p-5 hover:border-ic-accent transition-colors"
               >
-                <p className="text-gray-500 dark:text-slate-400 text-xs mb-1">{formatDateRange(start, end)}</p>
-                <h3 className="text-gray-900 dark:text-white font-semibold group-hover:text-teal-300 transition-colors mb-1">{title}</h3>
-                {excerpt && <p className="text-gray-400 dark:text-slate-500 text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
+                <p className="font-mono text-[11px] text-ic-muted mb-1">{formatDateRange(start, end)}</p>
+                <h3 className="font-display italic text-ic-ink mb-1 leading-snug">{title}</h3>
+                {excerpt && <p className="text-ic-ink-soft text-xs leading-relaxed line-clamp-2">{excerpt}</p>}
               </Link>
             );
           })}
@@ -161,25 +164,25 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (
-            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
-              <ChevronLeft size={14} /> Previous
+            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors">
+              <ChevronLeft size={13} /> Previous
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
-              <ChevronLeft size={14} /> Previous
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+              <ChevronLeft size={13} /> Previous
             </span>
           )}
-          <span className="text-gray-500 dark:text-slate-400 text-sm">
-            Page <span className="text-gray-900 dark:text-white font-bold">{page}</span> of{" "}
-            <span className="text-gray-900 dark:text-white font-bold">{totalPages}</span>
+          <span className="font-mono text-xs text-ic-muted">
+            Page <span className="text-ic-ink font-semibold">{page}</span> of{" "}
+            <span className="text-ic-ink font-semibold">{totalPages}</span>
           </span>
           {page < totalPages ? (
-            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
-              Next <ChevronRight size={14} />
+            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors">
+              Next <ChevronRight size={13} />
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
-              Next <ChevronRight size={14} />
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+              Next <ChevronRight size={13} />
             </span>
           )}
         </div>
