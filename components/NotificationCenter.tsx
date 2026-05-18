@@ -41,7 +41,7 @@ const ICON_MAP: Record<string, React.FC<{ size: number; className?: string }>> =
 };
 
 const COLOR_MAP: Record<string, string> = {
-    spark: "text-[#0d9488]",
+    spark: "text-ic-accent",
     follow: "text-violet-400",
     access_request: "text-amber-400",
     comment: "text-blue-400",
@@ -120,28 +120,32 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
     return (
         <div className="relative" ref={panelRef}>
 
+            {/* Bell trigger */}
             <button
                 onClick={() => setIsOpen((v) => !v)}
                 aria-label="Notifications"
                 aria-expanded={isOpen}
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                className="relative p-2 rounded-lg hover:bg-ic-paper-deep transition-colors"
             >
-                <Bell size={18} className="text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white transition-colors" />
+                <Bell size={18} className="text-ic-muted hover:text-ic-ink transition-colors" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-ic-accent-bright ring-2 ring-ic-paper" />
                 )}
             </button>
 
+            {/* Dropdown panel */}
             {isOpen && (
                 <div className="absolute left-0 bottom-full mb-2 w-80 rounded-2xl
-                  bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700
-                  shadow-lg dark:shadow-black/20 z-50 overflow-hidden">
+                    bg-ic-card border border-ic-rule shadow-card z-50 overflow-hidden">
 
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-slate-800">
+                    {/* Panel header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-ic-rule-soft">
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
+                            <h3 className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
+                                Notifications
+                            </h3>
                             {unreadCount > 0 && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-[#0d9488]">
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-ic-accent-bright text-ic-accent-ink">
                                     {unreadCount}
                                 </span>
                             )}
@@ -151,49 +155,56 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                                 <button
                                     onClick={handleMarkAllRead}
                                     disabled={isPending}
-                                    className="flex items-center gap-1 text-xs text-[#0d9488]
-                    hover:text-teal-600 font-semibold transition-colors"
+                                    className="flex items-center gap-1 font-mono text-[11px] text-ic-accent
+                                        hover:text-ic-accent-bright transition-colors disabled:opacity-50"
                                 >
-                                    <CheckCheck size={12} />
+                                    <CheckCheck size={11} />
                                     Mark all read
                                 </button>
                             )}
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                                className="p-1 rounded-lg hover:bg-ic-paper-deep transition-colors"
                             >
-                                <X size={14} className="text-gray-400 dark:text-slate-400" />
+                                <X size={14} className="text-ic-muted" />
                             </button>
                         </div>
                     </div>
 
-                    <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800">
+                    {/* Notification list */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-ic-rule-soft">
                         {isPending && !loaded ? (
-                            <div className="py-8 text-center text-xs text-gray-400 dark:text-slate-400">Loading...</div>
+                            <div className="py-8 text-center font-mono text-[11px] text-ic-muted">
+                                Loading…
+                            </div>
                         ) : notifications.length === 0 ? (
                             <div className="py-10 text-center">
-                                <Bell size={24} className="mx-auto text-gray-300 dark:text-slate-600 mb-2" />
-                                <p className="text-gray-400 dark:text-slate-400 text-xs">No notifications yet</p>
+                                <Bell size={22} className="mx-auto text-ic-muted mb-2" />
+                                <p className="font-mono text-[11px] text-ic-muted">No notifications yet</p>
                             </div>
                         ) : (
                             notifications.map((notif) => {
                                 const Icon = ICON_MAP[notif.type] ?? Bell;
-                                const color = COLOR_MAP[notif.type] ?? "text-gray-400 dark:text-slate-400";
+                                const color = COLOR_MAP[notif.type] ?? "text-ic-muted";
                                 const content = (
                                     <div
                                         key={notif.id}
-                                        className={`flex gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors
-                      ${!notif.read ? "border-l-2 border-l-[#0d9488]" : "border-l-2 border-l-transparent"}`}
+                                        className={`flex gap-3 px-4 py-3 hover:bg-ic-paper-deep transition-colors
+                                            border-l-2 ${!notif.read ? "border-l-ic-accent-bright" : "border-l-transparent"}`}
                                     >
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
-                                            <Icon size={14} className={color} />
+                                        <div className="w-8 h-8 rounded-full bg-ic-paper-deep flex items-center justify-center shrink-0 mt-0.5">
+                                            <Icon size={13} className={color} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed">{notif.body}</p>
-                                            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{relativeTime(notif.createdAt)}</p>
+                                            <p className={`text-xs leading-relaxed ${!notif.read ? "text-ic-ink" : "text-ic-ink-soft"}`}>
+                                                {notif.body}
+                                            </p>
+                                            <p className="font-mono text-[10px] text-ic-muted mt-1">
+                                                {relativeTime(notif.createdAt)}
+                                            </p>
                                         </div>
                                         {!notif.read && (
-                                            <div className="w-1.5 h-1.5 rounded-full bg-[#0d9488] mt-2 shrink-0" />
+                                            <div className="w-1.5 h-1.5 rounded-full bg-ic-accent-bright mt-2 shrink-0" />
                                         )}
                                     </div>
                                 );
@@ -222,14 +233,15 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                         )}
                     </div>
 
-                    <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
+                    {/* Footer */}
+                    <div className="px-4 py-3 border-t border-ic-rule-soft">
                         <Link
                             href="/notifications"
-                            className="block text-center text-xs font-semibold
-                text-[#0d9488] hover:text-teal-600 transition-colors"
+                            className="block text-center font-mono text-[12px] font-medium
+                                text-ic-accent hover:text-ic-accent-bright transition-colors"
                             onClick={() => setIsOpen(false)}
                         >
-                            View All Notifications →
+                            View all →
                         </Link>
                     </div>
                 </div>
