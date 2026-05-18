@@ -47,33 +47,21 @@ export default function FollowButton({
         lg: "text-base px-6 py-3",
     };
 
-    if (variant === "compact") {
-        return (
-            <button
-                onClick={handleToggleFollow}
-                disabled={isPending}
-                className={`flex items-center gap-1.5 rounded-lg font-semibold transition-all ${sizeClasses[size]} ${
-                    isFollowing
-                        ? "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700"
-                        : "bg-[#0d9488] text-white hover:bg-[#0f766e] shadow-sm"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-                {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
-            </button>
-        );
-    }
+    const followingCls = `bg-ic-paper-deep border border-ic-rule text-ic-muted`;
+    const notFollowingCls = `border border-ic-rule text-ic-ink hover:border-ic-accent hover:text-ic-ink`;
 
     return (
         <button
             onClick={handleToggleFollow}
             disabled={isPending}
-            className={`flex items-center gap-2 rounded-xl font-bold transition-all ${sizeClasses[size]} ${
-                isFollowing
-                    ? "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border-2 border-gray-200 dark:border-slate-700"
-                    : "bg-linear-to-r from-[#0d9488] to-teal-600 text-white hover:from-[#0f766e] hover:to-teal-700 shadow-md hover:shadow-lg"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`flex items-center gap-2 rounded-lg font-mono font-medium transition-colors
+                ${sizeClasses[size]}
+                ${isFollowing ? followingCls : notFollowingCls}
+                disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-            {isFollowing ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
+            {isFollowing
+                ? <><UserCheck size={14} /> Following</>
+                : <><UserPlus size={14} /> Follow</>}
         </button>
     );
 }

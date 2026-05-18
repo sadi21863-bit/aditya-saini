@@ -6,7 +6,7 @@ import { getAuthenticatedUserId } from "@/lib/auth";
 import FollowButton from "@/components/FollowButton";
 import IdeaCard from "@/components/IdeaCard";
 import Link from "next/link";
-import { Globe, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -20,6 +20,21 @@ export async function generateMetadata({
     description: `View @${handle}'s ideas and rooms on IdeaConnect.`,
   };
 }
+
+// IC_AI lookup for agent profile cards
+const IC_CAT_KNOWN = ["climate","urbanism","ai","biotech","games","philosophy","hardware","tools"] as const;
+function catClass(cat: string | null): string {
+  const c = (cat ?? "").toLowerCase();
+  return IC_CAT_KNOWN.includes(c as typeof IC_CAT_KNOWN[number]) ? `ic-cat-${c}` : "ic-cat-tools";
+}
+
+const AGENT_META: Record<string, { glyph: string; bgCls: string; fgCls: string; desc: string }> = {
+  "llama":    { glyph: "◆", bgCls: "bg-ic-ai-llama-bg",    fgCls: "text-ic-ai-llama-fg",    desc: "Thoughtful, grounded reasoning. Daily participant in AI Lab debates." },
+  "gpt-oss":  { glyph: "◈", bgCls: "bg-ic-ai-gptoss-bg",   fgCls: "text-ic-ai-gptoss-fg",   desc: "Precision-focused analysis. Daily participant in AI Lab debates." },
+  "scout":    { glyph: "▲", bgCls: "bg-ic-ai-scout-bg",    fgCls: "text-ic-ai-scout-fg",    desc: "Pattern recognition, fast thinking. Daily participant in AI Lab debates." },
+  "maverick": { glyph: "◉", bgCls: "bg-ic-ai-maverick-bg", fgCls: "text-ic-ai-maverick-fg", desc: "Challenges frames, questions assumptions. Daily participant in AI Lab debates." },
+  "research": { glyph: "⬡", bgCls: "bg-ic-ai-research-bg", fgCls: "text-ic-ai-research-fg", desc: "Drops in with real data and citations. AI Lab researcher." },
+};
 
 export default async function ProfilePage({
   params,
@@ -55,6 +70,7 @@ export default async function ProfilePage({
           role: roomMembers.role,
           roomName: rooms.name,
           roomVisibility: rooms.visibility,
+          roomCategory: rooms.category,
         })
         .from(roomMembers)
         .innerJoin(rooms, eq(roomMembers.roomId, rooms.id))
@@ -93,97 +109,157 @@ export default async function ProfilePage({
     name: profileUser.name,
   };
 
+  const agentInfo = profileUser.isAi ? AGENT_META[profileUser.handle ?? ""] ?? null : null;
+
+  const tabs = ["Ideas", "Rooms", "Sparked", ...(isOwnProfile ? ["Bookmarks"] : [])];
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {profileUser.name ?? `@${profileUser.handle}`}
-          </h1>
-          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">@{profileUser.handle}</p>
-          {profileUser.bio && (
-            <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">{profileUser.bio}</p>
-          )}
-          <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500 dark:text-slate-400">
-            <span><strong className="text-gray-900 dark:text-white">{followerCount}</strong> followers</span>
-            <span><strong className="text-gray-900 dark:text-white">{followingCount}</strong> following</span>
-            <span><strong className="text-gray-900 dark:text-white">{userIdeas.length}</strong> ideas</span>
-            <span><strong className="text-gray-900 dark:text-white">{visibleRooms.length}</strong> rooms</span>
+
+      {/* Banner */}
+      <div className="h-32 rounded-2xl bg-gradient-to-r from-ic-ink to-ic-paper-deep" />
+
+      {/* Avatar + header */}
+      <div className="px-2">
+        {/* Avatar — overlaps banner */}
+        <div className="-mt-10 mb-3">
+          <div className="w-20 h-20 rounded-full border-4 border-ic-paper bg-ic-paper-deep flex items-center justify-center font-mono text-2xl font-semibold text-ic-muted relative overflow-hidden shrink-0">
+            {profileUser.avatarUrl ? (
+              <img
+                src={profileUser.avatarUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={undefined}
+              />
+            ) : (
+              <span>{(profileUser.name ?? profileUser.handle ?? "?")[0]?.toUpperCase()}</span>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          {!isOwnProfile && currentUserId && (
-            <FollowButton
-              currentUserId={currentUserId}
-              targetUserId={profileUser.id}
-              targetHandle={profileUser.handle ?? ""}
-              initialIsFollowing={isFollowing}
-            />
-          )}
-          {isOwnProfile && (
-            <Link
-              href={`/profile/${handle}/edit`}
-              className="text-xs font-bold px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700
-                text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-slate-500 transition-colors"
-            >
-              Edit Profile
-            </Link>
-          )}
-        </div>
-      </div>
+        {/* Handle + display name + bio + stats + action */}
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-3xl font-normal tracking-tight text-ic-ink leading-tight">
+              @{profileUser.handle}
+            </h1>
+            {profileUser.name && (
+              <p className="text-ic-ink-soft mt-0.5">{profileUser.name}</p>
+            )}
+            {profileUser.bio && (
+              <p className="text-ic-ink-soft text-sm mt-2 max-w-lg leading-relaxed">{profileUser.bio}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-4 mt-3 font-mono text-[11px] text-ic-muted">
+              <span><span className="text-ic-ink font-semibold">{followerCount}</span> followers</span>
+              <span><span className="text-ic-ink font-semibold">{followingCount}</span> following</span>
+              <span><span className="text-ic-ink font-semibold">{userIdeas.length}</span> ideas</span>
+            </div>
+          </div>
 
-      {/* Rooms */}
-      {visibleRooms.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Rooms</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {visibleRooms.map((r) => (
+          <div className="shrink-0 mt-1">
+            {!isOwnProfile && currentUserId && (
+              <FollowButton
+                currentUserId={currentUserId}
+                targetUserId={profileUser.id}
+                targetHandle={profileUser.handle ?? ""}
+                initialIsFollowing={isFollowing}
+              />
+            )}
+            {isOwnProfile && (
               <Link
-                key={r.roomId}
-                href={`/rooms/${r.roomId}`}
-                className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4
-                  hover:border-teal-700/50 transition-colors group"
+                href={`/profile/${handle}/edit`}
+                className="px-4 py-2 rounded-lg border border-ic-rule text-ic-muted font-mono text-xs
+                  hover:border-ic-accent hover:text-ic-ink transition-colors"
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors truncate">
-                    {r.roomName}
-                  </h3>
-                  {r.roomVisibility === "private" ? (
-                    <Lock size={12} className="text-gray-400 dark:text-slate-500 shrink-0" />
-                  ) : (
-                    <Globe size={12} className="text-teal-500 shrink-0" />
-                  )}
-                </div>
-                <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 capitalize">{r.role}</p>
+                Edit Profile
               </Link>
-            ))}
+            )}
           </div>
         </div>
-      )}
 
-      {/* Ideas */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Ideas</h2>
-        <span className="text-xs text-gray-400 dark:text-slate-500">{userIdeas.length} total</span>
-      </div>
+        {/* AI Agent profile card */}
+        {agentInfo && (
+          <div className="mb-5 flex items-start gap-3 p-4 bg-ic-paper-deep border border-ic-rule rounded-xl">
+            <span className={`w-10 h-10 rounded flex items-center justify-center font-mono text-lg font-semibold shrink-0 ${agentInfo.bgCls} ${agentInfo.fgCls}`}>
+              {agentInfo.glyph}
+            </span>
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">AI Participant</p>
+              <p className="text-sm text-ic-ink-soft leading-relaxed">{agentInfo.desc}</p>
+            </div>
+          </div>
+        )}
 
-      {userIdeas.length === 0 ? (
-        <p className="text-gray-400 dark:text-slate-500 text-sm">No published ideas yet.</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {userIdeas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              author={authorMeta}
-              viewerId={currentUserId ?? ""}
-              hasLiked={false}
-            />
+        {/* Tab bar — Ideas active by default */}
+        <div className="flex gap-6 border-b border-ic-rule mb-6">
+          {tabs.map((tab, i) => (
+            <span
+              key={tab}
+              className={`pb-3 font-mono text-[12px] font-medium cursor-default select-none ${
+                i === 0
+                  ? "border-b-2 border-ic-ink text-ic-ink -mb-px"
+                  : "text-ic-muted hover:text-ic-ink-soft"
+              }`}
+            >
+              {tab}
+            </span>
           ))}
         </div>
-      )}
+
+        {/* Ideas */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-2xl font-normal text-ic-ink">Ideas</h2>
+            <span className="font-mono text-[11px] text-ic-muted">{userIdeas.length} total</span>
+          </div>
+
+          {userIdeas.length === 0 ? (
+            <p className="font-mono text-sm text-ic-muted">No published ideas yet.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {userIdeas.map((idea) => (
+                <IdeaCard
+                  key={idea.id}
+                  idea={idea}
+                  author={authorMeta}
+                  viewerId={currentUserId ?? ""}
+                  hasLiked={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Rooms */}
+        {visibleRooms.length > 0 && (
+          <div>
+            <h2 className="font-display text-2xl font-normal text-ic-ink mb-4">Rooms</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {visibleRooms.map((r) => (
+                <Link
+                  key={r.roomId}
+                  href={`/rooms/${r.roomId}`}
+                  className="bg-ic-card border border-ic-rule rounded-xl p-4 hover:border-ic-accent transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    {r.roomCategory && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] font-medium tracking-wide ${catClass(r.roomCategory)}`}>
+                        <span className="w-1 h-1 rounded-[1px] bg-current opacity-[0.55]" />
+                        {r.roomCategory}
+                      </span>
+                    )}
+                    {r.roomVisibility === "private" && (
+                      <Lock size={11} className="text-ic-muted shrink-0 ml-auto" />
+                    )}
+                  </div>
+                  <h3 className="font-display text-base text-ic-ink truncate">{r.roomName}</h3>
+                  <p className="font-mono text-[10px] text-ic-muted mt-1 capitalize">{r.role}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

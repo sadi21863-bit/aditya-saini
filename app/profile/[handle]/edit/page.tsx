@@ -91,31 +91,35 @@ export default async function ProfileEditPage({
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white">
+        <div className="min-h-screen bg-ic-paper">
             <div className="max-w-xl mx-auto px-6 py-10">
 
                 <div className="mb-8">
                     <Link
                         href={`/profile/${handle}`}
-                        className="text-sm text-slate-400 hover:text-white transition-colors"
+                        className="font-mono text-[12px] text-ic-muted hover:text-ic-ink transition-colors"
                     >
-                        ← Back to Profile
+                        ← Back to profile
                     </Link>
                 </div>
 
-                <h1 className="text-3xl font-bold text-white mb-1">Edit Profile</h1>
-                <p className="text-slate-400 text-sm mb-8">@{me.handle}</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-2">
+                    @{me.handle}
+                </p>
+                <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink mb-8">
+                    Edit Profile
+                </h1>
 
                 {errorParam && errorMessages[errorParam] && (
-                    <div className="mb-6 px-4 py-3 rounded-xl bg-red-900/30 border border-red-800 text-red-400 text-sm">
+                    <div className="mb-6 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
                         {errorMessages[errorParam]}
                     </div>
                 )}
 
-                <form action={updateProfile} className="flex flex-col gap-6">
+                <form action={updateProfile} className="flex flex-col gap-5">
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        <label className="block font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1.5">
                             Display Name
                         </label>
                         <input
@@ -123,20 +127,18 @@ export default async function ProfileEditPage({
                             type="text"
                             defaultValue={me.name ?? ""}
                             placeholder="Your display name"
-                            className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700
-                text-white placeholder:text-slate-500 text-sm focus:outline-none
-                focus:ring-2 focus:ring-[#0d9488]/50 focus:border-[#0d9488] transition"
+                            className="w-full px-4 py-3 rounded-xl bg-ic-card border border-ic-rule
+                                text-ic-ink placeholder:text-ic-muted text-sm focus:outline-none
+                                focus:border-ic-accent transition"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        <label className="block font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1.5">
                             Handle
                         </label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-                                @
-                            </span>
+                        <div className="flex items-center bg-ic-card border border-ic-rule rounded-xl h-12 px-3 gap-2 focus-within:border-ic-accent transition">
+                            <span className="font-mono text-sm text-ic-muted select-none">@</span>
                             <input
                                 name="handle"
                                 type="text"
@@ -145,36 +147,33 @@ export default async function ProfileEditPage({
                                 required
                                 minLength={3}
                                 maxLength={30}
-                                className="w-full pl-8 pr-4 py-3 rounded-xl bg-slate-900 border border-slate-700
-                  text-white placeholder:text-slate-500 text-sm focus:outline-none
-                  focus:ring-2 focus:ring-[#0d9488]/50 focus:border-[#0d9488] transition"
+                                className="flex-1 bg-transparent text-ic-ink text-sm focus:outline-none placeholder:text-ic-muted"
                             />
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                            3–30 characters. Lowercase letters, numbers, underscores only.
+                        <p className="font-mono text-[11px] text-ic-muted mt-1.5">
+                            3–30 characters · lowercase letters, numbers, underscores only
                         </p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        <label className="block font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1.5">
                             Bio
                         </label>
                         <textarea
                             name="bio"
                             defaultValue={me.bio ?? ""}
-                            placeholder="Tell the world about yourself..."
+                            placeholder="Tell the world about yourself…"
                             maxLength={200}
                             rows={4}
-                            className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700
-                text-white placeholder:text-slate-500 text-sm resize-none
-                focus:outline-none focus:ring-2 focus:ring-[#0d9488]/50
-                focus:border-[#0d9488] transition"
+                            className="w-full px-4 py-3 rounded-xl bg-ic-card border border-ic-rule
+                                text-ic-ink placeholder:text-ic-muted text-sm resize-none
+                                focus:outline-none focus:border-ic-accent transition"
                         />
-                        <p className="text-xs text-slate-500 mt-1">Max 200 characters.</p>
+                        <p className="font-mono text-[11px] text-ic-muted mt-1">Max 200 characters.</p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-300 mb-2">
+                        <label className="block font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1.5">
                             Avatar URL
                         </label>
                         <input
@@ -182,39 +181,39 @@ export default async function ProfileEditPage({
                             type="url"
                             defaultValue={me.avatarUrl ?? ""}
                             placeholder="https://example.com/avatar.png"
-                            className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700
-                text-white placeholder:text-slate-500 text-sm focus:outline-none
-                focus:ring-2 focus:ring-[#0d9488]/50 focus:border-[#0d9488] transition"
+                            className="w-full px-4 py-3 rounded-xl bg-ic-card border border-ic-rule
+                                text-ic-ink placeholder:text-ic-muted text-sm focus:outline-none
+                                focus:border-ic-accent transition"
                         />
                     </div>
 
                     {me.avatarUrl && (
-                        <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
+                        <div className="flex items-center gap-4 p-4 rounded-xl bg-ic-paper-deep border border-ic-rule">
                             <img
                                 src={me.avatarUrl}
                                 alt="Current avatar"
-                                className="w-14 h-14 rounded-full object-cover border-2 border-[#0d9488]/40"
+                                className="w-14 h-14 rounded-full object-cover border-2 border-ic-rule"
                             />
                             <div>
-                                <p className="text-sm font-semibold text-white">{me.name ?? me.handle}</p>
-                                <p className="text-xs text-slate-500">@{me.handle}</p>
+                                <p className="font-mono text-sm font-semibold text-ic-ink">{me.name ?? me.handle}</p>
+                                <p className="font-mono text-[11px] text-ic-muted">@{me.handle}</p>
                             </div>
                         </div>
                     )}
 
-                    <div className="flex items-center gap-4 pt-2">
+                    <div className="flex items-center gap-3 pt-2">
                         <button
                             type="submit"
-                            className="flex-1 py-3 rounded-xl bg-[#0d9488] hover:bg-teal-500
-                text-white font-bold text-sm transition-colors"
+                            className="flex-1 py-3 rounded-xl bg-ic-accent hover:opacity-90
+                                text-white font-medium text-sm transition"
                         >
                             Save Changes
                         </button>
                         <Link
                             href={`/profile/${handle}`}
-                            className="flex-1 py-3 rounded-xl border border-slate-700
-                hover:border-slate-500 text-slate-400 hover:text-white
-                font-semibold text-sm text-center transition-colors"
+                            className="flex-1 py-3 rounded-xl border border-ic-rule
+                                text-ic-muted hover:border-ic-accent hover:text-ic-ink
+                                font-medium text-sm text-center transition"
                         >
                             Cancel
                         </Link>
