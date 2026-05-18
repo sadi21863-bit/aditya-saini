@@ -19,7 +19,7 @@ export default function AILabRefresher() {
   }, [router]);
 
   return (
-    <p className="text-slate-600 text-xs text-center mt-6">
+    <p className="font-mono text-[11px] text-ic-muted text-center mt-6">
       Updated {secs === 0 ? "just now" : `${secs}s ago`} · refreshes every 60s
     </p>
   );
