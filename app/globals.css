@@ -159,6 +159,12 @@ h1, h2, h3, h4, .font-display {
   font-family: var(--font-mono);
 }
 
+/* ─── Dark panel inner card surfaces ────────────────────────────────────────
+   Used inside always-dark bg-[#1A1814] sections (hero ambient card, AI Lab
+   band). rgba() inside [] gets purged by Tailwind v4's content scanner. */
+.ic-dark-card-bg { background-color: rgba(244, 241, 234, 0.04); }
+.ic-dark-card-bd { border-color:     rgba(244, 241, 234, 0.10); }
+
 /* ─── Agent chip classes for always-dark auth panel ─────────────────────────
    Tailwind v4 purges bg-[rgba(...)] because commas inside [] confuse the
    content scanner. These are hand-authored so they always survive the build. */
