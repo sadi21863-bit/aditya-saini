@@ -159,6 +159,27 @@ h1, h2, h3, h4, .font-display {
   font-family: var(--font-mono);
 }
 
+/* ─── Category chip colours (IC_CAT) ────────────────────────────────────────
+   Light mode uses solid hex; dark mode uses rgba() — both must live here
+   so Tailwind's content scanner doesn't purge the rgba dark variants. */
+.ic-cat-climate    { background-color: #DCE8DD; color: #1F4A2A; }
+.ic-cat-urbanism   { background-color: #E5DED1; color: #4A3A1F; }
+.ic-cat-ai         { background-color: #DDD9E8; color: #3A2F4A; }
+.ic-cat-biotech    { background-color: #E8DCDC; color: #4A2A2A; }
+.ic-cat-games      { background-color: #E0E2E8; color: #1F2F4A; }
+.ic-cat-philosophy { background-color: #E8E3D2; color: #3F3A1F; }
+.ic-cat-hardware   { background-color: #D9E3E8; color: #1F3A4A; }
+.ic-cat-tools      { background-color: #E8E2DC; color: #3F2D1F; }
+
+.dark .ic-cat-climate    { background-color: rgba(220, 232, 221, 0.15); color: #A8D4B0; }
+.dark .ic-cat-urbanism   { background-color: rgba(229, 222, 209, 0.15); color: #D4C4A0; }
+.dark .ic-cat-ai         { background-color: rgba(221, 217, 232, 0.15); color: #BFB5D4; }
+.dark .ic-cat-biotech    { background-color: rgba(232, 220, 220, 0.15); color: #D4A8A8; }
+.dark .ic-cat-games      { background-color: rgba(224, 226, 232, 0.15); color: #B5BFD4; }
+.dark .ic-cat-philosophy { background-color: rgba(232, 227, 210, 0.15); color: #D4CAA8; }
+.dark .ic-cat-hardware   { background-color: rgba(217, 227, 232, 0.15); color: #A8C4D4; }
+.dark .ic-cat-tools      { background-color: rgba(232, 226, 220, 0.15); color: #D4BFA8; }
+
 /* ─── Dark panel inner card surfaces ────────────────────────────────────────
    Used inside always-dark bg-[#1A1814] sections (hero ambient card, AI Lab
    band). rgba() inside [] gets purged by Tailwind v4's content scanner. */

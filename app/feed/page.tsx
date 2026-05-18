@@ -100,44 +100,76 @@ export default async function FeedPage({
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
+
+      {/* Today in AI Lab — compact dark banner */}
+      <Link
+        href="/ai-lab"
+        className="flex items-center gap-4 mb-8 px-5 py-4 bg-[#1A1814] rounded-xl border border-[#2E2A24] hover:border-ic-accent-bright transition-colors"
+      >
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-ic-accent-bright animate-pulse" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#F4F1EA]/55">
+            AI Lab · today
+          </span>
+        </div>
+        <p className="font-display italic text-[#F4F1EA] text-base leading-snug flex-1 min-w-0 truncate">
+          When does AI safety become security theatre?
+        </p>
+        <span className="font-mono text-[12px] font-medium text-ic-accent-bright flex-shrink-0">
+          Live →
+        </span>
+      </Link>
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-center justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            {sort === "hot" ? "Trending Ideas" : "Latest Ideas"}
-          </h1>
-          <p className="text-gray-500 dark:text-slate-400 text-sm">
-            Ideas from your rooms and the community. <Link href="/ai-lab" className="text-teal-500 hover:text-teal-400 transition-colors">AI Lab →</Link>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
+            Your circles
           </p>
+          <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink leading-tight">
+            {sort === "hot" ? "Trending ideas" : "Your feed"}
+          </h1>
         </div>
 
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-xl p-1 shrink-0">
+        {/* Sort toggle */}
+        <div className="flex items-center border border-ic-rule rounded-lg overflow-hidden shrink-0">
           <Link
             href={`/feed?${category ? `category=${category}&` : ""}sort=hot`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              sort === "hot" ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-medium transition-all ${
+              sort === "hot"
+                ? "bg-ic-ink text-ic-paper"
+                : "text-ic-muted hover:text-ic-ink"
             }`}
           >
-            <Flame size={12} /> Hot
+            <Flame size={11} /> Hot
           </Link>
+          <div className="w-px h-4 bg-ic-rule" />
           <Link
             href={`/feed?${category ? `category=${category}&` : ""}sort=new`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              sort !== "hot" ? "bg-[#0d9488] text-white shadow" : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-medium transition-all ${
+              sort !== "hot"
+                ? "bg-ic-ink text-ic-paper"
+                : "text-ic-muted hover:text-ic-ink"
             }`}
           >
-            <Clock size={12} /> New
+            <Clock size={11} /> New
           </Link>
         </div>
       </div>
 
-      <Suspense fallback={<div className="h-10 mb-8" />}>
+      <Suspense fallback={<div className="h-10 mb-6" />}>
         <FeedFilter categories={categories} />
       </Suspense>
 
-      <div className="mt-6 flex flex-col gap-4">
+      {/* Ideas list */}
+      <div className="flex flex-col gap-3">
         {rawIdeas.length === 0 && (
-          <p className="text-gray-400 dark:text-slate-500 text-center py-20">No ideas found. Create a room and post your first one.</p>
+          <div className="text-center py-20">
+            <p className="font-mono text-sm text-ic-muted mb-4">No ideas found.</p>
+            <Link href="/explore" className="font-mono text-[13px] text-ic-accent hover:underline">
+              Explore rooms →
+            </Link>
+          </div>
         )}
         {rawIdeas.map(({ idea, author }) => (
           <IdeaCard
@@ -150,28 +182,35 @@ export default async function FeedPage({
         ))}
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (
-            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
-              <ChevronLeft size={14} /> Previous
+            <Link
+              href={buildUrl(page - 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors"
+            >
+              <ChevronLeft size={13} /> Previous
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
-              <ChevronLeft size={14} /> Previous
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+              <ChevronLeft size={13} /> Previous
             </span>
           )}
-          <span className="text-gray-500 dark:text-slate-400 text-sm">
-            Page <span className="text-gray-900 dark:text-white font-bold">{page}</span> of{" "}
-            <span className="text-gray-900 dark:text-white font-bold">{totalPages}</span>
+          <span className="font-mono text-xs text-ic-muted">
+            Page <span className="text-ic-ink font-semibold">{page}</span> of{" "}
+            <span className="text-ic-ink font-semibold">{totalPages}</span>
           </span>
           {page < totalPages ? (
-            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
-              Next <ChevronRight size={14} />
+            <Link
+              href={buildUrl(page + 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors"
+            >
+              Next <ChevronRight size={13} />
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-600 text-sm font-semibold cursor-not-allowed">
-              Next <ChevronRight size={14} />
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+              Next <ChevronRight size={13} />
             </span>
           )}
         </div>
