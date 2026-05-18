@@ -80,20 +80,22 @@ export default async function ExplorePage({
     .sort((a, b) => b.memberCount - a.memberCount);
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-5xl mx-auto px-6 py-10">
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Explore Rooms</h1>
-          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
-            Discover public rooms and join the conversation.
+          <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-2">
+            Public rooms · open to all
           </p>
+          <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink leading-tight">
+            Find your <em className="italic">kitchen&nbsp;table.</em>
+          </h1>
         </div>
         {callerId && (
           <Link
             href="/rooms/new"
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white
-              text-sm font-semibold px-4 py-2 rounded-lg transition shrink-0"
+            className="flex items-center gap-2 bg-ic-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition shrink-0"
           >
             <Plus size={15} /> New Room
           </Link>
@@ -101,36 +103,38 @@ export default async function ExplorePage({
       </div>
 
       {/* Search + category filter */}
-      <form method="GET" className="flex flex-wrap gap-3 mb-8">
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+      <form method="GET" className="mb-6 flex flex-col gap-3">
+        {/* Search input */}
+        <div className="flex items-center gap-3 bg-ic-card border border-ic-rule rounded-xl px-4 h-11 focus-within:border-ic-accent transition-colors">
+          <Search size={14} className="text-ic-muted shrink-0" />
           <input
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search rooms…"
-            className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl pl-8 pr-4 py-2
-              text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-teal-600 transition"
+            className="flex-1 bg-transparent text-ic-ink text-sm placeholder:text-ic-muted focus:outline-none"
           />
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
+
+        {/* Category pills — horizontal scroll */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           <Link
-            href="/explore"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+            href={q ? `/explore?q=${encodeURIComponent(q)}` : "/explore"}
+            className={`shrink-0 px-4 py-1.5 rounded-full font-mono text-[11px] font-medium tracking-wide border transition-all whitespace-nowrap ${
               !category || category === "all"
-                ? "bg-teal-600 text-white"
-                : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-slate-700"
+                ? "bg-ic-ink border-ic-ink text-ic-paper"
+                : "bg-transparent border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink"
             }`}
           >
-            All
+            all
           </Link>
           {allCategories.map((cat) => (
             <Link
               key={cat}
               href={`/explore?category=${encodeURIComponent(cat)}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`shrink-0 px-4 py-1.5 rounded-full font-mono text-[11px] font-medium tracking-wide border transition-all whitespace-nowrap ${
                 category === cat
-                  ? "bg-teal-600 text-white"
-                  : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-slate-700"
+                  ? "bg-ic-ink border-ic-ink text-ic-paper"
+                  : "bg-transparent border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink"
               }`}
             >
               {cat}
@@ -142,27 +146,31 @@ export default async function ExplorePage({
       {/* Grid */}
       {sorted.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-gray-400 dark:text-slate-500 mb-4">No public rooms yet.</p>
+          <p className="font-mono text-sm text-ic-muted mb-4">No rooms found.</p>
           {callerId && (
             <Link
               href="/rooms/new"
-              className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-500
-                text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition"
+              className="font-mono text-[13px] text-ic-accent hover:underline"
             >
-              <Plus size={15} /> Create the first one
+              Create one →
             </Link>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {sorted.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              isMember={myRoomIds.has(room.id)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sorted.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                isMember={myRoomIds.has(room.id)}
+              />
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <span className="font-mono text-[13px] text-ic-muted">load more →</span>
+          </div>
+        </>
       )}
     </div>
   );

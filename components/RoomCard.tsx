@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Globe, Users, ArrowRight } from "lucide-react";
+import { Users } from "lucide-react";
 
 interface Props {
   room: {
@@ -13,46 +13,55 @@ interface Props {
   isMember?: boolean;
 }
 
+const IC_CAT_KNOWN = ["climate","urbanism","ai","biotech","games","philosophy","hardware","tools"] as const;
+
+function catClass(cat: string | null): string {
+  const c = (cat ?? "").toLowerCase();
+  return IC_CAT_KNOWN.includes(c as typeof IC_CAT_KNOWN[number])
+    ? `ic-cat-${c}`
+    : "ic-cat-tools";
+}
+
 export default function RoomCard({ room, isMember }: Props) {
   return (
     <Link
       href={`/rooms/${room.id}`}
-      className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-5
-        hover:border-teal-700/50 transition-colors group flex flex-col gap-3"
+      className="bg-ic-card border border-ic-rule rounded-2xl p-5 hover:border-ic-accent transition-colors flex flex-col gap-3"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          {room.category && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-teal-500 dark:text-teal-400 block mb-1">
-              {room.category}
-            </span>
-          )}
-          <h3 className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors truncate">
-            {room.name}
-          </h3>
-        </div>
-        <ArrowRight
-          size={14}
-          className="text-gray-400 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors shrink-0 mt-0.5"
-        />
+      {/* Category chip + joined pill */}
+      <div className="flex items-center gap-2">
+        {room.category && (
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] font-medium tracking-wide ${catClass(room.category)}`}>
+            <span className="w-1 h-1 rounded-[1px] bg-current opacity-[0.55]" />
+            {room.category}
+          </span>
+        )}
+        {isMember && (
+          <span className="ml-auto font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-ic-paper-deep text-ic-muted">
+            Joined
+          </span>
+        )}
       </div>
 
+      {/* Room name */}
+      <h3 className="font-display text-xl text-ic-ink leading-snug truncate">
+        {room.name}
+      </h3>
+
+      {/* Description */}
       {room.description && (
-        <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2">{room.description}</p>
+        <p className="text-sm text-ic-ink-soft line-clamp-2 flex-1">{room.description}</p>
       )}
 
-      <div className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-slate-500 mt-auto pt-2 border-t border-gray-100 dark:border-slate-800">
+      {/* Footer meta */}
+      <div className="flex items-center gap-3 pt-2 border-t border-ic-rule-soft font-mono text-[11px] text-ic-muted mt-auto">
         <span className="flex items-center gap-1">
           <Users size={10} />
           {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
         </span>
-        <span className="flex items-center gap-1">
-          <Globe size={10} />
-          {room.visibility === "private" ? "Private" : "Public"}
+        <span className="ml-auto capitalize">
+          {room.visibility}
         </span>
-        {isMember && (
-          <span className="ml-auto text-teal-500 dark:text-teal-400 font-semibold">Joined</span>
-        )}
       </div>
     </Link>
   );
