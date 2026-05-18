@@ -82,12 +82,25 @@ async function ensureDailyWorkQueued(): Promise<void> {
   // ── Ideas ────────────────────────────────────────────────────────────
   // Only seed ideas once the theme is in the DB (ideas reference the theme).
   if (themeInDb) {
-    const [ideasInQueue] = await rawDb.execute(sql`
+    // Only skip if ideas are pending/in_progress (actively queued) or if ideas
+    // actually exist in the DB. Completed/failed items don't block re-queuing —
+    // the content may have been deleted (e.g. manual cleanup).
+    const [ideasInDb] = await rawDb.execute(sql`
+      SELECT 1 FROM ideas
+      WHERE  room_id = ${process.env.AI_LAB_ROOM_ID}
+        AND  DATE(created_at AT TIME ZONE 'UTC') = ${today}
+      LIMIT 1
+    `) as unknown as [unknown?];
+
+    const [ideasPending] = await rawDb.execute(sql`
       SELECT 1 FROM ai_queue
       WHERE  action_type = 'post_idea'
         AND  created_at  >= (${today}::date)
+        AND  status IN ('pending', 'in_progress')
       LIMIT 1
     `) as unknown as [unknown?];
+
+    const ideasInQueue = ideasInDb ?? ideasPending;
 
     if (!ideasInQueue) {
       console.log(`[process-queue] No ideas queued for ${today} — queuing daily ideas`);
