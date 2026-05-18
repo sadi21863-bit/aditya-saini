@@ -104,6 +104,25 @@ async function writeResearchComment(
   const researchAgent = getResearchAgent();
   const today = new Date().toISOString().slice(0, 10);
 
+  // Dedup: only one @research comment per idea per day regardless of how many
+  // participants trigger research. Without this, all 4 participants posting on
+  // an empirical topic each post their own @research comment.
+  const [existing] = await db
+    .select({ id: ideaComments.id })
+    .from(ideaComments)
+    .where(
+      and(
+        eq(ideaComments.ideaId, ideaId),
+        eq(ideaComments.userId, researchAgent.id),
+        gte(ideaComments.createdAt, new Date(`${today}T00:00:00Z`))
+      )
+    )
+    .limit(1);
+  if (existing) {
+    console.log(`[executor] @research already posted for idea ${ideaId} today — skipping`);
+    return;
+  }
+
   const citationText = citations
     .slice(0, 3)
     .map((c, i) => `${i + 1}. [${c.source}] ${c.title} — ${c.summary}`)
