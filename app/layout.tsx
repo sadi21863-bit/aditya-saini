@@ -7,10 +7,11 @@ import { auth } from "@/lib/auth";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import BottomNav from "@/components/BottomNav";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, notifications } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -56,12 +57,23 @@ export default async function RootLayout({
   const userId = session?.user?.id ?? null;
 
   let handle: string | null = null;
+  let unreadCount = 0;
+
   if (userId) {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { handle: true },
-    });
+    const [user, unreadRow] = await Promise.all([
+      db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { handle: true },
+      }),
+      db
+        .select({ cnt: sql<number>`count(*)` })
+        .from(notifications)
+        .where(and(eq(notifications.userId, userId), eq(notifications.read, false)))
+        .then((r) => Number(r[0]?.cnt ?? 0)),
+    ]);
+
     handle = user?.handle ?? null;
+    unreadCount = unreadRow;
 
     // Guard: signed-in but no handle (new user or OAuth user) → force onboarding
     if (!user?.handle) {
@@ -77,13 +89,16 @@ export default async function RootLayout({
     <SessionProvider session={session}>
       <html lang="en" suppressHydrationWarning
         className={`${sourceSerif.variable} ${geist.variable} ${jetbrainsMono.variable}`}>
-        <body className="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white min-h-screen transition-colors duration-200">
+        {/* Body background and text colour come from globals.css via IC token CSS variables.
+            Tailwind dark:bg-slate-950 was overriding the var(--ic-paper) rule — removed here. */}
+        <body className="min-h-screen transition-colors duration-200">
           <ThemeProvider>
             <GlobalErrorBoundary>
               <div className="flex min-h-screen">
                 <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
-                <main className="flex-1 min-h-screen">{children}</main>
+                <main className="flex-1 min-h-screen pb-14 md:pb-0">{children}</main>
               </div>
+              <BottomNav unreadCount={unreadCount} userHandle={handle ?? ""} />
               <Toaster position="bottom-right" />
             </GlobalErrorBoundary>
           </ThemeProvider>
