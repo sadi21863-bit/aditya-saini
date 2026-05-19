@@ -22,11 +22,11 @@ type LTMatch = {
 type IssueType = "spelling" | "grammar" | "style" | "punctuation" | "other";
 
 const ISSUE_STYLES: Record<IssueType, { underline: string; badge: string; dot: string }> = {
-  spelling:    { underline: "underline decoration-red-400 decoration-2 decoration-wavy",   badge: "bg-red-50 border-red-200 text-red-700",    dot: "bg-red-400" },
-  grammar:     { underline: "underline decoration-amber-400 decoration-2 decoration-wavy", badge: "bg-amber-50 border-amber-200 text-amber-700", dot: "bg-amber-400" },
-  style:       { underline: "underline decoration-blue-400 decoration-2 decoration-wavy",  badge: "bg-blue-50 border-blue-200 text-blue-700",  dot: "bg-blue-400" },
-  punctuation: { underline: "underline decoration-purple-400 decoration-2 decoration-wavy",badge: "bg-purple-50 border-purple-200 text-purple-700", dot: "bg-purple-400" },
-  other:       { underline: "underline decoration-slate-400 decoration-2 decoration-wavy", badge: "bg-slate-50 border-slate-200 text-slate-600",  dot: "bg-slate-400" },
+  spelling:    { underline: "underline decoration-red-400 decoration-2 decoration-wavy",    badge: "bg-red-50 border-red-200 text-red-700",      dot: "bg-red-400" },
+  grammar:     { underline: "underline decoration-amber-400 decoration-2 decoration-wavy",  badge: "bg-amber-50 border-amber-200 text-amber-700", dot: "bg-amber-400" },
+  style:       { underline: "underline decoration-blue-400 decoration-2 decoration-wavy",   badge: "bg-blue-50 border-blue-200 text-blue-700",    dot: "bg-blue-400" },
+  punctuation: { underline: "underline decoration-purple-400 decoration-2 decoration-wavy", badge: "bg-purple-50 border-purple-200 text-purple-700", dot: "bg-purple-400" },
+  other:       { underline: "underline decoration-ic-muted decoration-2 decoration-wavy",   badge: "bg-ic-paper-deep border-ic-rule text-ic-muted", dot: "bg-ic-muted" },
 };
 
 function classify(m: LTMatch): IssueType {
@@ -72,7 +72,6 @@ export default function IdeaTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Build highlighted HTML from matches
   const buildHtml = useCallback(
     (text: string, currentMatches: LTMatch[]) => {
       const sorted = [...currentMatches].sort((a, b) => a.offset - b.offset);
@@ -93,11 +92,9 @@ export default function IdeaTextEditor({
     []
   );
 
-  // Keep editor HTML in sync when matches change (not on every keystroke)
   useEffect(() => {
     if (!editorRef.current) return;
     const sel = window.getSelection();
-    // Save caret offset
     let caretOffset = 0;
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
@@ -107,7 +104,6 @@ export default function IdeaTextEditor({
       caretOffset = preRange.toString().length;
     }
     editorRef.current.innerHTML = buildHtml(value, matches);
-    // Restore caret
     restoreCaret(editorRef.current, caretOffset);
   }, [matches, buildHtml, value]);
 
@@ -137,7 +133,6 @@ export default function IdeaTextEditor({
     setActiveIdx(null);
     setPanelOpen(false);
 
-    // #41: debounce grammar check — only fires 500ms after the user stops typing
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (editorRef.current) {
@@ -217,7 +212,6 @@ export default function IdeaTextEditor({
   const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
   const charCount = value.length;
 
-  // Group by type for panel
   const groups: Record<IssueType, { match: LTMatch; idx: number }[]> = {
     spelling: [], grammar: [], style: [], punctuation: [], other: [],
   };
@@ -230,22 +224,21 @@ export default function IdeaTextEditor({
 
   return (
     <div className="flex flex-col gap-0">
-      {/* Hidden input for form submission */}
       <input type="hidden" name={name} value={value} />
       {required && <input type="text" required className="sr-only" value={value} onChange={() => {}} tabIndex={-1} />}
 
       {/* Editor container */}
-      <div className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus-within:border-[#0d9488] focus-within:ring-2 focus-within:ring-[#0d9488]/20 transition-all overflow-hidden">
+      <div className="relative rounded-2xl border border-ic-rule bg-ic-paper focus-within:border-ic-accent transition-all overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-ic-rule bg-ic-card">
+          <div className="flex items-center gap-3 font-mono text-[11px] text-ic-muted">
             <span>{wordCount} words</span>
-            <span className="text-slate-200">|</span>
+            <span className="text-ic-rule">|</span>
             <span>{charCount}{maxLength ? `/${maxLength}` : ""} chars</span>
             {matches.length > 0 && (
               <>
-                <span className="text-slate-200">|</span>
-                <span className={matches.length > 0 ? "text-amber-500 font-semibold" : ""}>
+                <span className="text-ic-rule">|</span>
+                <span className="text-amber-500 font-semibold">
                   {matches.length} issue{matches.length !== 1 ? "s" : ""}
                 </span>
               </>
@@ -255,8 +248,8 @@ export default function IdeaTextEditor({
             type="button"
             onClick={handleCheck}
             disabled={isChecking || !value.trim()}
-            className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-xl
-              bg-[#0d9488]/10 text-[#0d9488] hover:bg-[#0d9488]/20
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold px-3 py-1 rounded-xl
+              bg-ic-accent/10 text-ic-accent hover:bg-ic-accent/20
               disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {isChecking ? (
@@ -285,21 +278,21 @@ export default function IdeaTextEditor({
             }
           }}
           style={{ minHeight: `${rows * 1.75}rem` }}
-          className="w-full px-4 py-3 text-sm leading-relaxed text-slate-900 outline-none
-            whitespace-pre-wrap break-words
+          className="w-full px-4 py-3 text-sm leading-relaxed text-ic-ink outline-none
+            whitespace-pre-wrap break-words font-sans
             empty:before:content-[attr(data-placeholder)]
-            empty:before:text-slate-400 empty:before:pointer-events-none"
+            empty:before:text-ic-muted empty:before:pointer-events-none"
         />
 
         {/* Status bar */}
         {matches.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-white">
+          <div className="flex items-center justify-between px-4 py-2 border-t border-ic-rule bg-ic-card">
             <div className="flex items-center gap-2">
-              {(["spelling","grammar","style","punctuation"] as IssueType[]).map((type) => {
+              {(["spelling", "grammar", "style", "punctuation"] as IssueType[]).map((type) => {
                 const count = groups[type].length;
                 if (!count) return null;
                 return (
-                  <span key={type} className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                  <span key={type} className="flex items-center gap-1 font-mono text-[10px] text-ic-muted">
                     <span className={`h-1.5 w-1.5 rounded-full ${ISSUE_STYLES[type].dot}`} />
                     {count} {issueLabels[type]}
                   </span>
@@ -309,7 +302,7 @@ export default function IdeaTextEditor({
             <button
               type="button"
               onClick={() => setPanelOpen((v) => !v)}
-              className="flex items-center gap-1 text-[11px] text-[#0d9488] font-semibold hover:underline"
+              className="flex items-center gap-1 font-mono text-[11px] text-ic-accent hover:underline"
             >
               {panelOpen ? <><ChevronUp size={12} /> Hide</> : <><ChevronDown size={12} /> Show suggestions</>}
             </button>
@@ -319,28 +312,28 @@ export default function IdeaTextEditor({
 
       {/* Suggestions panel */}
       {panelOpen && matches.length > 0 && (
-        <div className="mt-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
-              <Wand2 size={13} className="text-[#0d9488]" />
+        <div className="mt-2 rounded-2xl border border-ic-rule bg-ic-card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-ic-rule-soft flex items-center justify-between">
+            <span className="font-mono text-[11px] text-ic-ink flex items-center gap-2">
+              <Wand2 size={13} className="text-ic-accent" />
               Writing suggestions
             </span>
             <button
               type="button"
               onClick={() => { setMatches([]); setPanelOpen(false); }}
-              className="text-[10px] text-slate-400 hover:text-slate-600"
+              className="font-mono text-[10px] text-ic-muted hover:text-ic-ink"
             >
               Dismiss all
             </button>
           </div>
-          <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
-            {(["spelling","grammar","punctuation","style","other"] as IssueType[]).map((type) => {
+          <div className="max-h-64 overflow-y-auto divide-y divide-ic-rule-soft">
+            {(["spelling", "grammar", "punctuation", "style", "other"] as IssueType[]).map((type) => {
               const items = groups[type];
               if (!items.length) return null;
               return (
                 <div key={type}>
-                  <div className="px-4 py-1.5 bg-slate-50">
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <div className="px-4 py-1.5 bg-ic-paper-deep">
+                    <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ic-muted">
                       <span className={`h-1.5 w-1.5 rounded-full ${ISSUE_STYLES[type].dot}`} />
                       {issueLabels[type]}
                     </span>
@@ -353,35 +346,35 @@ export default function IdeaTextEditor({
                         key={idx}
                         onClick={() => setActiveIdx(isActive ? null : idx)}
                         className={`px-4 py-3 cursor-pointer transition-colors ${
-                          isActive ? "bg-teal-50" : "hover:bg-slate-50"
+                          isActive ? "bg-ic-accent/5" : "hover:bg-ic-paper-deep"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-slate-700 leading-snug">{m.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                            <p className="text-[12px] text-ic-ink leading-snug">{m.message}</p>
+                            <p className="font-mono text-[10px] text-ic-muted mt-0.5 truncate">
                               Original: &quot;{value.substr(m.offset, m.length)}&quot;
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); dismissMatch(idx); }}
-                            className="shrink-0 text-slate-300 hover:text-slate-500 mt-0.5"
+                            className="shrink-0 text-ic-muted hover:text-ic-ink mt-0.5"
                           >
                             <XCircle size={13} />
                           </button>
                         </div>
                         {primary && (
                           <div className="mt-2 flex items-center gap-2">
-                            <span className="text-[11px] text-slate-400">Fix:</span>
+                            <span className="font-mono text-[11px] text-ic-muted">Fix:</span>
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${ISSUE_STYLES[type].badge}`}>
                               {primary}
                             </span>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); applySuggestion(idx, primary); }}
-                              className="ml-auto flex items-center gap-1 text-[11px] font-bold text-white
-                                bg-[#0d9488] hover:bg-teal-700 px-3 py-1 rounded-lg transition-all"
+                              className="ml-auto flex items-center gap-1 font-mono text-[11px] font-semibold text-white
+                                bg-ic-accent hover:opacity-90 px-3 py-1 rounded-lg transition-all"
                             >
                               <CheckCircle2 size={11} /> Apply
                             </button>
@@ -389,14 +382,14 @@ export default function IdeaTextEditor({
                         )}
                         {isActive && m.replacements.length > 1 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            <span className="text-[10px] text-slate-400 w-full">Other suggestions:</span>
+                            <span className="font-mono text-[10px] text-ic-muted w-full">Other suggestions:</span>
                             {m.replacements.slice(1, 5).map((r, ri) => (
                               <button
                                 key={ri}
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); applySuggestion(idx, r.value); }}
-                                className="text-[11px] px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700
-                                  text-slate-600 dark:text-slate-400 hover:border-[#0d9488] hover:text-[#0d9488] transition-all"
+                                className="font-mono text-[11px] px-2 py-0.5 rounded-lg border border-ic-rule
+                                  text-ic-muted hover:border-ic-accent hover:text-ic-accent transition-all"
                               >
                                 {r.value}
                               </button>
@@ -411,9 +404,9 @@ export default function IdeaTextEditor({
             })}
           </div>
           {matches.length > 0 && (
-            <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
-              <AlertCircle size={11} className="text-slate-400" />
-              <span className="text-[10px] text-slate-400">
+            <div className="px-4 py-2 border-t border-ic-rule-soft bg-ic-paper-deep flex items-center gap-2">
+              <AlertCircle size={11} className="text-ic-muted" />
+              <span className="font-mono text-[10px] text-ic-muted">
                 Powered by LanguageTool open-source engine. Click an underlined word in the editor to jump to it.
               </span>
             </div>

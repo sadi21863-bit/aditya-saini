@@ -12,28 +12,28 @@ import {
 } from "@/app/actions/ai-lab-admin-actions";
 
 type ArchiveRow = {
-  id:            string;
-  date:          string | Date;
-  theme:         string;
-  status:        string;
-  flaggedReason: string | null;
-  narrativeArc:  string | null;
+  id:               string;
+  date:             string | Date;
+  theme:            string;
+  status:           string;
+  flaggedReason:    string | null;
+  narrativeArc:     string | null;
   keyDisagreements: unknown;
   memorableQuotes:  unknown;
-  publishedAt:   Date | null;
+  publishedAt:      Date | null;
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  draft:    "bg-slate-700 text-slate-300",
-  flagged:  "bg-amber-900/60 text-amber-300 border border-amber-700",
-  published:"bg-green-900/60 text-green-300",
-  rejected: "bg-red-900/60 text-red-300",
+  draft:     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  flagged:   "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  published: "bg-ic-accent/10 text-ic-accent",
+  rejected:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const RESOLUTION_STYLES: Record<string, string> = {
-  unresolved:    "bg-amber-900/50 text-amber-300 border border-amber-700",
-  converged:     "bg-green-900/50 text-green-300 border border-green-700",
-  one_persuaded: "bg-blue-900/50 text-blue-300 border border-blue-700",
+  unresolved:    "bg-ic-paper-deep text-ic-muted border border-ic-rule",
+  converged:     "bg-ic-accent/10 text-ic-accent border border-ic-accent/20",
+  one_persuaded: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
 };
 
 export default function ArchiveModerationPanel({
@@ -43,19 +43,15 @@ export default function ArchiveModerationPanel({
   needsReview:       ArchiveRow[];
   recentlyPublished: ArchiveRow[];
 }) {
-  const router   = useRouter();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Per-archive inline edit state
   const [editingId,    setEditingId]    = useState<string | null>(null);
   const [narrativeVal, setNarrativeVal] = useState("");
   const [rejectingId,  setRejectingId]  = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [feedback,     setFeedback]     = useState<Record<string, string>>({});
-
-  // Optimistic removal: IDs dismissed from the Needs Review list immediately on action success.
-  // router.refresh() then syncs server state in the background without a visible scroll jump.
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed,    setDismissed]    = useState<Set<string>>(new Set());
 
   function setMsg(id: string, msg: string) {
     setFeedback((prev) => ({ ...prev, [id]: msg }));
@@ -66,7 +62,6 @@ export default function ArchiveModerationPanel({
     startTransition(async () => {
       const result = await fn();
       if (result.success) {
-        // Remove card immediately so the page doesn't scroll on refresh
         setDismissed((prev) => new Set(prev).add(archiveId));
         setEditingId(null);
         setRejectingId(null);
@@ -79,12 +74,12 @@ export default function ArchiveModerationPanel({
 
   return (
     <div className="flex flex-col gap-10">
-      {/* ── Needs Review ─────────────────────────────────────────────── */}
+      {/* ── Needs Review ── */}
       <section>
-        <h2 className="text-xl font-semibold text-white mb-5">Needs Review</h2>
+        <h2 className="font-display text-xl text-ic-ink mb-5">Needs Review</h2>
 
         {needsReview.filter((a) => !dismissed.has(a.id)).length === 0 ? (
-          <p className="text-slate-500 py-10 text-center">
+          <p className="font-mono text-[12px] text-ic-muted py-10 text-center">
             All caught up — no archives need review.
           </p>
         ) : (
@@ -97,18 +92,20 @@ export default function ArchiveModerationPanel({
               const msg           = feedback[archive.id];
 
               return (
-                <div key={archive.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <div key={archive.id} className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6">
                   {/* Header */}
                   <div className="flex flex-wrap items-center gap-3 mb-4">
-                    <span className="text-slate-400 text-sm">{String(archive.date).slice(0, 10)}</span>
-                    <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${STATUS_BADGE[archive.status] ?? STATUS_BADGE.draft}`}>
+                    <span className="font-mono text-[11px] text-ic-muted">
+                      {String(archive.date).slice(0, 10)}
+                    </span>
+                    <span className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded ${STATUS_BADGE[archive.status] ?? STATUS_BADGE.draft}`}>
                       {archive.status}
                     </span>
-                    <h3 className="text-white font-semibold text-lg">{archive.theme}</h3>
+                    <h3 className="font-display text-lg text-ic-ink">{archive.theme}</h3>
                   </div>
 
                   {archive.flaggedReason && (
-                    <p className="text-amber-400 text-sm mb-4 bg-amber-900/20 border border-amber-800 rounded-lg px-3 py-2">
+                    <p className="font-mono text-[11px] text-amber-700 dark:text-amber-400 mb-4 bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
                       QC flag: {archive.flaggedReason}
                     </p>
                   )}
@@ -116,8 +113,13 @@ export default function ArchiveModerationPanel({
                   {/* Narrative arc */}
                   {archive.narrativeArc && (
                     <div className="mb-4">
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wide mb-2">Narrative</p>
-                      <article className="text-slate-100 leading-relaxed space-y-4 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-teal-400 [&_h2]:mt-4 [&_h2]:mb-1 [&_strong]:text-white [&_em]:text-slate-300 [&_p]:text-slate-200 border border-slate-800 rounded-xl p-4 bg-slate-950">
+                      <p className="font-mono text-[10px] text-ic-muted uppercase tracking-widest mb-2">
+                        Narrative
+                      </p>
+                      <article className="text-ic-ink leading-relaxed space-y-4
+                        [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-ic-accent [&_h2]:mt-4 [&_h2]:mb-1
+                        [&_strong]:text-ic-ink [&_em]:text-ic-ink-soft [&_p]:text-ic-ink-soft
+                        border border-ic-rule rounded-xl p-4 bg-ic-paper-deep">
                         <ReactMarkdown>{archive.narrativeArc}</ReactMarkdown>
                       </article>
                     </div>
@@ -126,24 +128,30 @@ export default function ArchiveModerationPanel({
                   {/* Key disagreements */}
                   {disagreements.length > 0 && (
                     <div className="mb-4">
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wide mb-2">Key Disagreements</p>
+                      <p className="font-mono text-[10px] text-ic-muted uppercase tracking-widest mb-2">
+                        Key Disagreements
+                      </p>
                       <div className="flex flex-col gap-2">
                         {disagreements.map((d, i) => {
                           const between    = (Array.isArray(d.between) ? d.between : []) as string[];
                           const resolution = String(d.resolution ?? "unresolved");
                           return (
-                            <div key={i} className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                            <div key={i} className="bg-ic-paper border border-ic-rule rounded-lg p-3">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 {between.map((h, j) => (
-                                  <span key={h} className={`px-2 py-0.5 rounded text-xs font-semibold ${j === 0 ? "bg-teal-900/60 text-teal-300" : "bg-slate-700 text-slate-300"}`}>
+                                  <span key={h} className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded ${
+                                    j === 0
+                                      ? "bg-ic-paper-deep border border-ic-rule text-ic-accent"
+                                      : "bg-ic-paper-deep border border-ic-rule text-ic-muted"
+                                  }`}>
                                     @{h}
                                   </span>
                                 ))}
-                                <span className={`ml-auto px-2 py-0.5 rounded text-xs ${RESOLUTION_STYLES[resolution] ?? RESOLUTION_STYLES.unresolved}`}>
+                                <span className={`ml-auto font-mono text-[9px] uppercase px-2 py-0.5 rounded ${RESOLUTION_STYLES[resolution] ?? RESOLUTION_STYLES.unresolved}`}>
                                   {resolution.replace("_", " ")}
                                 </span>
                               </div>
-                              <p className="text-slate-300 text-sm">{String(d.topic ?? "")}</p>
+                              <p className="text-ic-ink-soft text-sm">{String(d.topic ?? "")}</p>
                             </div>
                           );
                         })}
@@ -154,12 +162,16 @@ export default function ArchiveModerationPanel({
                   {/* Memorable quotes */}
                   {quotes.length > 0 && (
                     <div className="mb-4">
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wide mb-2">Memorable Quotes</p>
+                      <p className="font-mono text-[10px] text-ic-muted uppercase tracking-widest mb-2">
+                        Memorable Quotes
+                      </p>
                       <div className="flex flex-col gap-3">
                         {quotes.map((q, i) => (
-                          <blockquote key={i} className="border-l-2 border-teal-600 pl-3">
-                            <p className="text-slate-200 text-sm">{String(q.text ?? "")}</p>
-                            <footer className="text-teal-400 text-xs mt-1">— @{String(q.agent ?? "")}</footer>
+                          <blockquote key={i} className="border-l-2 border-ic-accent pl-3">
+                            <p className="text-ic-ink text-sm">{String(q.text ?? "")}</p>
+                            <footer className="font-mono text-[11px] text-ic-accent mt-1">
+                              — @{String(q.agent ?? "")}
+                            </footer>
                           </blockquote>
                         ))}
                       </div>
@@ -173,17 +185,20 @@ export default function ArchiveModerationPanel({
                         value={narrativeVal}
                         onChange={(e) => setNarrativeVal(e.target.value)}
                         rows={12}
-                        className="w-full bg-slate-950 border border-teal-600 rounded-xl p-3 text-slate-200 text-sm resize-y focus:outline-none"
+                        className="w-full bg-ic-paper border border-ic-accent rounded-xl p-3 text-ic-ink text-sm resize-y focus:outline-none font-sans"
                       />
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={() => run(() => editArchiveNarrative(archive.id, narrativeVal), archive.id)}
                           disabled={isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-ic-accent hover:opacity-90 text-white text-xs font-medium rounded-lg transition disabled:opacity-50"
                         >
                           {isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                         </button>
-                        <button onClick={() => setEditingId(null)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition">
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink text-xs font-medium rounded-lg transition"
+                        >
                           <X size={12} /> Cancel
                         </button>
                       </div>
@@ -198,17 +213,20 @@ export default function ArchiveModerationPanel({
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
                         placeholder="Rejection reason…"
-                        className="w-full bg-slate-950 border border-red-600 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none"
+                        className="w-full bg-ic-paper border border-red-400 rounded-xl px-3 py-2 text-ic-ink text-sm focus:outline-none font-sans"
                       />
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={() => run(() => rejectArchive(archive.id, rejectReason), archive.id)}
                           disabled={isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition disabled:opacity-50"
                         >
                           {isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />} Confirm Reject
                         </button>
-                        <button onClick={() => setRejectingId(null)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition">
+                        <button
+                          onClick={() => setRejectingId(null)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink text-xs font-medium rounded-lg transition"
+                        >
                           <X size={12} /> Cancel
                         </button>
                       </div>
@@ -217,35 +235,35 @@ export default function ArchiveModerationPanel({
 
                   {/* Feedback message */}
                   {msg && (
-                    <p className="text-sm text-teal-400 mb-3">{msg}</p>
+                    <p className="font-mono text-[12px] text-ic-accent mb-3">{msg}</p>
                   )}
 
                   {/* Action buttons */}
                   {!isEditing && !isRejecting && (
-                    <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800">
+                    <div className="flex flex-wrap gap-2 pt-4 border-t border-ic-rule">
                       <button
                         onClick={() => run(() => approveArchive(archive.id), archive.id)}
                         disabled={isPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-800 hover:bg-green-700 text-green-200 text-xs font-semibold rounded-lg transition disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition disabled:opacity-50"
                       >
                         <CheckCircle size={12} /> Approve
                       </button>
                       <button
                         onClick={() => { setEditingId(archive.id); setNarrativeVal(archive.narrativeArc ?? ""); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink text-xs font-medium rounded-lg transition"
                       >
                         <Edit3 size={12} /> Edit Narrative
                       </button>
                       <button
                         onClick={() => run(() => regenerateArchive(archive.id), archive.id)}
                         disabled={isPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink text-xs font-medium rounded-lg transition disabled:opacity-50"
                       >
                         {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Regenerate
                       </button>
                       <button
                         onClick={() => { setRejectingId(archive.id); setRejectReason(""); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-900/50 hover:bg-red-800/60 text-red-300 text-xs font-semibold rounded-lg border border-red-800 transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-medium rounded-lg transition"
                       >
                         <XCircle size={12} /> Reject
                       </button>
@@ -258,21 +276,23 @@ export default function ArchiveModerationPanel({
         )}
       </section>
 
-      {/* ── Recently Published ──────────────────────────────────────── */}
+      {/* ── Recently Published ── */}
       <section>
-        <h2 className="text-xl font-semibold text-white mb-5">Recently Published</h2>
+        <h2 className="font-display text-xl text-ic-ink mb-5">Recently Published</h2>
         {recentlyPublished.length === 0 ? (
-          <p className="text-slate-500 text-sm">No published archives yet.</p>
+          <p className="font-mono text-[12px] text-ic-muted">No published archives yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {recentlyPublished.map((archive) => (
-              <div key={archive.id} className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+              <div key={archive.id} className="flex items-center justify-between bg-ic-card border border-ic-rule rounded-xl px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-400 text-sm">{String(archive.date).slice(0, 10)}</span>
-                  <span className="text-white text-sm font-medium">{archive.theme}</span>
+                  <span className="font-mono text-[11px] text-ic-muted">
+                    {String(archive.date).slice(0, 10)}
+                  </span>
+                  <span className="text-ic-ink text-sm font-medium">{archive.theme}</span>
                 </div>
                 {archive.publishedAt && (
-                  <span className="text-slate-500 text-xs">
+                  <span className="font-mono text-[10px] text-ic-muted">
                     Published {new Date(archive.publishedAt).toLocaleDateString()}
                   </span>
                 )}

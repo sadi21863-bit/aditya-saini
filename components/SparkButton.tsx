@@ -56,12 +56,12 @@ export default function SparkButton({
       className={`relative group flex items-center gap-2.5 px-5 py-2.5 rounded-full font-bold
         text-sm transition-all duration-300 active:scale-95 select-none ${
           disabled
-            ? "bg-gray-100 dark:bg-slate-800 text-gray-300 dark:text-slate-600 cursor-not-allowed opacity-50"
+            ? "bg-ic-paper-deep text-ic-muted cursor-not-allowed opacity-50"
             : hasLiked
-              ? "bg-[#0d9488] text-white cursor-default shadow-md"
+              ? "bg-ic-accent text-white cursor-default shadow-md"
               : isActive
-                ? "bg-[#0d9488] text-white shadow-lg"
-                : "bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 hover:border-[#0d9488] hover:text-[#0d9488]"
+                ? "bg-ic-accent text-white shadow-lg"
+                : "bg-ic-paper-deep text-ic-muted border border-ic-rule hover:border-ic-accent hover:text-ic-accent"
         }`}
     >
       <Zap
@@ -70,7 +70,7 @@ export default function SparkButton({
       />
       <span className="font-mono tabular-nums">{count}</span>
       {isActive && (
-        <span className="absolute inset-0 rounded-full animate-ping bg-[#0d9488]/20 pointer-events-none" />
+        <span className="absolute inset-0 rounded-full animate-ping bg-ic-accent/20 pointer-events-none" />
       )}
     </button>
   );

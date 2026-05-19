@@ -18,12 +18,12 @@ export default async function NewRoomPage() {
   return (
     <div className="max-w-lg mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Create a Room</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          A room is a shared space for your team to brainstorm and build ideas together.
+        <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink">Create a room.</h1>
+        <p className="font-mono text-[12px] text-ic-muted mt-2">
+          A focused space for a single topic. Smaller scope is better than wider.
         </p>
       </div>
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="bg-ic-card border border-ic-rule rounded-2xl p-6">
         <CreateRoomForm />
       </div>
     </div>

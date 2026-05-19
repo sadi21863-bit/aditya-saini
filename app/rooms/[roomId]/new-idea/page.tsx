@@ -29,7 +29,7 @@ export default async function NewIdeaPage({
     <div className="max-w-2xl mx-auto px-6 py-10">
       <Link
         href={`/rooms/${roomId}`}
-        className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-6 transition"
+        className="inline-flex items-center gap-1.5 font-mono text-[12px] text-ic-muted hover:text-ic-ink mb-6 transition"
       >
         <ArrowLeft size={14} /> {room.name}
       </Link>

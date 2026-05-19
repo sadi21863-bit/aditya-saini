@@ -24,9 +24,6 @@ export default function RoomInviteModal({ roomId }: Props) {
     setMsg(null);
 
     startSend(async () => {
-      // Look up user by handle via server; for now we pass handle and let
-      // the server resolve — but inviteMember takes a userId.
-      // We call a thin wrapper that accepts handle.
       const res = await fetch(`/api/users/by-handle?handle=${encodeURIComponent(h)}`);
       if (!res.ok) { setMsg({ text: "User not found", ok: false }); return; }
       const { userId } = await res.json();
@@ -63,22 +60,24 @@ export default function RoomInviteModal({ roomId }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Search by handle */}
+      {/* Invite by handle */}
       <div>
-        <h3 className="text-sm font-bold text-slate-300 mb-2">Invite by handle</h3>
+        <h3 className="font-mono text-[12px] text-ic-muted uppercase tracking-wide mb-2">
+          Invite by handle
+        </h3>
         <form onSubmit={handleInvite} className="flex gap-2">
           <input
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             placeholder="@username"
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2
-              text-white text-sm placeholder-slate-500 focus:outline-none focus:border-teal-600 transition"
+            className="flex-1 bg-ic-card border border-ic-rule rounded-xl px-3 py-2
+              text-ic-ink text-sm placeholder:text-ic-muted focus:outline-none focus:border-ic-accent transition"
           />
           <button
             type="submit"
             disabled={sendPending || !handle.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500
-              disabled:opacity-50 text-white text-sm font-bold transition"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-ic-accent hover:opacity-90
+              disabled:opacity-50 text-white text-sm font-medium transition"
           >
             {sendPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
             Send
@@ -86,31 +85,34 @@ export default function RoomInviteModal({ roomId }: Props) {
         </form>
       </div>
 
-      {/* Invite link */}
+      {/* Copy invite link */}
       <div>
-        <h3 className="text-sm font-bold text-slate-300 mb-2">Copy invite link</h3>
+        <h3 className="font-mono text-[12px] text-ic-muted uppercase tracking-wide mb-2">
+          Copy invite link
+        </h3>
         {inviteCode ? (
-          <div className="flex gap-2">
+          <div className="bg-ic-paper-deep border border-ic-rule rounded-xl flex items-center">
             <input
               readOnly
               value={`${typeof window !== "undefined" ? window.location.origin : ""}/rooms/join/${inviteCode}`}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2
-                text-slate-400 text-xs focus:outline-none truncate"
+              className="flex-1 bg-transparent text-ic-muted text-xs px-3 py-2.5 focus:outline-none truncate"
             />
             <button
               onClick={copyLink}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600
-                text-slate-300 hover:text-white text-sm font-bold transition"
+              className="border-l border-ic-rule px-4 py-2.5 text-ic-muted hover:text-ic-ink transition"
             >
-              {copied ? <Check size={13} className="text-teal-400" /> : <Copy size={13} />}
+              {copied
+                ? <Check size={13} className="text-ic-accent-bright" />
+                : <Copy size={13} />}
             </button>
           </div>
         ) : (
           <button
             onClick={handleGenerateLink}
             disabled={linkPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700
-              border border-slate-700 text-slate-300 hover:text-white text-sm font-semibold transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl
+              border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink
+              text-sm font-medium transition disabled:opacity-50"
           >
             {linkPending ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
             Generate invite link (7 days)
@@ -119,7 +121,9 @@ export default function RoomInviteModal({ roomId }: Props) {
       </div>
 
       {msg && (
-        <p className={`text-sm ${msg.ok ? "text-teal-400" : "text-red-400"}`}>{msg.text}</p>
+        <p className={`font-mono text-[12px] ${msg.ok ? "text-ic-accent" : "text-red-500"}`}>
+          {msg.text}
+        </p>
       )}
     </div>
   );

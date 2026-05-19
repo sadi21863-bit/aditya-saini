@@ -27,17 +27,17 @@ export default async function JoinRoomPage({
   const errorMsg = "error" in result ? result.error : "Invalid invite link.";
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full text-center">
-        <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-          <XCircle size={24} className="text-red-400" />
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="bg-ic-card border border-ic-rule rounded-2xl p-8 max-w-sm w-full text-center">
+        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+          <XCircle size={24} className="text-red-500" />
         </div>
-        <h1 className="text-xl font-bold text-white mb-2">Invite Error</h1>
-        <p className="text-slate-400 text-sm mb-6">{errorMsg}</p>
+        <h1 className="font-display text-2xl font-normal text-ic-ink mb-2">Invite Error</h1>
+        <p className="font-mono text-[12px] text-ic-muted mb-6">{errorMsg}</p>
         <Link
           href="/explore"
-          className="inline-block px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500
-            text-white font-bold text-sm transition"
+          className="block w-full px-5 py-2.5 rounded-xl bg-ic-accent hover:opacity-90
+            text-white font-medium text-sm transition text-center"
         >
           Explore Rooms
         </Link>

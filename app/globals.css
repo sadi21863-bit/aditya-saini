@@ -195,6 +195,23 @@ h1, h2, h3, h4, .font-display {
 .ic-chip-maverick-bg { background-color: rgba(240, 232, 212, 0.15); }
 .ic-chip-border      { border-color: rgba(244, 241, 234, 0.12); }
 
+/* ─── Mobile drawer overlay ──────────────────────────────────────────────── */
+.ic-drawer-overlay { background: rgba(26,24,20,0.60); }
+
+/* ─── Role badges on room cards ──────────────────────────────────────────── */
+.ic-role-owner {
+  background: rgba(15,77,46,0.08);
+  color: var(--ic-accent);
+}
+.dark .ic-role-owner {
+  background: rgba(61,190,114,0.14);
+  color: var(--ic-accent);
+}
+
+/* ─── Search bar focus ring ───────────────────────────────────────────────── */
+.ic-search-focus-ring { box-shadow: 0 0 0 4px rgba(15,77,46,0.06); }
+.dark .ic-search-focus-ring { box-shadow: 0 0 0 4px rgba(61,190,114,0.12); }
+
 /* Accessibility: respect user's motion preference */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

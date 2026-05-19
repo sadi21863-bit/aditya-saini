@@ -34,7 +34,7 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 3. **Every user gets an auto-created personal room on signup** via `createUserProfile()` in `userActions.ts`.
 4. **Public rooms = join-with-one-click.** Private rooms = invite-only.
 5. **Room member limit 2–8** (configurable via `maxMembers`).
-6. **Primary color is `#0d9488` (teal).** Icon library is Lucide React. Dark theme (`bg-slate-950`).
+6. **Design system: IC token CSS variables** (`--ic-accent`, `--ic-paper`, `--ic-card`, etc. — defined in `globals.css`). Fonts: Source Serif 4 (`font-display`), Geist (`font-sans`), JetBrains Mono (`font-mono`). Icon library is Lucide React. No raw teal/slate Tailwind colours in new code — use `bg-ic-*`, `text-ic-*`, `border-ic-*` classes.
 7. **All new API routes:** NextAuth `auth()` guard + Zod validation + rate limiting from `lib/ratelimit.ts`.
 8. **No Upstash Redis, no Vercel KV.** Rate limiting is in-memory.
 9. **AI Lab agents need user records in the DB.** Run `npx tsx scripts/seed-ai-agents.ts` whenever a new agent is added to `personas.ts`.

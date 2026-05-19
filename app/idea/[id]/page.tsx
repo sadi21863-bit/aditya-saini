@@ -100,7 +100,6 @@ export default async function IdeaPage({
   let viewerId = "";
   try { viewerId = (await getAuthenticatedUserId()) ?? ""; } catch { /* guest */ }
 
-  // Record view
   if (viewerId) {
     recordView(ideaId).catch(() => {});
   }
@@ -142,14 +141,13 @@ export default async function IdeaPage({
   const isAiLabIdea    = !!AI_LAB_ROOM_ID && idea.roomId === AI_LAB_ROOM_ID;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-950 py-10 px-4">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen">
+      <div className="max-w-310 mx-auto px-6 md:px-12 py-6">
         <Link
           href={idea.roomId ? `/rooms/${idea.roomId}` : "/feed"}
-          className="inline-flex items-center gap-2 text-gray-500 dark:text-slate-400 hover:text-[#0d9488]
-            transition-colors font-semibold text-sm mb-8 group"
+          className="inline-flex items-center gap-1.5 font-mono text-[12px] text-ic-muted hover:text-ic-ink transition-colors mb-8"
         >
-          <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          <ChevronLeft size={13} />
           {roomName ? `Back to ${roomName}` : "Back to Feed"}
         </Link>
 
@@ -164,7 +162,7 @@ export default async function IdeaPage({
         />
 
         {/* Comments */}
-        <div className="mt-8 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl px-8 py-8">
+        <div className="mt-8 bg-ic-card border border-ic-rule rounded-2xl px-6 md:px-8 py-8">
           <CommentsSection
             ideaId={ideaId}
             ideaOwnerId={idea.userId ?? undefined}

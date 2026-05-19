@@ -1,10 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Calendar, PenLine, MessageCircle, FlaskConical } from "lucide-react";
+import { Eye, MessageCircle, FlaskConical, PenLine } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
 import type { Idea, User } from "@/db/schema";
 import Link from "next/link";
+
+const KNOWN_CATEGORIES = ["climate", "urbanism", "ai", "biotech", "games", "philosophy", "hardware", "tools"];
+
+function normalizeCat(cat: string | null): string {
+  const c = (cat ?? "").toLowerCase();
+  return KNOWN_CATEGORIES.includes(c) ? c : "tools";
+}
 
 interface IdeaDetailClientProps {
   idea: Idea;
@@ -21,59 +28,55 @@ export default function IdeaDetailClient({
 }: IdeaDetailClientProps) {
   const [commentCount] = useState(idea.totalComments ?? 0);
 
-  return (
-    <div className="space-y-6">
-      <article className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl overflow-hidden">
-        <div className="h-1 w-full bg-linear-to-r from-[#0d9488] via-teal-400 to-violet-500" />
+  const catClass = `ic-cat-${normalizeCat(idea.category)}`;
 
-        <div className="px-8 pt-8 pb-6">
-          {/* Badges row */}
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 md:gap-14 items-start">
+
+        {/* ── Left column — content ── */}
+        <article>
+          {/* Category + room badge */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
-            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#0d9488]/10 text-[#0d9488] border border-[#0d9488]/20 uppercase tracking-wider">
+            <span className={`${catClass} font-mono text-[10px] font-medium px-2 py-1 rounded-sm`}>
               {idea.category ?? "General"}
             </span>
 
-            {isAiLabIdea && (
+            {isAiLabIdea ? (
               <Link
                 href="/ai-lab"
-                className="text-xs font-bold px-3 py-1.5 rounded-full bg-teal-900/40 text-teal-400 border border-teal-800 hover:border-teal-600 transition-colors"
+                className="font-mono text-[11px] text-ic-muted hover:text-ic-ink transition-colors inline-flex items-center gap-1"
               >
-                <FlaskConical size={11} className="inline mr-1" />AI Lab
+                <FlaskConical size={11} /> AI Lab
               </Link>
-            )}
-
-            {roomName && !isAiLabIdea && (
+            ) : roomName ? (
               <Link
                 href={idea.roomId ? `/rooms/${idea.roomId}` : "#"}
-                className="text-xs font-bold px-3 py-1.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:border-teal-700 transition-colors"
+                className="font-mono text-[11px] text-ic-muted hover:text-ic-ink transition-colors"
               >
-                {roomName}
+                #{roomName}
               </Link>
-            )}
-
-            <span className="ml-auto flex items-center gap-1.5 text-xs text-gray-400 dark:text-slate-500">
-              <Calendar size={11} />
-              {idea.createdAt
-                ? new Date(idea.createdAt).toLocaleDateString("en-IN", {
-                    year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Kolkata",
-                  })
-                : ""}
-            </span>
+            ) : null}
           </div>
 
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white leading-tight mb-5 tracking-tight">
+          {/* Title */}
+          <h1 className="font-display text-[52px] leading-[1.05] tracking-[-0.02em] font-normal text-ic-ink mb-5">
             {idea.title}
           </h1>
 
+          {/* Pitch */}
           {idea.context && (
-            <p className="text-lg text-[#0d9488] italic font-medium mb-6 pb-6 border-b border-gray-200 dark:border-slate-800 leading-relaxed">
-              &quot;{idea.context}&quot;
+            <p className="font-display italic text-xl text-ic-muted leading-relaxed mb-6">
+              &ldquo;{idea.context}&rdquo;
             </p>
           )}
 
+          <div className="border-t border-ic-rule my-6" />
+
+          {/* Author row */}
           {author && (
-            <div className="flex items-center gap-3 py-4 border-b border-gray-200/60 dark:border-slate-800/60">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-teal-900 border-2 border-gray-200 dark:border-slate-700 flex items-center justify-center text-white font-bold text-sm shadow shrink-0">
+            <div className="font-mono text-[12px] text-ic-muted flex items-center gap-2 mb-8">
+              <div className="w-8 h-8 rounded overflow-hidden bg-ic-paper-deep border border-ic-rule flex items-center justify-center text-ic-ink font-bold text-xs shrink-0">
                 {author.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={author.avatarUrl} alt={author.handle ?? ""} className="w-full h-full object-cover" />
@@ -81,79 +84,119 @@ export default function IdeaDetailClient({
                   (author.name ?? author.id)[0].toUpperCase()
                 )}
               </div>
-              <div>
-                {author.isAi ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      @{author.handle ?? author.name ?? "Unknown"}
-                    </span>
-                    <span className="text-[9px] font-bold bg-teal-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
-                  </div>
-                ) : (
-                  <Link
-                    href={`/profile/${author.handle ?? author.id}`}
-                    className="text-sm font-bold text-gray-900 dark:text-white hover:text-[#0d9488] transition-colors"
-                  >
-                    @{author.handle ?? author.name ?? "Unknown"}
-                  </Link>
-                )}
-                <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{author.name ?? "Anonymous"}</p>
-              </div>
-
-              <div className="ml-auto flex items-center gap-4 text-xs text-gray-400 dark:text-slate-500">
-                <span className="flex items-center gap-1.5"><Eye size={12} />{idea.views ?? 0} views</span>
-                <span className="flex items-center gap-1.5"><MessageCircle size={12} />{commentCount} comments</span>
-              </div>
+              {author.isAi ? (
+                <span className="text-ic-ink font-semibold">
+                  @{author.handle ?? author.name ?? "Unknown"}
+                  <span className="ml-1.5 font-mono text-[9px] bg-ic-accent text-white px-1.5 py-0.5 rounded-full">AI</span>
+                </span>
+              ) : (
+                <Link
+                  href={`/profile/${author.handle ?? author.id}`}
+                  className="text-ic-ink font-semibold hover:text-ic-accent transition-colors"
+                >
+                  @{author.handle ?? author.name ?? "Unknown"}
+                </Link>
+              )}
+              <span>·</span>
+              <span>{author.name ?? "Anonymous"}</span>
+              <span className="ml-auto flex items-center gap-3">
+                <span className="flex items-center gap-1"><Eye size={11} />{idea.views ?? 0} views</span>
+                <span className="flex items-center gap-1"><MessageCircle size={11} />{commentCount} comments</span>
+              </span>
             </div>
           )}
-        </div>
 
-        {/* Content */}
-        <div className="px-8 pb-8">
-          <div className="mt-2">
-            <p className="text-gray-600 dark:text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
-              {idea.content ?? ""}
-            </p>
-          </div>
+          {/* Body */}
+          <p className="font-sans text-base text-ic-ink leading-relaxed whitespace-pre-wrap">
+            {idea.content ?? ""}
+          </p>
 
           {/* Tags */}
           {idea.tags && idea.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-slate-800">
+            <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-ic-rule">
               {idea.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700"
+                  className="font-mono text-[11px] px-2.5 py-1 rounded-sm bg-ic-paper-deep border border-ic-rule text-ic-muted"
                 >
                   #{tag}
                 </span>
               ))}
             </div>
           )}
-        </div>
+        </article>
 
-        {/* Footer actions */}
-        <div className="px-8 py-5 border-t border-gray-200 dark:border-slate-800 bg-gray-50/40 dark:bg-slate-950/40 flex items-center justify-between flex-wrap gap-4">
-          {!isOwner && (
-            <SparkButton
-              ideaId={idea.id}
-              viewerId={viewerId}
-              initialLikes={idea.totalLikes ?? 0}
-              initialHasLiked={hasLiked}
-            />
-          )}
+        {/* ── Right column — sticky actions (desktop) ── */}
+        <aside className="hidden md:flex flex-col gap-3 sticky top-6">
+          <div className="bg-ic-card border border-ic-rule rounded-2xl p-5">
+            {!isOwner && (
+              <SparkButton
+                ideaId={idea.id}
+                viewerId={viewerId}
+                initialLikes={idea.totalLikes ?? 0}
+                initialHasLiked={hasLiked}
+              />
+            )}
 
-          <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-4 font-mono text-[11px] text-ic-muted mt-4 pt-4 border-t border-ic-rule-soft">
+              <span className="flex items-center gap-1.5"><Eye size={12} />{idea.views ?? 0} views</span>
+              <span className="flex items-center gap-1.5"><MessageCircle size={12} />{commentCount} replies</span>
+            </div>
+
             {isOwner && (
-              <Link
-                href={`/idea/${idea.id}/edit`}
-                className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-slate-500 transition-colors"
-              >
-                <PenLine size={12} /> Edit Idea
-              </Link>
+              <div className="mt-4 pt-4 border-t border-ic-rule-soft flex flex-col gap-2">
+                <p className="font-mono text-[10px] text-ic-muted uppercase tracking-widest mb-1">Author actions</p>
+                <Link
+                  href={`/idea/${idea.id}/edit`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-accent hover:text-ic-ink text-sm transition-colors"
+                >
+                  <PenLine size={13} /> Edit idea
+                </Link>
+              </div>
             )}
           </div>
+
+          {isAiLabIdea && (
+            <div className="bg-[#1A1814] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-ic-accent-bright animate-pulse" />
+                <span className="font-mono text-[10px] text-[rgba(244,241,234,0.55)] uppercase tracking-widest">
+                  Discussed in AI Lab
+                </span>
+              </div>
+              <p className="font-display italic text-[15px] text-[#F4F1EA] leading-snug mb-3">
+                {idea.title}
+              </p>
+              <Link href="/ai-lab" className="font-mono text-[11px] text-ic-accent-bright font-medium hover:opacity-80 transition">
+                Read thread →
+              </Link>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {/* ── Mobile sticky actions bar ── */}
+      <div className="fixed bottom-14 left-0 right-0 bg-ic-card border-t border-ic-rule px-4 py-3 flex items-center justify-between gap-3 md:hidden z-30">
+        {!isOwner ? (
+          <SparkButton
+            ideaId={idea.id}
+            viewerId={viewerId}
+            initialLikes={idea.totalLikes ?? 0}
+            initialHasLiked={hasLiked}
+          />
+        ) : (
+          <Link
+            href={`/idea/${idea.id}/edit`}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-accent text-sm transition-colors"
+          >
+            <PenLine size={13} /> Edit
+          </Link>
+        )}
+        <div className="font-mono text-[11px] text-ic-muted flex items-center gap-3 ml-auto">
+          <span className="flex items-center gap-1"><Eye size={11} />{idea.views ?? 0}</span>
+          <span className="flex items-center gap-1"><MessageCircle size={11} />{commentCount}</span>
         </div>
-      </article>
-    </div>
+      </div>
+    </>
   );
 }

@@ -17,28 +17,31 @@ export default async function BookmarksPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      <div className="flex items-center gap-3 mb-2">
-        <Bookmark size={24} className="text-[#0d9488]" />
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Saved Ideas</h1>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-1">
+        <span className="w-9 h-9 rounded-lg ic-role-owner flex items-center justify-center shrink-0">
+          <Bookmark size={18} />
+        </span>
+        <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink">Bookmarks</h1>
       </div>
-      <p className="text-gray-500 dark:text-slate-400 text-sm mb-8">
-        Your private collection — only visible to you.
+      <p className="font-mono text-[12px] text-ic-muted mb-10 ml-12">
+        Ideas you&apos;ve saved for later.
       </p>
 
-      <div className="text-center py-20">
-        <Bookmark size={40} className="mx-auto text-gray-300 dark:text-slate-700 mb-4" />
-        <p className="text-gray-500 dark:text-slate-400 text-sm mb-2">
-          Bookmarks are coming soon in a future update.
+      {/* Empty state */}
+      <div className="flex flex-col items-center text-center pt-16 pb-8">
+        <Bookmark size={48} className="text-ic-rule" />
+        <p className="font-display italic text-2xl text-ic-muted mt-4">
+          Nothing saved yet.
         </p>
-        <p className="text-gray-400 dark:text-slate-600 text-xs mb-6">
-          The bookmarks feature is being redesigned for v15.
+        <p className="font-mono text-[12px] text-ic-muted mt-2">
+          Bookmark ideas to read later.
         </p>
         <Link
           href="/feed"
-          className="inline-block px-5 py-2.5 rounded-xl bg-[#0d9488]
-            text-white text-sm font-bold hover:bg-teal-500 transition-colors"
+          className="font-mono text-[12px] text-ic-accent hover:text-ic-accent-bright transition-colors mt-4"
         >
-          Browse Ideas →
+          Explore ideas →
         </Link>
       </div>
     </div>

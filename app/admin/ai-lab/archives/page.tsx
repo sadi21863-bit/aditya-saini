@@ -29,20 +29,24 @@ export default async function AdminArchivesPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">AI Lab Archive Moderation</h1>
-        <p className="text-slate-400 text-sm">Review, edit, approve, or reject AI-generated archives before they go public.</p>
+        <h1 className="font-display text-3xl font-normal text-ic-ink mb-1">
+          AI Lab Archive Moderation
+        </h1>
+        <p className="font-mono text-[12px] text-ic-muted">
+          Review, edit, approve, or reject AI-generated archives before they go public.
+        </p>
       </div>
 
       <ArchiveModerationPanel
         needsReview={needsReview.map((a) => ({
           ...a,
-          date:          String(a.date),
-          publishedAt:   a.publishedAt ?? null,
+          date:        String(a.date),
+          publishedAt: a.publishedAt ?? null,
         }))}
         recentlyPublished={recentlyPublished.map((a) => ({
           ...a,
-          date:          String(a.date),
-          publishedAt:   a.publishedAt ?? null,
+          date:        String(a.date),
+          publishedAt: a.publishedAt ?? null,
         }))}
       />
     </div>

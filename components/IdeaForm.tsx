@@ -17,6 +17,9 @@ export default function IdeaForm({
   const [content, setContent] = useState("");
   const [feedVisible, setFeedVisible] = useState(true);
 
+  const inputCls = "w-full bg-ic-card border border-ic-rule rounded-xl p-4 text-ic-ink placeholder:text-ic-muted focus:border-ic-accent outline-none transition font-sans text-sm";
+  const labelCls = "font-mono text-[12px] text-ic-muted uppercase tracking-wide block mb-2";
+
   return (
     <form
       ref={formRef}
@@ -30,51 +33,43 @@ export default function IdeaForm({
         setContent("");
         setIsPending(false);
       }}
-      className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-8"
+      className="bg-ic-card border border-ic-rule rounded-2xl p-8"
     >
       <div className="flex items-center gap-3 mb-8">
-        <div className="p-2 bg-[#0d9488]/10 rounded-xl">
-          <Lightbulb className="text-[#0d9488]" size={20} />
+        <div className="p-2 bg-ic-accent/10 rounded-xl">
+          <Lightbulb className="text-ic-accent" size={20} />
         </div>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Post an Idea</h3>
+        <h3 className="font-display text-xl text-ic-ink">Post an Idea</h3>
       </div>
 
       <div className="space-y-5">
         {/* Title */}
         <div>
-          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
-            Title *
-          </label>
+          <label className={labelCls}>Title *</label>
           <input
             name="title"
             placeholder="e.g. Solar Powered Desalination"
-            className="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white
-              placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
-              focus:ring-[#0d9488]/20 outline-none transition-all"
+            className={inputCls}
             required
           />
         </div>
 
         {/* Pitch */}
         <div>
-          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
+          <label className={labelCls}>
             Pitch{" "}
-            <span className="normal-case text-slate-400 font-normal">(short summary)</span>
+            <span className="normal-case text-ic-muted font-normal">(short summary)</span>
           </label>
           <input
             name="context"
             placeholder="One-sentence essence of your idea..."
-            className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 text-white
-              placeholder:text-slate-500 italic focus:border-[#0d9488] focus:ring-2
-              focus:ring-[#0d9488]/20 outline-none transition-all"
+            className={`${inputCls} italic`}
           />
         </div>
 
         {/* Content */}
         <div>
-          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
-            Full Content *
-          </label>
+          <label className={labelCls}>Full Content *</label>
           <IdeaTextEditor
             name="content"
             value={content}
@@ -87,29 +82,28 @@ export default function IdeaForm({
 
         {/* Tags */}
         <div>
-          <label className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
-            Tags <span className="normal-case text-slate-400 font-normal">(comma-separated)</span>
+          <label className={labelCls}>
+            Tags{" "}
+            <span className="normal-case text-ic-muted font-normal">(comma-separated)</span>
           </label>
           <input
             name="tags"
             placeholder="ai, productivity, saas..."
-            className="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white
-              placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:border-[#0d9488] focus:ring-2
-              focus:ring-[#0d9488]/20 outline-none transition-all"
+            className={inputCls}
           />
         </div>
 
-        {/* Feed visibility */}
+        {/* Feed visibility toggle */}
         <label className="flex items-center gap-3 cursor-pointer group select-none">
           <div
             onClick={() => setFeedVisible((v) => !v)}
             className={`w-10 h-5 rounded-full transition-colors relative shrink-0
-              ${feedVisible ? "bg-[#0d9488]" : "bg-gray-200 dark:bg-slate-700"}`}
+              ${feedVisible ? "bg-ic-accent" : "bg-ic-rule"}`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-ic-paper shadow
               transition-transform ${feedVisible ? "translate-x-5" : "translate-x-0"}`} />
           </div>
-          <span className="text-sm text-gray-500 dark:text-slate-400 group-hover:text-gray-700 dark:group-hover:text-slate-300 transition-colors">
+          <span className="text-sm text-ic-muted group-hover:text-ic-ink transition-colors">
             Show in global feed
           </span>
         </label>
@@ -117,10 +111,10 @@ export default function IdeaForm({
         <button
           type="submit"
           disabled={isPending}
-          className={`w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all
+          className={`w-full py-4 rounded-2xl font-medium text-sm tracking-wide transition-all
             flex items-center justify-center gap-2 ${isPending
-              ? "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
-              : "bg-[#0d9488] text-white hover:bg-teal-700 active:scale-[0.98] shadow-md"
+              ? "bg-ic-paper-deep text-ic-muted cursor-not-allowed"
+              : "bg-ic-accent text-white hover:opacity-90 active:scale-[0.98]"
             }`}
         >
           {isPending ? "Publishing..." : <><Send size={16} /> Publish Idea</>}

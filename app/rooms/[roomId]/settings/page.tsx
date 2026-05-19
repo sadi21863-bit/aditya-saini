@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import RoomSettingsForm from "@/components/RoomSettingsForm";
 import RoomInviteModal from "@/components/RoomInviteModal";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 export const metadata = { title: "Room Settings — IdeaConnect" };
 
@@ -31,16 +31,17 @@ export default async function RoomSettingsPage({
     <div className="max-w-2xl mx-auto px-6 py-10">
       <Link
         href={`/rooms/${roomId}`}
-        className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-6 transition"
+        className="inline-flex items-center gap-1.5 font-mono text-[12px] text-ic-muted hover:text-ic-ink transition mb-6"
       >
-        <ArrowLeft size={14} /> Back to room
+        <ChevronLeft size={13} /> Back to room
       </Link>
 
-      <h1 className="text-2xl font-bold text-white mb-8">
-        Settings · <span className="text-slate-400">{room.name}</span>
+      <h1 className="font-display text-3xl font-normal text-ic-ink mb-1">
+        Settings
       </h1>
+      <p className="font-mono text-[12px] text-ic-muted mb-8">{room.name}</p>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
+      <div className="bg-ic-card border border-ic-rule rounded-2xl p-6 mb-6">
         <RoomSettingsForm
           room={room}
           members={members}
@@ -50,8 +51,8 @@ export default async function RoomSettingsPage({
       </div>
 
       {/* Invite section */}
-      <div id="invite" className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <h2 className="text-base font-bold text-white mb-4">Invite Members</h2>
+      <div id="invite" className="bg-ic-card border border-ic-rule rounded-2xl p-6">
+        <h2 className="font-display text-lg text-ic-ink mb-4">Invite Members</h2>
         <RoomInviteModal roomId={roomId} />
       </div>
     </div>
