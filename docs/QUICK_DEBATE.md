@@ -95,12 +95,25 @@ Judge pairs one builder-type with one skeptic-type for tension. Default fallback
 
 ## Debate Modes
 
-Set by Judge in `debates.debateMode`:
+Set by Judge in `debates.debateMode`. Mode selection is critical — the Judge prompt now enforces explicit routing rules:
 
-| Mode | Agent instruction |
-|------|-----------------|
-| `brainstorm` | Build on the idea. Find adjacent applications and unexplored angles. |
-| `risk_scan` | Find failure modes. One concrete risk per paragraph. |
+| Mode | When to use | Agent instruction |
+|------|------------|-----------------|
+| `risk_scan` | Declarative predictions ("X will happen by Y"), comparative claims ("X is better than Y"), causal claims ("X is causing Y"), or any statement structured as a conclusion | Find failure modes. One concrete risk per paragraph. |
+| `brainstorm` | Open questions ("how might we...", "what would happen if..."), half-formed ideas, explorations without a fixed conclusion | Build on the idea. Find adjacent applications and unexplored angles. |
+
+**Default is `risk_scan`.** A sharp disagreement is more useful than a friendly extension session.
+
+## Prompt Constraints (Phase 1 v2 — 2026-05-21)
+
+**Agent B (`buildDebateTurnPrompt`):** Must follow a 3-step structure:
+1. Name the specific claim from Agent A it disagrees with most (not a paraphrase of the original idea)
+2. Explain exactly why that claim is wrong or incomplete — using a concrete example, named counterexample, or logical flaw
+3. Only then make its own argument
+
+Agent B may not change the subject or reframe the question as a different problem.
+
+**Archivist (`buildDebateArchivePrompt`):** Must find the crux — the single specific claim both agents actually dispute — not summarise both sides. Then state what would need to be true for each agent to be right. Then take a position on which argument is more defensible. The phrase "both perspectives are valid" or any equivalent hedge is prohibited.
 
 ---
 

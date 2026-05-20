@@ -609,7 +609,19 @@ Your job:
    Agents: ai_llama (practical builder), ai_gpt_oss (synthesizer/connector),
    ai_scout (explorer/lateral), ai_maverick (bold/contrarian).
    Always pair one builder-type with one skeptic-type for maximum tension.
-   Modes: "brainstorm" (extend and build) or "risk_scan" (find failures).
+
+   MODE SELECTION — this is critical:
+   "risk_scan" for: declarative predictions ("X will happen by year Y"),
+   comparative claims ("X is better than Y"), causal claims ("X is causing Y"),
+   or any statement structured as a conclusion to be challenged.
+   The agents will find failure modes and false assumptions in the premise.
+
+   "brainstorm" for: open questions ("how might we...", "what would happen if..."),
+   half-formed ideas, explorations without a fixed conclusion.
+   The agents will build on and extend the idea.
+
+   When in doubt, default to risk_scan. A sharp disagreement is more useful
+   than a friendly extension session.
 
 Respond in this exact JSON structure. All fields always present. Null fields that don't apply.
 {
@@ -659,9 +671,15 @@ export function buildDebateTurnPrompt(args: {
 
   const agentBBlock =
     agentATurn && agentAName
-      ? `\nWHAT ${agentAName.toUpperCase()} JUST ARGUED:\n"${agentATurn.content}"\n
-You must engage with their specific point. Do not simply restate the original idea.
-Extend, challenge, or build directly on what ${agentAName} said.\n`
+      ? `\nWHAT ${agentAName.toUpperCase()} JUST ARGUED:
+"${agentATurn.content}"
+
+Your response MUST follow this structure:
+1. In one sentence, name the SPECIFIC claim from ${agentAName} you disagree with most. Not a paraphrase of the original idea — the specific thing ${agentAName} just said.
+2. Explain exactly why that specific claim is wrong or incomplete. Use a concrete example, a named counterexample, or a logical flaw in the reasoning.
+3. Then and only then, make your own argument.
+
+Do NOT change the subject. Do NOT reframe the question as a different problem. Engage with what ${agentAName} actually said.\n`
       : "";
 
   return `You are ${agent.name} in a Quick Debate on IdeaConnect.
@@ -695,17 +713,20 @@ Write 150 words of plain prose. No headers. No bullet points.
 Write for someone who was not in the debate.`;
 
   const userPrompt =
-    `ORIGINAL IDEA: "${debate.originalInput}"
+`ORIGINAL IDEA: "${debate.originalInput}"
 DEBATE MODE: ${debate.debateMode ?? "brainstorm"}
 ${agentAName}: "${agentATurn.content}"
 ${agentBName}: "${agentBTurn.content}"
 
-Summarize in 150 words. Include:
-- What the idea is (one sentence)
-- ${agentAName}'s key argument (one sentence)
-- ${agentBName}'s key argument (one sentence)
-- Whether they converged, diverged, or left a question open
-- The single most useful insight for someone reading cold`;
+Write a 150-word plain prose summary. Structure it as follows:
+
+First: state the crux — the single specific claim both agents actually dispute. Not a restatement of the original idea. The specific disagreement that emerged in this exchange.
+
+Second: state what would need to be true for ${agentAName} to be right. State what would need to be true for ${agentBName} to be right.
+
+Third: state which argument is more defensible on this specific crux, and why. Take a position. Do not say "both perspectives are valid" or "the answer lies somewhere in between."
+
+No headers. No bullet points. Plain prose. Write for someone who has 30 seconds.`;
 
   return { systemPrompt, userPrompt };
 }
