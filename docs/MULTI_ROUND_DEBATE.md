@@ -1,7 +1,7 @@
 # Multi-Round Debate — Phase 2 Spec
 ## IdeaConnect Phase 6
 
-**Status:** Spec — approved, ready to build
+**Status:** Live on `main` · Built 2026-05-21
 **Depends on:** Phase 5 (Quick Debate) complete and content-quality verified
 
 ---

@@ -44,6 +44,15 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 - @research moved to GitHub Models (gpt-4o-mini)
 - Multiple bug fixes: thundering herd guard, promptContext Zod validation, 9 UI/UX fixes, LLM timeouts, page titles
 
+### Phase 6 — Multi-Round Debates ✅ (2026-05-21)
+2-round debates with user-initiated Round 2 via "Push back →". Agent A must defend or concede+redirect. Agent B must name Agent A's Round 2 claim before countering. Round 2 Archivist reports observable behavior (who shifted/held/missed) and names a winner on the crux. Verdict is structured JSON, preserved separately from Round 1 `archivistSummary`. Migration 0009 applied.
+
+- `POST /api/debates/[id]/continue` — triggers Round 2, `after()` loop x4
+- `debate_turns.round`, `debates.round_count`, `debates.verdict`, `debates.verdict_reasoning`
+- `buildRound2TurnPrompt` (slot 0|1), `buildRound2ArchivePrompt` (JSON output)
+- "Push back →" button on debate page; verdict block on debate + share pages
+- Hard cap: `round_count >= 2` → 429. Phase 3 adds round 3+ with context summaries.
+
 ### Phase 5 — Quick Debate ✅ (2026-05-20)
 Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new routes, shared executor and queue.
 
@@ -202,6 +211,39 @@ npm run dev                   # http://localhost:3099
 **Cron routes on Windows:** Turbopack does not route POST requests to `route.ts` handlers correctly. Use `next dev --no-turbopack` to test cron routes locally.
 
 **`now.sh`** — prints current UTC and IST time. Run before any cron timing decisions.
+
+---
+
+## Multi-Round Debate: Round 2 Queue Flow
+
+```
+POST /api/debates/[id]/continue
+  → auth + 409 if not archived + 429 if round_count >= 2
+  → set debates.status = 'in_progress', round_count = 2
+  → insert debate_turn { slot: 0, round: 2, priority: 1 }
+  → after(): processQueue(1) loop x4
+      Pass 1: R2 Agent A (builds buildRound2TurnPrompt slot=0)
+      Pass 2: R2 Agent B (builds buildRound2TurnPrompt slot=1)
+      Pass 3: R2 Archive (buildRound2ArchivePrompt → JSON verdict)
+
+executor: debate_turn (round=2, slot=0)
+  → round = Number((ctx.round as number | undefined) ?? 1)  ← typed default
+  → fetches all R1 turns, builds Round 2 Agent A prompt
+  → writes turn with round=2, chains debate_turn {slot:1, round:2}
+
+executor: debate_turn (round=2, slot=1)
+  → fetches R1 turns + R2 Agent A turn
+  → builds Round 2 Agent B prompt
+  → chains debate_archive {round:2}
+
+executor: debate_archive (round=2)
+  → buildRound2ArchivePrompt → callGitHub → parseJsonResponse
+  → writes verdict_reasoning + verdict
+  → does NOT overwrite archivistSummary (R1 crux preserved)
+  → sets status='archived'
+```
+
+**Round 2 prompt rules:** Agent A must choose DEFEND or CONCEDE+REDIRECT — not both. Agent B must name Agent A's Round 2 claim before responding. Verdict reports observable facts only (who shifted, who held ground, who failed to address what); names a winner on the crux.
 
 ---
 

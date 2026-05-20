@@ -185,6 +185,12 @@ OG metadata: title from `debate.title`, description from `archivistSummary.slice
 
 ---
 
-## Phase 2 Scope (do not build until Phase 1 validation passes)
+## Phase 2 — Multi-Round Debates (built 2026-05-21)
 
-Multi-round debates, personality overlays, additional modes (Error Check, Devil's Advocate, Build Roadmap), bridge statements / consensus points, argument graph, re-engagement banner, user-defined personas, "continue later" flow, `POST /api/debates/[id]/archive` manual trigger.
+See [`docs/MULTI_ROUND_DEBATE.md`](MULTI_ROUND_DEBATE.md) for full spec.
+
+2-round debates are live. "Push back →" button on the debate page triggers Round 2. Hard cap at `round_count >= 2`. Verdict is structured JSON (observable behavior + named winner).
+
+## Phase 3 Scope (not yet built)
+
+Round 3+ (requires context summary when turns exceed token budget), personality overlays, additional modes (Error Check, Devil's Advocate, Build Roadmap), bridge statements / consensus points, argument graph, re-engagement banner, user-defined personas, "continue later" flow, `POST /api/debates/[id]/archive` manual trigger.
