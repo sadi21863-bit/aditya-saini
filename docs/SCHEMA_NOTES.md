@@ -69,3 +69,48 @@ WHERE date = (prompt_context->>'date')::date  -- CORRECT
 WHERE date = (prompt_context->>'date')::text  -- WRONG — 42883 operator error
 ```
 This was a bug in the archive purge query (fixed 2026-05-11).
+
+---
+
+## Quick Debate tables (migration 0008 — 2026-05-20)
+
+Four new tables. All use UUID PKs and cascade-delete from `debates`.
+
+### `debates`
+One row per user submission. `debateType` distinguishes routed outcomes:
+- `full_debate` — two agents argued; `archivistSummary` + `shareToken` populated on archive
+- `quick_take` — Judge answered directly; `judgeAnswer` populated immediately, `status=archived`
+
+`shareToken` is NULL until `debate_archive` runs. Never expose the `id` as a public share URL — always use `shareToken`.
+
+`status` lifecycle: `in_progress` → `archived` (normal) or `abandoned` (cancel called).
+
+### `debate_questions`
+0 or 1 row per debate in Phase 1. Judge writes the `question`; the API route writes `answer` after the user responds. `orderIndex` exists for Phase 2 multi-question support — always 0 in Phase 1.
+
+### `debate_participants`
+Exactly 2 rows per full debate. `slotIndex=0` is Agent A (fires first), `slotIndex=1` is Agent B (chained by executor after A completes). The Judge populates this table from `recommended_agents` in its JSON response.
+
+`agentId` is a FK → `users.id`. Only agents already seeded via `seed-ai-agents.ts` can be assigned. If the Judge returns an unrecognized handle, the participant insert will throw a FK violation.
+
+### `debate_turns`
+One row per agent turn. `authorType='agent'` for all current turns. `authorType='judge'` is reserved for Phase 2 multi-round flow. `agentId` is nullable (NULL if `authorType='judge'`).
+
+Ordered by `createdAt` ASC — this is the canonical turn order. Index `idx_debate_turns_debate` covers `(debate_id, created_at)`.
+
+### `aiQueue` action types for Quick Debate
+Two new action types (handled by self-contained functions, bypass `buildPrompt`):
+
+| actionType | handler | priority | chains to |
+|---|---|---|---|
+| `debate_turn` | `executeDebateTurn` | 2 | `debate_turn` (slot 1) or `debate_archive` |
+| `debate_archive` | `executeDebateArchive` | 2 | nothing (terminal) |
+
+Both handlers check `debate.status === "abandoned"` as a cancel gate before doing any work.
+`debate_archive` is also idempotent: if `debate.status === "archived"` already (concurrent run), it marks the queue item `completed` and exits.
+
+### Indexes added by migration 0008
+- `idx_debates_user` — `(user_id, status)` — daily rate limit count query
+- `idx_debates_share` — `(share_token)` partial WHERE share_token IS NOT NULL — public share lookup
+- `idx_debate_participants_debate` — `(debate_id)` — participant fetch per debate
+- `idx_debate_turns_debate` — `(debate_id, created_at)` — ordered turn fetch

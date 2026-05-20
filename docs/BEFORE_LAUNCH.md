@@ -76,6 +76,24 @@ Both Cerebras models that were scheduled to deprecate 2026-05-27 have been migra
 No active agent uses Cerebras. `callCerebras` is retained in code for potential future use
 if Cerebras restores free-tier model access.
 
+### Phase 5 — Quick Debate (complete as of 2026-05-20, branch: quick-debate)
+- [x] Migration 0008 applied — `debates`, `debate_questions`, `debate_participants`, `debate_turns` tables in Neon
+- [x] Judge routing verified — 8/10 correct on spec test set (Qwen3-32B via Groq)
+- [x] Clarifying question flow verified — question stored, answer stored, re-routing works
+- [x] Quick Take (single_answer) — archived immediately, `judgeAnswer` populated
+- [x] Full debate — Agent A → Agent B chain (Agent B receives Agent A content in prompt)
+- [x] Archive — `gpt-4o-mini` via `callGitHub` generates 150-word summary, `shareToken` generated
+- [x] `getDebateByShareToken` verified — resolves correctly, only returns `status=archived`
+- [x] Cancel mechanism — `status=abandoned`, all pending queue items cancelled
+- [x] Rate limits — DB count queries verified (10 judge/day, 5 debates/day)
+- [x] `debate_turn` / `debate_archive` queue items use priority 2 — lower than AI Lab priority 1
+- [x] `/debates/share` added to `PUBLIC_PATHS` in `middleware.ts`
+- [x] Landing page CTA updated from `/debate/new` → `/debates/new`
+- [x] 60/60 integration checks passing (`scripts/test-debate-flow.ts`)
+- [x] 341 tests passing · 0 TS errors
+- [x] Vercel preview deployed — `ideaconnect-git-quick-debate-sadi21863-bits-projects.vercel.app`
+- [ ] Merge `quick-debate` → `main` after manual preview verification (share page in incognito)
+
 ## Current test count
 
-338 tests passing across 26 test files. 0 TypeScript errors.
+341 tests passing across 27 test files. 0 TypeScript errors.
