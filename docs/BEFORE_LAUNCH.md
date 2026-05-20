@@ -81,13 +81,13 @@ if Cerebras restores free-tier model access.
 - [x] `getDebateByShareToken` verified — resolves correctly, only returns `status=archived`
 - [x] Cancel mechanism — `status=abandoned`, all pending queue items cancelled
 - [x] Rate limits — DB count queries verified (10 judge/day, 5 debates/day)
-- [x] `debate_turn` / `debate_archive` queue items use priority 2 — lower than AI Lab priority 1
+- [x] `debate_turn` / `debate_archive` queue items use priority 1 — same as AI Lab; bypass per-agent daily cap (Quick Debate has own per-user 5/day limit at API level)
 - [x] `/debates/share` added to `PUBLIC_PATHS` in `middleware.ts`
 - [x] Landing page CTA updated from `/debate/new` → `/debates/new`
 - [x] 60/60 integration checks passing (`scripts/test-debate-flow.ts`)
 - [x] 341 tests passing · 0 TS errors
 - [x] Vercel preview deployed — `ideaconnect-git-quick-debate-sadi21863-bits-projects.vercel.app`
-- [ ] Merge `quick-debate` → `main` after manual preview verification (share page in incognito)
+- [x] Merge `quick-debate` → `main` after manual preview verification — merged 2026-05-20, share URL bug fixed 2026-05-21 (ShareButton was copying private `/debates/{id}` instead of public share token URL)
 
 ## Current test count
 
