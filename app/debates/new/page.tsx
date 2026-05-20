@@ -19,22 +19,33 @@ export default function NewDebatePage() {
     if (input.trim().length < 10) { setError("Needs at least 10 characters."); return; }
     setLoading(true); setError(null);
 
-    const res  = await fetch("/api/debates/judge", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ input }),
-    });
-    const data = await res.json();
-    setLoading(false);
+    try {
+      const res  = await fetch("/api/debates/judge", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ input }),
+        signal:  AbortSignal.timeout(15_000),
+      });
 
-    if (!res.ok) { setError(data.error ?? "Something went wrong."); return; }
+      let data: Record<string, unknown>;
+      try { data = await res.json(); }
+      catch { throw new Error("The judge took too long. Try again."); }
 
-    if (data.status === "needs_clarification") {
-      setQuestion(data.question); setDebateId(data.debateId); setWaitingAnswer(true);
-    } else if (data.status === "single_answer") {
-      router.push(`/debates/${data.debateId}`);
-    } else if (data.status === "full_debate") {
-      await startDebate(data.debateId);
+      if (!res.ok) throw new Error((data.error as string) ?? "Something went wrong.");
+
+      if (data.status === "needs_clarification") {
+        setQuestion(data.question as string);
+        setDebateId(data.debateId as string);
+        setWaitingAnswer(true);
+      } else if (data.status === "single_answer") {
+        router.push(`/debates/${data.debateId}`);
+      } else if (data.status === "full_debate") {
+        await startDebate(data.debateId as string);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -42,33 +53,49 @@ export default function NewDebatePage() {
     if (!debateId || !answer.trim()) return;
     setLoading(true); setError(null);
 
-    const res  = await fetch("/api/debates/judge", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ input, debateId, questionAnswer: answer }),
-    });
-    const data = await res.json();
-    setLoading(false);
+    try {
+      const res  = await fetch("/api/debates/judge", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ input, debateId, questionAnswer: answer }),
+        signal:  AbortSignal.timeout(15_000),
+      });
 
-    if (!res.ok) { setError(data.error ?? "Something went wrong."); return; }
+      let data: Record<string, unknown>;
+      try { data = await res.json(); }
+      catch { throw new Error("The judge took too long. Try again."); }
 
-    if (data.status === "single_answer") {
-      router.push(`/debates/${data.debateId}`);
-    } else if (data.status === "full_debate") {
-      await startDebate(data.debateId);
+      if (!res.ok) throw new Error((data.error as string) ?? "Something went wrong.");
+
+      if (data.status === "single_answer") {
+        router.push(`/debates/${data.debateId}`);
+      } else if (data.status === "full_debate") {
+        await startDebate(data.debateId as string);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
   async function startDebate(id: string) {
-    setLoading(true);
-    const res = await fetch("/api/debates/start", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ debateId: id }),
-    });
-    setLoading(false);
-    if (res.ok) router.push(`/debates/${id}`);
-    else { const d = await res.json(); setError(d.error ?? "Failed to start debate."); }
+    try {
+      const res = await fetch("/api/debates/start", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ debateId: id }),
+        signal:  AbortSignal.timeout(10_000),
+      });
+      if (res.ok) {
+        router.push(`/debates/${id}`);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d.error as string) ?? "Failed to start debate.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start debate.");
+    }
   }
 
   if (waitingAnswer && question) {

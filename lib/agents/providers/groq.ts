@@ -17,7 +17,7 @@ export async function callGroq(
   model: string,
   system: string,
   user: string,
-  opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean } = {}
+  opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number } = {}
 ): Promise<string> {
   const groq = getGroq();
   const params: Parameters<typeof groq.chat.completions.create>[0] = {
@@ -50,6 +50,6 @@ export async function callGroq(
   }
 
   // Cast through unknown: create() returns ChatCompletion|Stream union; we never use streaming.
-  const response = await groq.chat.completions.create(params, { signal: AbortSignal.timeout(30_000) }) as unknown as { choices: Array<{ message: { content: string | null } }> };
+  const response = await groq.chat.completions.create(params, { signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000) }) as unknown as { choices: Array<{ message: { content: string | null } }> };
   return response.choices[0]?.message?.content ?? "";
 }

@@ -15,6 +15,10 @@ import { startOfToday }               from "@/lib/time";
 // The full routing instructions are already in buildJudgeEvaluationPrompt.
 const JUDGE_SYSTEM = "You are a debate routing judge. Respond in valid JSON only. No markdown.";
 
+// Vercel Hobby functions time out at 10s. Keep this under 8s so we return
+// a clean error rather than letting Vercel return a raw 504 to the browser.
+export const maxDuration = 10;
+
 const BodySchema = z.object({
   input:          z.string().min(10).max(2000),
   debateId:       z.string().uuid().optional(),
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
       question: qRow.question,
       answer:   questionAnswer,
     });
-    const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true });
+    const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 });
     const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
     return handleJudgeVerdict(judgment, debateId, userId, input);
