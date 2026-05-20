@@ -32,10 +32,25 @@ The workflow uses `github.token` (auto-generated per run, never expires) as the 
 | `AI_LAB_ROOM_ID` | Same as Vercel |
 | `AI_LAB_ENABLED` | `true` |
 
-**Token strategy (never renew again):**
+**Token strategy:**
 - GHA workflow uses `${{ github.token }}` for GitHub Models — auto-generated, never expires
 - `GH_MODELS_TOKEN` secret = PAT set to **no expiration** (regenerated 2026-05-21) — emergency fallback only
-- Vercel uses `GITHUB_TOKEN` PAT — same no-expiration token, update only if revoked
+- Vercel uses `GITHUB_TOKEN` PAT — used for two purposes:
+  1. **GitHub Models API** (`models:read`) — same no-expiration token as above
+  2. **Quick Debate queue dispatch** (`workflow` scope on classic PATs, or `actions: write` on fine-grained PATs) — triggers `workflow_dispatch` on `process-queue.yml` so Round 1/2 complete in ~30-60s instead of waiting for the 5-minute cron
+
+**If `GITHUB_TOKEN` is missing or expired in Vercel:**
+- Quick Debate still works — debates complete via the 5-minute GHA cron fallback
+- Users wait up to 5 minutes instead of ~60 seconds
+- `dispatchQueueProcessor()` returns silently — no error surfaced to the user
+- To diagnose: check Vercel function logs for missing GITHUB_TOKEN, or check GHA → Actions tab to see if workflow_dispatch runs are appearing
+
+**PAT scope required for dispatch:**
+- Classic PAT: `workflow` scope (covers `actions:write`)
+- Fine-grained PAT: `Actions: Read and write` on the specific repository — preferred (lower blast radius if token leaks)
+- The same PAT handles both GitHub Models and dispatch — no second token needed
+
+**Rotation:** Set the PAT to no-expiration. If it must expire, set a calendar reminder 2 weeks before and update in Vercel env vars. The 5-minute cron remains functional without it — only the fast-path dispatch degrades.
 
 ---
 
@@ -182,6 +197,5 @@ Which file to update:
 ## Open Items
 
 - [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel when ready to allow search indexing of archives
-- [ ] Confirm all 6 Vercel cron jobs are firing (Vercel dashboard → Settings → Cron Jobs)
 - [ ] Test full @mention flow with a real user account on production
-- [ ] Verify `/debates/share/[token]` loads without auth in incognito on preview before merging `quick-debate` to main
+- [ ] Verify `GITHUB_TOKEN` in Vercel has `workflow` scope (classic PAT) or `Actions: write` (fine-grained) — required for Quick Debate queue dispatch. Confirm by checking GHA → Actions tab for `workflow_dispatch` trigger entries after a debate is started.

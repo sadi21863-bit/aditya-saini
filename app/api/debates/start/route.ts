@@ -8,6 +8,8 @@ import { getDebateParticipants, getDebateTurns } from "@/lib/agents/debate-helpe
 import { dispatchQueueProcessor }              from "@/lib/agents/dispatch-queue";
 import { startOfToday }                        from "@/lib/time";
 
+export const maxDuration = 10;
+
 const BodySchema = z.object({ debateId: z.string().uuid() });
 
 export async function POST(req: NextRequest) {

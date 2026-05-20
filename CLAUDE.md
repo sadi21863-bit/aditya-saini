@@ -281,8 +281,9 @@ executor: debate_archive
 ```
 
 **Priority:** all `debate_*` items use **priority 1** — processed before AI Lab background items (priority 6-7).
-**Expected time:** 5-15s on warm functions. Up to 5 min (GHA fallback) on cold.
+**Expected time:** 30-90s via GHA dispatch. Up to 5 min if dispatch fails (cron fallback).
 **Cancel gate:** both handlers check `debate.status === "abandoned"` before any LLM work.
+**DebatePoller UX:** shows "Starting — usually takes 30–60 seconds" for first 90s, then status message, then slow-path warning at 3 minutes.
 
 ---
 
