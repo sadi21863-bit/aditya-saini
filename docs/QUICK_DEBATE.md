@@ -154,6 +154,16 @@ OG metadata: title from `debate.title`, description from `archivistSummary.slice
 
 ---
 
+## Known Phase 1 Gaps (not regressions)
+
+**No manual archive trigger** — `POST /api/debates/[id]/archive` was not implemented. If the `debate_archive` queue item fails permanently, the debate stays on `in_progress` and the DebatePoller shows a refresh button after 15 minutes. The user has no way to trigger the archive themselves. Workaround: wait for GHA to retry, or admin resets the queue item. Add this endpoint in Phase 2.
+
+**No re-engagement banner** — In-progress debates have no "pick up where you left off" UI. Users who leave and return see the DebatePoller spinning. Add in Phase 2.
+
+**One round only** — Each debate is exactly two turns. Multi-round is Phase 2.
+
+---
+
 ## Phase 2 Scope (do not build until Phase 1 validation passes)
 
-Multi-round debates, personality overlays, additional modes (Error Check, Devil's Advocate, Build Roadmap), bridge statements / consensus points, argument graph, re-engagement banner, user-defined personas, "continue later" flow.
+Multi-round debates, personality overlays, additional modes (Error Check, Devil's Advocate, Build Roadmap), bridge statements / consensus points, argument graph, re-engagement banner, user-defined personas, "continue later" flow, `POST /api/debates/[id]/archive` manual trigger.

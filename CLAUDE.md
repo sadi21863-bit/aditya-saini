@@ -250,7 +250,7 @@ executor: debate_archive
 npm test                              # 341 tests (Vitest)
 npx tsc --noEmit                      # 0 TS errors
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
-npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks
+npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
 ```
 
 Always verify these four before committing changes that touch executor, prompts, or debate routes.

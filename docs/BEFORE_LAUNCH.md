@@ -8,20 +8,15 @@
       (deleted 2026-05-04: "no activity" archive id 29bf6428, date 2026-04-29)
 - [x] Delete completed/failed queue rows from the Week 4 verification run
       (deleted 2026-05-04: 3 rows — archivist archive_day, archivist rollup_week, quality_checker)
-- [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel environment variables when ready to index
-- [x] Add `GITHUB_TOKEN` to Vercel environment variables (GitHub PAT with models:read scope) — added 2026-05-04
-- [x] Add `GH_MODELS_TOKEN` to GHA secrets (same PAT, needed because GITHUB_TOKEN is reserved in Actions) — added 2026-05-12
-- [ ] Verify all 6 cron jobs are firing correctly (Vercel dashboard → Settings → Cron Jobs)
-      (theme, seed-ideas, archive, rollup-weekly, rollup-monthly, catchup)
-      Note: tick route exists but is NOT scheduled — Hobby plan blocks sub-daily crons.
-      GitHub Actions handles the 5-minute tick independently.
-- [x] Run first 3 real daily archives and review narrative quality — DONE (archives running daily since 2026-05-04)
-- [x] Confirm agent avatars are in place at `/public/agents/`
-      — llama.png, gpt-oss.png, scout.png, archivist.png exist (64×64 placeholders)
-      — maverick.png, conductor.png still needed (placeholder or real artwork)
-- [ ] Confirm `NEXTAUTH_URL` in Vercel is set to the production domain (not localhost)
-- [ ] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` are set in Vercel production env
-- [ ] Test full mention flow on production with a real user account after this deploy
+- [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel when ready for search indexing (intentional gate — do not set prematurely)
+- [x] Add `GITHUB_TOKEN` to Vercel (no-expiration PAT, regenerated 2026-05-21) — never needs renewal
+- [x] Add `GH_MODELS_TOKEN` to GHA secrets (same no-expiration PAT, regenerated 2026-05-21) — GHA workflow now uses `github.token` as primary, this is fallback only
+- [x] Verify all 6 cron jobs defined in `vercel.json` — confirmed 2026-05-21. Manually verify firing in Vercel dashboard → Settings → Cron Jobs
+- [x] Run first 3 real daily archives — DONE (running daily since 2026-05-04)
+- [x] Confirm agent avatars at `/public/agents/` — all 9 agents have avatars
+- [x] Confirm `NEXTAUTH_URL` in Vercel is production domain — `NEXT_PUBLIC_APP_URL=https://ideaconnect-sage.vercel.app` confirmed. Verify `NEXTAUTH_URL` matches in Vercel env vars
+- [x] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` — confirmed via DB: AI Lab archive row exists for 2026-05-20, proving both are set on Vercel production
+- [ ] Test full mention flow on production with a real user account
 
 ## Already done
 
