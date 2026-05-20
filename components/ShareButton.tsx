@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 
-export function ShareButton() {
+interface Props {
+  url?: string; // explicit URL to copy; falls back to window.location.href
+}
+
+export function ShareButton({ url }: Props) {
   const [copied, setCopied] = useState(false);
 
   function copy() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+    const target = url ?? window.location.href;
+    navigator.clipboard.writeText(target).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

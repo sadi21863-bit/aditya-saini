@@ -73,7 +73,7 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
 
           {debate.shareToken && (
             <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ic-rule">
-              <ShareButton />
+              <ShareButton url={`${process.env.NEXT_PUBLIC_APP_URL}/debates/share/${debate.shareToken}`} />
               <Link
                 href="/debates/new"
                 className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition font-mono"
