@@ -756,15 +756,16 @@ YOUR ROUND 1 ARGUMENT:
 ${agentBName.toUpperCase()}'S ATTACK ON YOUR ARGUMENT:
 "${round1AgentBTurn.content}"
 
+${agent.persona}
+
+Write 100–150 words.
+
 You have ONE response. Choose one:
 - DEFEND: Provide new reasoning that directly addresses ${agentBName}'s specific attack. Do not repeat your Round 1 argument. Bring a new example, a named counterexample to their counterexample, or a logical flaw in their attack.
 - CONCEDE AND REDIRECT: Explicitly acknowledge that ${agentBName}'s attack is correct on this specific point. Then redirect to a different claim you ARE prepared to defend.
 
 Do NOT do both. Pick one and commit to it.
-Do NOT restate the original idea. Respond to what ${agentBName} actually said.
-
-Write 100–150 words.
-${agent.persona}`;
+Do NOT restate the original idea. Respond to what ${agentBName} actually said.`;
   }
 
   const round2AContent = round2AgentATurn?.content ?? "";
@@ -778,14 +779,15 @@ YOUR ROUND 1 ARGUMENT:
 ${agentAName.toUpperCase()}'S ROUND 2 RESPONSE:
 "${round2AContent}"
 
+${agent.persona}
+
+Write 100–150 words.
+
 Did ${agentAName} defend their position with new reasoning, or did they concede and redirect?
 
 If they defended: attack the new reasoning directly. Do not re-litigate Round 1.
 If they conceded and redirected: attack the new claim they redirected to.
-Either way: name the specific thing they said in Round 2 before responding.
-
-Write 100–150 words.
-${agent.persona}`;
+Either way: name the specific thing they said in Round 2 before responding.`;
 }
 
 export function buildRound2ArchivePrompt(args: {
