@@ -47,7 +47,7 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 ### Phase 6 — Multi-Round Debates ✅ (2026-05-21)
 2-round debates with user-initiated Round 2 via "Push back →". Agent A must defend or concede+redirect. Agent B must name Agent A's Round 2 claim before countering. Round 2 Archivist reports observable behavior (who shifted/held/missed) and names a winner on the crux. Verdict is structured JSON, preserved separately from Round 1 `archivistSummary`. Migration 0009 applied.
 
-- `POST /api/debates/[id]/continue` — triggers Round 2, `after()` loop x4
+- `POST /api/debates/[id]/continue` — triggers Round 2, dispatches GHA workflow
 - `debate_turns.round`, `debates.round_count`, `debates.verdict`, `debates.verdict_reasoning`
 - `buildRound2TurnPrompt` (slot 0|1), `buildRound2ArchivePrompt` (JSON output)
 - "Push back →" button on debate page; verdict block on debate + share pages
@@ -262,11 +262,9 @@ POST /api/debates/judge
 POST /api/debates/start
   → inserts debate_turn (slot 0, priority 1)
   → returns response immediately
-  → after() runs processQueue(1) loop up to 4 passes in same warm function:
-      Pass 1: Agent A turn  (~2-3s)
-      Pass 2: Agent B turn  (~2-3s)
-      Pass 3: Archive       (~1-2s)
-  → GHA 5-min cron is the fallback if after() is cut by Vercel's 10s limit
+  → after() dispatches GHA workflow_dispatch (skip_checks=true)
+  → GHA starts in ~30-60s, processes queue with no Vercel timeout
+  → 5-min GHA cron is fallback if dispatch fails
 
 executor: debate_turn (slot 0)
   → callAgent(Agent A) → writes to debate_turns

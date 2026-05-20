@@ -41,11 +41,9 @@ POST /api/debates/judge
 POST /api/debates/start
   → DB writes (rate limit check, debate validation, aiQueue insert)
   → returns response immediately
-  → after() fires: processQueue(1) loop up to 4 passes in same warm function
-      Pass 1: Agent A turn (~2-3s, Groq)
-      Pass 2: Agent B turn (~2-3s, Groq/GitHub)
-      Pass 3: Archive (~1-2s, GitHub gpt-4o-mini)
-  → GHA 5-min cron handles any passes that got cut by Vercel's 10s limit
+  → after() dispatches GHA workflow_dispatch (skip_checks=true)
+  → GHA starts in ~30-60s, processes full queue with no timeout ceiling
+  → 5-min GHA cron is fallback if dispatch fails silently
 
 executor picks up debate_turn (slot=0):
   → callAgent(Agent A) with buildDebateTurnPrompt (no agentATurn)
@@ -64,7 +62,7 @@ executor picks up debate_archive:
 
 **Priority:** all `debate_*` items use **priority 1** (same as AI Lab urgent items). Lower = higher priority. This ensures the after() loop processes them first in the same tick.
 
-**Expected end-to-end time:** 5-15 seconds on warm Vercel functions. Up to 5 minutes on cold start (GHA fallback).
+**Expected end-to-end time:** 30-90 seconds (GHA dispatch + queue processing). Up to 5 minutes if dispatch fails and cron is the fallback.
 
 ---
 
@@ -152,7 +150,11 @@ OG metadata: title from `debate.title`, description from `archivistSummary.slice
 | `app/debates/share/[token]/page.tsx` | Public archive page |
 | `app/debates/history/page.tsx` | History grouped by status |
 | `components/debates/DebatePoller.tsx` | 10s polling, 15min timeout, visibility-aware |
+| `components/debates/PushBackButton.tsx` | "Push back →" client button for Round 2 trigger |
+| `components/Sidebar.tsx` | Quick Debate entry added (Scale icon, `/debates/new`, active for all `/debates/*`) |
+| `lib/agents/dispatch-queue.ts` | `dispatchQueueProcessor()` — fires GHA workflow_dispatch after() |
 | `drizzle/0008_debates.sql` | Migration SQL (applied 2026-05-20) |
+| `drizzle/0009_multi_round.sql` | Migration SQL for round/verdict columns (applied 2026-05-21) |
 | `scripts/test-debate-flow.ts` | Integration test — 60 checks against real DB |
 
 ---

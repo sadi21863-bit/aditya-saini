@@ -6,7 +6,7 @@ import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import {
   Home, LayoutDashboard, Compass, Bookmark,
-  Plus, FlaskConical, Archive, User,
+  Plus, FlaskConical, Archive, User, Scale,
   ChevronLeft, ChevronRight, LogOut, Menu, X, Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,14 @@ import NotificationCenter from "@/components/NotificationCenter";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
-  { href: "/feed",           label: "Home Feed",   icon: Home,            isLab: false },
-  { href: "/dashboard",      label: "My Rooms",    icon: LayoutDashboard, isLab: false },
-  { href: "/explore",        label: "Explore",     icon: Compass,         isLab: false },
-  { href: "/bookmarks",      label: "Bookmarks",   icon: Bookmark,        isLab: false },
-  { href: "/rooms/new",      label: "New Room",    icon: Plus,            isLab: false },
-  { href: "/ai-lab",         label: "AI Lab",      icon: FlaskConical,    isLab: true  },
-  { href: "/ai-lab/archive", label: "Lab Archive", icon: Archive,         isLab: false },
+  { href: "/feed",           label: "Home Feed",    icon: Home,            isLab: false },
+  { href: "/dashboard",      label: "My Rooms",     icon: LayoutDashboard, isLab: false },
+  { href: "/explore",        label: "Explore",      icon: Compass,         isLab: false },
+  { href: "/bookmarks",      label: "Bookmarks",    icon: Bookmark,        isLab: false },
+  { href: "/rooms/new",      label: "New Room",     icon: Plus,            isLab: false },
+  { href: "/debates/new",    label: "Quick Debate", icon: Scale,           isLab: false },
+  { href: "/ai-lab",         label: "AI Lab",       icon: FlaskConical,    isLab: true  },
+  { href: "/ai-lab/archive", label: "Lab Archive",  icon: Archive,         isLab: false },
 ] as const;
 
 const NO_SIDEBAR_PREFIXES = ["/sign-in", "/sign-up", "/onboarding"];
@@ -69,6 +70,7 @@ export default function Sidebar({
     if (href === "/explore")        return pathname === "/explore";
     if (href === "/ai-lab")         return pathname === "/ai-lab";
     if (href === "/ai-lab/archive") return pathname.startsWith("/ai-lab/archive");
+    if (href === "/debates/new")    return pathname.startsWith("/debates");
     return pathname.startsWith(href);
   }
 

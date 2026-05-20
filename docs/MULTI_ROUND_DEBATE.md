@@ -47,7 +47,8 @@ User clicks "Push back →" on /debates/[id] page
       Set debates.status = 'in_progress', round_count = 2
       Insert debate_turn { debateId, slot: 0, round: 2, priority: 1 }
       Return { status: "started" }
-      after() fires: processQueue(1) loop up to 4 passes
+      after() dispatches GHA workflow_dispatch (skip_checks=true)
+      GHA starts in ~30-60s, processes all 3 passes with no timeout ceiling:
           Pass 1: Round 2 Agent A turn (~2-3s)
           Pass 2: Round 2 Agent B turn (~2-3s)
           Pass 3: Round 2 Archive + verdict (~1-2s)
