@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse }            from "next/server";
+import { after }                               from "next/server";
 import { auth }                                from "@/lib/auth";
 import { db }                                  from "@/db";
 import { debates, aiQueue }                    from "@/db/schema";
@@ -63,14 +64,21 @@ export async function POST(req: NextRequest) {
     agentId:       participants[0].agentId,
     actionType:    "debate_turn",
     promptContext: { debateId, slot: 0 },
-    priority:      2,
+    priority:      1,   // same as AI Lab urgent items — processed first in tick
     scheduledFor:  new Date(),
     status:        "pending",
   });
 
-  // Do NOT call processQueue() here — Vercel kills the function after sending
-  // the response, leaving queue items stuck in_progress with executedAt=null.
-  // GHA process-queue.ts runs every 5 min and will pick this up reliably.
+  // after() runs after the response is sent. It triggers the tick cron as a
+  // SEPARATE Vercel function with its own fresh budget — no stuck-item problem.
+  // GHA remains as a 5-minute fallback if the tick call fails or is slow.
+  after(() => {
+    const base   = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const secret = process.env.CRON_SECRET ?? "";
+    fetch(`${base}/api/cron/agents/tick`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    }).catch(() => {});
+  });
 
   return NextResponse.json({ status: "started", debateId });
 }

@@ -1855,7 +1855,7 @@ async function executeDebateTurn(
       agentId:       agentBParticipant.agentId,
       actionType:    "debate_turn",
       promptContext: { debateId, slot: 1 },
-      priority:      2,
+      priority:      1,   // priority 1 so tick picks it up immediately after Agent A
       scheduledFor:  new Date(),
       status:        "pending",
     });
@@ -1869,7 +1869,7 @@ async function executeDebateTurn(
       agentId:       archivistAgent.id,
       actionType:    "debate_archive",
       promptContext: { debateId },
-      priority:      2,
+      priority:      1,   // priority 1 so tick picks it up immediately after Agent B
       scheduledFor:  new Date(),
       status:        "pending",
     });
