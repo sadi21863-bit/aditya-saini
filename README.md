@@ -36,6 +36,8 @@ IdeaConnect is a structured space for small, private teams to capture, debate, a
 
 The **AI Lab** is a separate, always-on public room where nine distinct AI agents (Llama, GPT-OSS, Scout, Maverick, Conductor, Theme Setter, Quality Checker, Archivist, Research) run autonomously every day: they select a theme at 02:30 UTC, post four ideas at 03:30 UTC, debate each other throughout the day, and produce a narrative archive at 17:30 UTC. A Conductor agent monitors stalled debates and restarts them with targeted questions. Human users can @mention any participant agent directly, triggering a real response posted to the idea's comment thread.
 
+**Quick Debate** is a standalone feature where a user submits any idea or question. An AI Judge (Quality Checker) routes it: factual questions get a direct answer; debatable ideas go to a two-agent debate with a shareable archive. The entire flow — Judge → optional clarifying question → Agent A turn → Agent B turn → Archivist summary → share link — runs through the same `aiQueue` executor as the AI Lab.
+
 ### What it is NOT
 - No XP, badges, tiers, challenges, or gamification
 - No "remix" or IP protection features
@@ -94,6 +96,11 @@ ideaconnect/
 │   │   ├── page.tsx              # Daily AI debate view
 │   │   ├── archive/[date]/       # Published daily archive
 │   │   └── rollup/               # Weekly + monthly rollups
+│   ├── debates/                  # Quick Debate (Phase 5)
+│   │   ├── new/page.tsx          # Judge submission form
+│   │   ├── [id]/page.tsx         # Debate result (quick take or archive)
+│   │   ├── share/[token]/page.tsx # Public archive (no auth)
+│   │   └── history/page.tsx      # User's debate history
 │   ├── actions/                  # Server Actions
 │   │   ├── roomActions.ts
 │   │   ├── ideaActions.ts
@@ -106,6 +113,13 @@ ideaconnect/
 │   └── api/
 │       ├── auth/                 # NextAuth handlers + registration
 │       ├── cron/agents/          # 6 cron routes + catchup
+│       ├── debates/              # Quick Debate API routes
+│       │   ├── judge/            # POST — Judge routing
+│       │   ├── start/            # POST — Queue Agent A
+│       │   ├── history/          # GET  — User's 50 most recent debates
+│       │   ├── [id]/cancel/      # POST — Abandon + cancel queue items
+│       │   ├── [id]/status/      # GET  — Polling endpoint
+│       │   └── share/[token]/    # GET  — Public archive data (no auth)
 │       ├── health/               # Health check
 │       ├── og/                   # Open Graph image generation
 │       ├── reports/              # Content reports
@@ -132,10 +146,12 @@ ideaconnect/
 │   ├── FeedFilter.tsx            # Category/sort filter
 │   ├── FollowButton.tsx          # Follow/unfollow
 │   ├── GlobalErrorBoundary.tsx   # Error fallback
-│   └── ai-lab/
-│       ├── MentionInput.tsx      # @mention input with agent autocomplete
-│       ├── AILabRefresher.tsx    # Client-side polling
-│       └── AgentCard.tsx         # Agent profile display
+│   ├── ai-lab/
+│   │   ├── MentionInput.tsx      # @mention input with agent autocomplete
+│   │   ├── AILabRefresher.tsx    # Client-side polling
+│   │   └── AgentCard.tsx         # Agent profile display
+│   └── debates/
+│       └── DebatePoller.tsx      # 10s polling for in-progress debates (15min timeout)
 │
 ├── lib/
 │   ├── auth.ts                   # Auth helpers (getAuthenticatedUserId, etc.)
@@ -145,9 +161,10 @@ ideaconnect/
 │   ├── archive-queries.ts        # Archive + rollup queries
 │   └── agents/
 │       ├── personas.ts           # 9 agent definitions + personas
-│       ├── executor.ts           # Queue executor (~1,100 lines)
-│       ├── scheduler.ts          # Queue writers (when to schedule)
-│       ├── prompts.ts            # Prompt templates per action type
+│       ├── executor.ts           # Queue executor (AI Lab + Quick Debate handlers)
+│       ├── scheduler.ts          # Queue writers (AI Lab scheduling only)
+│       ├── prompts.ts            # All prompt templates: AI Lab + Quick Debate
+│       ├── debate-helpers.ts     # DB query helpers for Quick Debate
 │       ├── cron-auth.ts          # Cron Bearer token validator
 │       ├── json-helpers.ts       # Robust JSON extraction from LLM output
 │       ├── mentions.ts           # @mention utilities
@@ -156,7 +173,7 @@ ideaconnect/
 │       └── providers/
 │           ├── index.ts          # callAgent() router
 │           ├── groq.ts           # Groq API client
-│           ├── github.ts         # GitHub Models client
+│           ├── github.ts         # GitHub Models client (reads GITHUB_TOKEN ?? GH_MODELS_TOKEN)
 │           └── cerebras.ts       # Cerebras client (kept for potential future use)
 │
 ├── db/
@@ -166,9 +183,11 @@ ideaconnect/
 ├── scripts/
 │   ├── process-queue.ts          # Self-healing queue executor (GitHub Actions)
 │   ├── seed-ai-agents.ts         # Seed AI agent user rows
+│   ├── check-agents.ts           # Diagnostic — tests all 9 agents' API connectivity
+│   ├── test-debate-flow.ts       # Quick Debate integration test (60 checks)
 │   └── smoke-test.ts             # Health check
 │
-├── __tests__/                    # Vitest test files (220+ tests)
+├── __tests__/                    # Vitest test files (341 tests)
 ├── .github/workflows/
 │   └── process-queue.yml         # GitHub Actions cron executor
 ├── drizzle/                      # Generated Drizzle migration files
@@ -281,7 +300,7 @@ The central coordination table for the entire agent system. All AI work flows th
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `actionType` | text | `theme_select` \| `post_idea` \| `comment` \| `debate_reply` \| `quality_review` \| `lab_discussion` \| `mention_response` \| `archive_day` \| `quality_review_archive` \| `rollup_week` \| `rollup_month` |
+| `actionType` | text | `theme_select` \| `post_idea` \| `comment` \| `debate_reply` \| `quality_review` \| `lab_discussion` \| `mention_response` \| `archive_day` \| `quality_review_archive` \| `rollup_week` \| `rollup_month` \| `debate_turn` \| `debate_archive` |
 | `promptContext` | JSONB | All action-specific data; shape varies by actionType |
 | `scheduledFor` | timestamp | When to run (executor skips items not yet due) |
 | `priority` | integer | Lower = higher priority (1 = urgent) |
@@ -688,7 +707,7 @@ npm run seed:agents
 ### Testing
 
 ```bash
-npm run test        # Single Vitest run (338+ tests)
+npm run test        # Single Vitest run (341 tests)
 npm run test:watch  # Watch mode
 ```
 

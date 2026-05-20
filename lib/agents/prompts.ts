@@ -575,3 +575,137 @@ Respond in JSON only. Use \\n for line breaks inside the content field:
   "content": "..."
 }`;
 }
+
+// ─── QUICK DEBATE PROMPTS ────────────────────────────────────────────────────
+
+export function buildJudgeEvaluationPrompt(
+  input: string,
+  clarification?: { question: string; answer: string }
+): string {
+  const clarificationBlock = clarification
+    ? `\nUser's clarification:\nQ: "${clarification.question}"\nA: "${clarification.answer}"\n`
+    : "";
+
+  return `You are the Quick Debate Judge for IdeaConnect.
+
+User input:
+"""
+${input}
+"""
+${clarificationBlock}
+Your job:
+
+1. Decide if you need ONE clarifying question. Skip this if the input is
+   longer than 30 words and specific. Only ask if genuinely ambiguous about
+   scope or goal. Never ask more than one question.
+
+2. Route to:
+   "single_answer" — factual questions, advice requests, things with one
+   correct or best answer, too narrow for meaningful debate.
+   "full_debate" — ideas, proposals, hypotheses, plans, predictions,
+   anything where two intelligent people could reasonably disagree.
+
+3. If full_debate: pick 2 agents and a mode.
+   Agents: ai_llama (practical builder), ai_gpt_oss (synthesizer/connector),
+   ai_scout (explorer/lateral), ai_maverick (bold/contrarian).
+   Always pair one builder-type with one skeptic-type for maximum tension.
+   Modes: "brainstorm" (extend and build) or "risk_scan" (find failures).
+
+Respond in this exact JSON structure. All fields always present. Null fields that don't apply.
+{
+  "needs_clarification": false,
+  "question": null,
+  "verdict": "full_debate",
+  "reasoning": "one sentence explaining the routing decision",
+  "answer": null,
+  "recommended_agents": ["ai_llama", "ai_maverick"],
+  "recommended_mode": "risk_scan"
+}
+
+If needs_clarification is true, return:
+{
+  "needs_clarification": true,
+  "question": "your one specific question",
+  "verdict": null,
+  "reasoning": null,
+  "answer": null,
+  "recommended_agents": null,
+  "recommended_mode": null
+}`;
+}
+
+const DEBATE_MODE_FRAMES: Record<string, string> = {
+  brainstorm: `Build on this idea. Extend it. Find adjacent applications and unexplored
+angles. Be generative, not critical. Add something the user hasn't considered yet.`,
+  risk_scan: `Find failure modes. What breaks first? What assumption is most likely wrong?
+Be specific — one concrete risk per paragraph. Not "it might fail" but "it will fail at X because Y."`,
+};
+
+export function buildDebateTurnPrompt(args: {
+  debate:     { originalInput: string; judgeReasoning: string | null; debateMode: string | null };
+  agent:      { name: string; persona: string };
+  agentATurn: { content: string; agentId: string | null } | null;
+  agentAName: string | null;
+  question?:  { question: string; answer: string | null } | null;
+}): string {
+  const { debate, agent, agentATurn, agentAName, question } = args;
+
+  const clarificationBlock =
+    question?.answer
+      ? `\nUSER CLARIFIED:\nQ: "${question.question}"\nA: "${question.answer}"\n`
+      : "";
+
+  const modeFrame = DEBATE_MODE_FRAMES[debate.debateMode ?? "brainstorm"] ?? DEBATE_MODE_FRAMES.brainstorm;
+
+  const agentBBlock =
+    agentATurn && agentAName
+      ? `\nWHAT ${agentAName.toUpperCase()} JUST ARGUED:\n"${agentATurn.content}"\n
+You must engage with their specific point. Do not simply restate the original idea.
+Extend, challenge, or build directly on what ${agentAName} said.\n`
+      : "";
+
+  return `You are ${agent.name} in a Quick Debate on IdeaConnect.
+
+IDEA SUBMITTED:
+"${debate.originalInput}"
+${clarificationBlock}
+JUDGE'S ROUTING REASONING:
+"${debate.judgeReasoning ?? "This idea warrants multiple perspectives."}"
+
+DEBATE MODE: ${(debate.debateMode ?? "brainstorm").replace("_", " ").toUpperCase()}
+${modeFrame}
+${agentBBlock}
+Write your contribution in 100–200 words.
+No sycophantic openers. Start with your substantive point.
+${agent.persona}`;
+}
+
+export function buildDebateArchivePrompt(args: {
+  debate:     { originalInput: string; debateMode: string | null };
+  agentATurn: { content: string };
+  agentBTurn: { content: string };
+  agentAName: string;
+  agentBName: string;
+}): { systemPrompt: string; userPrompt: string } {
+  const { debate, agentATurn, agentBTurn, agentAName, agentBName } = args;
+
+  const systemPrompt =
+    `You summarize AI debates for public sharing.
+Write 150 words of plain prose. No headers. No bullet points.
+Write for someone who was not in the debate.`;
+
+  const userPrompt =
+    `ORIGINAL IDEA: "${debate.originalInput}"
+DEBATE MODE: ${debate.debateMode ?? "brainstorm"}
+${agentAName}: "${agentATurn.content}"
+${agentBName}: "${agentBTurn.content}"
+
+Summarize in 150 words. Include:
+- What the idea is (one sentence)
+- ${agentAName}'s key argument (one sentence)
+- ${agentBName}'s key argument (one sentence)
+- Whether they converged, diverged, or left a question open
+- The single most useful insight for someone reading cold`;
+
+  return { systemPrompt, userPrompt };
+}

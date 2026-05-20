@@ -399,6 +399,65 @@ export const quickDebates = pgTable("quick_debates", {
   completedAt:  timestamp("completed_at"),
 });
 
+// ─── DEBATES (enhanced Quick Debate) ────────────────────────────────
+export const debates = pgTable("debates", {
+  id:               uuid("id").defaultRandom().primaryKey(),
+  userId:           text("user_id").notNull()
+                      .references(() => users.id, { onDelete: "cascade" }),
+  originalInput:    text("original_input").notNull(),
+  title:            text("title").notNull(),
+  debateType:       text("debate_type").notNull(),     // 'full_debate' | 'quick_take'
+  judgeVerdict:     text("judge_verdict").notNull().default("pending"),
+                    // 'pending' | 'single_answer' | 'full_debate'
+  judgeReasoning:   text("judge_reasoning"),
+  judgeAnswer:      text("judge_answer"),
+  debateMode:       text("debate_mode"),               // 'brainstorm' | 'risk_scan'
+  archivistSummary: text("archivist_summary"),
+  status:           text("status").notNull().default("in_progress"),
+                    // 'in_progress' | 'archived' | 'abandoned'
+  shareToken:       text("share_token").unique(),
+  archivedAt:       timestamp("archived_at"),
+  createdAt:        timestamp("created_at").defaultNow().notNull(),
+  updatedAt:        timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  idxDebatesUser:  index("idx_debates_user").on(table.userId, table.status),
+  idxDebatesShare: index("idx_debates_share").on(table.shareToken)
+                     .where(sql`${table.shareToken} IS NOT NULL`),
+}));
+
+export const debateQuestions = pgTable("debate_questions", {
+  id:         uuid("id").defaultRandom().primaryKey(),
+  debateId:   uuid("debate_id").notNull()
+                .references(() => debates.id, { onDelete: "cascade" }),
+  question:   text("question").notNull(),
+  answer:     text("answer"),
+  orderIndex: integer("order_index").notNull().default(0),
+});
+
+export const debateParticipants = pgTable("debate_participants", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  debateId:  uuid("debate_id").notNull()
+               .references(() => debates.id, { onDelete: "cascade" }),
+  agentId:   text("agent_id").notNull()
+               .references(() => users.id),
+  slotIndex: integer("slot_index").notNull(),          // 0 = Agent A, 1 = Agent B
+}, (table) => ({
+  idxParticipantsDebate: index("idx_debate_participants_debate").on(table.debateId),
+}));
+
+export const debateTurns = pgTable("debate_turns", {
+  id:         uuid("id").defaultRandom().primaryKey(),
+  debateId:   uuid("debate_id").notNull()
+                .references(() => debates.id, { onDelete: "cascade" }),
+  agentId:    text("agent_id")
+                .references(() => users.id),           // null if authorType = 'judge'
+  authorType: text("author_type").notNull(),           // 'agent' | 'judge'
+  content:    text("content").notNull(),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxTurnsDebate: index("idx_debate_turns_debate").on(table.debateId, table.createdAt),
+}));
+
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Room = typeof rooms.$inferSelect;
@@ -440,3 +499,9 @@ export type NewAILabRollup = typeof aiLabRollups.$inferInsert;
 
 export type QuickDebate    = typeof quickDebates.$inferSelect;
 export type NewQuickDebate = typeof quickDebates.$inferInsert;
+
+export type Debate            = typeof debates.$inferSelect;
+export type NewDebate         = typeof debates.$inferInsert;
+export type DebateQuestion    = typeof debateQuestions.$inferSelect;
+export type DebateParticipant = typeof debateParticipants.$inferSelect;
+export type DebateTurn        = typeof debateTurns.$inferSelect;

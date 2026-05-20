@@ -2,11 +2,12 @@
 
 ## What This Project Is
 
-IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. It has a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans can @mention agents to get direct responses.
+IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. It has a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans can @mention agents to get direct responses. It also has **Quick Debate** — a standalone feature where a user submits any idea or question, an AI Judge routes it to a direct answer or a full two-agent debate, and the result is archived with a public share link.
 
 **Stack:** Next.js 16 · React 19 · NextAuth v5 · PostgreSQL (Neon) · Drizzle ORM · Tailwind CSS v4 · Groq · GitHub Models · Vercel
 
 **GitHub repo:** `sadi21863-bit/aditya-saini`
+**Feature docs:** [`docs/`](docs/) — Rooms, AI Lab, @Mention, Quick Debate, Operations, Schema Notes
 
 ---
 
@@ -43,11 +44,26 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 - @research moved to GitHub Models (gpt-4o-mini)
 - Multiple bug fixes: thundering herd guard, promptContext Zod validation, 9 UI/UX fixes, LLM timeouts, page titles
 
+### Phase 5 — Quick Debate ✅ (2026-05-20)
+Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new routes, shared executor and queue.
+
+- **Judge routing** — `ai_quality_checker` receives any input and returns `single_answer`, `full_debate`, or `needs_clarification` in JSON
+- **Clarifying question flow** — one optional follow-up question before routing; answer stored in `debate_questions`
+- **Quick Take** — direct answer archived immediately, no agent turns queued
+- **Full debate** — two agents (Judge-selected pair) run sequentially via `debate_turn` queue items; Agent B receives Agent A's content in its prompt
+- **Archive** — `debate_archive` handler calls `gpt-4o-mini` directly (not via `callAgent`) to produce a 150-word plain-prose summary; `shareToken` generated at archive time
+- **Public share** — `/debates/share/[token]` loads without auth; in `PUBLIC_PATHS`
+- **Rate limits** — 10 Judge calls/day, 5 full debates/day (DB count, works on Vercel serverless)
+- **Priority 2** — all `debate_turn` / `debate_archive` queue items; existing AI Lab items stay at priority 1
+- Migration 0008 applied; 4 new tables: `debates`, `debate_questions`, `debate_participants`, `debate_turns`
+- 341 tests passing · 0 TS errors · 60/60 integration checks passing
+
 ---
 
 ## HARD RULES — DO NOT VIOLATE
 
-1. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine. Dead forever.
+1. **Update MD files before every commit.** Every code change requires updating the relevant docs in `docs/` and/or `CLAUDE.md`/`README.md` before committing. See `docs/OPERATIONS.md` → "MD File Update Policy" for the exact table. No exceptions — stale docs are worse than no docs.
+2. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine. Dead forever.
 2. **Ideas MUST belong to a room.** Every idea has a `roomId`. Solo ideas go in the personal room.
 3. **Every user gets an auto-created personal room on signup** via `createUserProfile()` in `userActions.ts`.
 4. **Public rooms = join-with-one-click.** Private rooms = invite-only.
@@ -83,6 +99,13 @@ aiModerationLog — id, moderatorAgentId, targetType, targetId, verdict, reason,
 aiLabArchives  — id, date(unique), theme, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, stats, status(draft/published/flagged), generatedAt, publishedAt, flaggedReason, reviewedByAgentId
 aiLabRollups   — id, periodType, periodStart, periodEnd(unique), title, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, status, generatedAt, publishedAt, reviewedByAgentId
 aiLabOptouts   — id, userId, targetType, targetId (not yet enforced in executor)
+quickDebates   — id, ideaText, submittedBy, roomId, shareToken, status, narrativeArc, errorMessage, createdAt, completedAt  (old MVP — /debate/*)
+
+Quick Debate tables (Phase 5 — migration 0008):
+debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, status, shareToken, archivedAt, timestamps
+debate_questions    — id, debateId, question, answer, orderIndex
+debate_participants — id, debateId, agentId, slotIndex(0=A, 1=B)
+debate_turns        — id, debateId, agentId, authorType(agent|judge), content, createdAt
 ```
 
 ---
@@ -132,16 +155,22 @@ GitHub Models enforces a hard **8,000 token per-request limit** on ALL free-tier
 |------|---------|
 | `db/schema.ts` | All table definitions — START HERE |
 | `lib/agents/personas.ts` | 9 agent definitions, daily limits, model IDs |
-| `lib/agents/executor.ts` | Queue executor — processes all AI actions |
-| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule work |
-| `lib/agents/prompts.ts` | Prompt templates including `buildIdeaSummaryPrompt` (Pass 1) |
+| `lib/agents/executor.ts` | Queue executor — processes all AI actions including `debate_turn`/`debate_archive` |
+| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work |
+| `lib/agents/prompts.ts` | All prompt templates: AI Lab + Judge/Turn/Archive (Quick Debate) |
+| `lib/agents/debate-helpers.ts` | DB query helpers for Quick Debate (`getDebateById`, `getDebateParticipants`, `getDebateTurns`, `getDebateByShareToken`) |
 | `lib/agents/providers/index.ts` | `callAgent()` router (groq/github/cerebras) |
 | `lib/agents/mentions.ts` | @mention resolution. `SPECIFIC_HANDLES = ["llama","gpt-oss","scout","maverick"]` |
 | `lib/auth.ts` | `getAuthenticatedUserId()`, `requireAuth()`, `isAdmin()` |
+| `lib/time.ts` | `relativeTime()` + `startOfToday()` (used in Quick Debate rate limits) |
 | `lib/ratelimit.ts` | In-memory rate limiters (`writeLimiter`, `lightLimiter`) |
+| `app/api/debates/` | Quick Debate API: `judge`, `start`, `[id]/cancel`, `[id]/status`, `share/[token]`, `history` |
+| `app/debates/` | Quick Debate pages: `new`, `[id]`, `share/[token]`, `history` |
+| `components/debates/DebatePoller.tsx` | 10s polling component for in-progress debates |
 | `scripts/process-queue.ts` | Self-healing GHA queue processor |
 | `scripts/seed-ai-agents.ts` | Seeds all agents into users table + AI Lab room |
 | `scripts/check-agents.ts` | Diagnostic — tests all 9 agents' API connectivity |
+| `scripts/test-debate-flow.ts` | Quick Debate integration test (60 checks, runs against real DB) |
 | `.github/workflows/process-queue.yml` | GHA cron (every 5 min): check-agents → process queue |
 
 ---
@@ -174,12 +203,42 @@ npm run dev                   # http://localhost:3099
 
 ---
 
+## Quick Debate: How the Queue Flow Works
+
+```
+POST /api/debates/judge   → Judge (ai_quality_checker/Groq) evaluates input
+  needs_clarification     → stores question in debate_questions, returns to UI
+  single_answer           → debate archived immediately (no queue items)
+  full_debate             → inserts debate_participants (slot 0 + slot 1)
+
+POST /api/debates/start   → inserts debate_turn (slot 0, priority 2) → processQueue() non-blocking
+
+executor: debate_turn (slot 0)
+  → callAgent(Agent A) → writes to debate_turns
+  → inserts debate_turn (slot 1, priority 2) immediately
+
+executor: debate_turn (slot 1)
+  → callAgent(Agent B) with Agent A's content in prompt
+  → writes to debate_turns
+  → inserts debate_archive (priority 2) immediately
+
+executor: debate_archive
+  → callGitHub("openai/gpt-4o-mini") for 150-word summary
+  → updates debates: status=archived, archivistSummary, shareToken, archivedAt
+```
+
+**Priority rule:** `debate_*` items use priority 2. AI Lab items use priority 1. Lower number = higher priority.
+**Cancel gate:** both handlers check `debate.status === "abandoned"` and mark queue item `cancelled` before doing any work.
+
+---
+
 ## Testing
 
 ```bash
-npm test              # 338 tests (Vitest)
-npx tsc --noEmit      # 0 TS errors
-npx tsx scripts/check-agents.ts  # 9/9 agents passing
+npm test                              # 341 tests (Vitest)
+npx tsc --noEmit                      # 0 TS errors
+npx tsx scripts/check-agents.ts       # 9/9 agents passing
+npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks
 ```
 
-Always verify these three before committing AI Lab changes.
+Always verify these four before committing changes that touch executor, prompts, or debate routes.

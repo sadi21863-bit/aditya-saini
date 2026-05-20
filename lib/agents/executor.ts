@@ -25,7 +25,11 @@ import {
   aiQueue, aiUsage, ideas, ideaComments,
   aiThemes, aiModerationLog, aiLabArchives, aiLabRollups,
   searchCache, notifications, quickDebates,
+  debates, debateParticipants, debateTurns, debateQuestions,
 } from "@/db/schema";
+import {
+  getDebateById, getDebateParticipants, getDebateTurns,
+} from "@/lib/agents/debate-helpers";
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
@@ -39,6 +43,8 @@ import {
   buildQualityReviewRollupPrompt,
   buildRollupWeekPrompt,
   buildRollupMonthPrompt,
+  buildDebateTurnPrompt,
+  buildDebateArchivePrompt,
 } from "./prompts";
 import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
@@ -333,6 +339,16 @@ async function executeItem(item: AIQueue): Promise<void> {
 
   if (item.actionType === "quick_debate_archive") {
     await executeQuickDebateArchive(agent, item, today);
+    return;
+  }
+
+  if (item.actionType === "debate_turn") {
+    await executeDebateTurn(agent, item, today);
+    return;
+  }
+
+  if (item.actionType === "debate_archive") {
+    await executeDebateArchive(item);
     return;
   }
 
@@ -1764,4 +1780,172 @@ Be direct. No generic praise language. Name agents by handle.`;
       .where(eq(quickDebates.id, debateId));
     throw err;
   }
+}
+
+// ─── DEBATE_TURN ──────────────────────────────────────────────────────────────
+// Chains: debate_turn (slot 0) → debate_turn (slot 1) → debate_archive
+async function executeDebateTurn(
+  agent: ReturnType<typeof getAgent> & object,
+  item:  AIQueue,
+  today: string,
+): Promise<void> {
+  const ctx      = (item.promptContext as Record<string, unknown>) ?? {};
+  const debateId = String(ctx.debateId ?? "");
+  const slot     = Number(ctx.slot     ?? 0);
+
+  if (!debateId) throw new Error("debate_turn: missing debateId in promptContext");
+
+  const debate = await getDebateById(debateId);
+
+  if (!debate || debate.status === "abandoned") {
+    await db.update(aiQueue).set({ status: "cancelled" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  const participants  = await getDebateParticipants(debateId);
+  const existingTurns = await getDebateTurns(debateId);
+
+  const isAgentB   = slot === 1;
+  const agentATurn = isAgentB ? existingTurns[0] ?? null : null;
+
+  // Defensive retry — Agent B fires but Agent A's turn not yet written
+  if (isAgentB && !agentATurn) {
+    await db.update(aiQueue)
+      .set({ scheduledFor: new Date(Date.now() + 30_000) })
+      .where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  const [questionRow] = await db
+    .select()
+    .from(debateQuestions)
+    .where(eq(debateQuestions.debateId, debateId))
+    .limit(1);
+
+  const agentAAgent = isAgentB ? getAgent(participants[0]?.agentId ?? "") : null;
+  const agentAName  = agentAAgent?.name ?? null;
+
+  const prompt = buildDebateTurnPrompt({
+    debate,
+    agent,
+    agentATurn,
+    agentAName,
+    question: questionRow ?? null,
+  });
+
+  const response = await callAgent(agent, prompt, { maxTokens: 400 });
+  const content  = response.trim();
+
+  if (!content) throw new Error(`debate_turn: empty response from ${agent.handle}`);
+
+  await db.insert(debateTurns).values({
+    debateId,
+    agentId:    agent.id,
+    authorType: "agent",
+    content,
+  });
+
+  await upsertUsage(agent.id, today, agent.provider);
+
+  if (slot === 0) {
+    const agentBParticipant = participants[1];
+    if (!agentBParticipant) throw new Error("debate_turn: no Agent B participant found");
+
+    await db.insert(aiQueue).values({
+      agentId:       agentBParticipant.agentId,
+      actionType:    "debate_turn",
+      promptContext: { debateId, slot: 1 },
+      priority:      2,
+      scheduledFor:  new Date(),
+      status:        "pending",
+    });
+  }
+
+  if (slot === 1) {
+    const archivistAgent = getAgent("ai_archivist");
+    if (!archivistAgent) throw new Error("debate_turn: ai_archivist agent not found");
+
+    await db.insert(aiQueue).values({
+      agentId:       archivistAgent.id,
+      actionType:    "debate_archive",
+      promptContext: { debateId },
+      priority:      2,
+      scheduledFor:  new Date(),
+      status:        "pending",
+    });
+  }
+
+  await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+}
+
+// ─── DEBATE_ARCHIVE ───────────────────────────────────────────────────────────
+// Generates 150-word Archivist summary via gpt-4o-mini and marks debate archived.
+async function executeDebateArchive(item: AIQueue): Promise<void> {
+  const ctx      = (item.promptContext as Record<string, unknown>) ?? {};
+  const debateId = String(ctx.debateId ?? "");
+
+  if (!debateId) throw new Error("debate_archive: missing debateId in promptContext");
+
+  const debate = await getDebateById(debateId);
+
+  if (!debate || debate.status === "abandoned") {
+    await db.update(aiQueue).set({ status: "cancelled" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  // Idempotent guard — concurrent run protection
+  if (debate.status === "archived") {
+    await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  const participants = await getDebateParticipants(debateId);
+  const turns        = await getDebateTurns(debateId);
+
+  const agentATurn = turns.find(t => t.agentId === participants[0]?.agentId);
+  const agentBTurn = turns.find(t => t.agentId === participants[1]?.agentId);
+
+  if (!agentATurn || !agentBTurn) {
+    await db.update(aiQueue)
+      .set({ scheduledFor: new Date(Date.now() + 30_000) })
+      .where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  const agentAAgent = getAgent(participants[0].agentId);
+  const agentBAgent = getAgent(participants[1].agentId);
+  const agentAName  = agentAAgent?.name ?? "Agent A";
+  const agentBName  = agentBAgent?.name ?? "Agent B";
+
+  const { systemPrompt, userPrompt } = buildDebateArchivePrompt({
+    debate,
+    agentATurn,
+    agentBTurn,
+    agentAName,
+    agentBName,
+  });
+
+  const summary = await callGitHub(
+    "openai/gpt-4o-mini",
+    systemPrompt,
+    userPrompt,
+    { temperature: 0.5, maxTokens: 300 },
+  );
+
+  if (!summary.trim()) throw new Error("debate_archive: empty summary from gpt-4o-mini");
+
+  await db.update(debates)
+    .set({
+      status:           "archived",
+      archivistSummary: summary.trim(),
+      shareToken:       crypto.randomUUID(),
+      archivedAt:       new Date(),
+      updatedAt:        new Date(),
+    })
+    .where(eq(debates.id, debateId));
+
+  const today = new Date().toISOString().slice(0, 10);
+  await upsertUsage("ai_archivist", today, "github");
+
+  await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
 }

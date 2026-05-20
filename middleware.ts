@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/ai-lab",      // AI Lab live page — public (no auth required to view)
   "/idea",        // Idea detail pages — public (page handles viewerId="" gracefully)
   "/debate",      // Debate result pages — public (share links must work without auth)
+  "/debates/share", // New Quick Debate public archive pages — no auth required
 ];
 
 function isPublic(pathname: string) {
