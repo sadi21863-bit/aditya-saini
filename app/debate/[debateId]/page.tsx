@@ -5,7 +5,8 @@ import { eq }           from "drizzle-orm";
 import { notFound }     from "next/navigation";
 import Link             from "next/link";
 import ReactMarkdown    from "react-markdown";
-import DebatePoller from "@/components/debate/DebatePoller";
+import DebatePoller     from "@/components/debate/DebatePoller";
+import { ShareButton }  from "@/components/ShareButton";
 
 type Params = { debateId: string };
 
@@ -40,11 +41,6 @@ export default async function DebatePage(
     .limit(1);
 
   if (!debate) notFound();
-
-  const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const shareUrl = `${appUrl}/debate/${debate.id}`;
-
-  const isTerminal = debate.status === "complete" || debate.status === "failed";
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-12">
@@ -86,13 +82,7 @@ export default async function DebatePage(
 
           {/* Share row */}
           <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ic-rule">
-            <button
-              onClick={() => navigator.clipboard.writeText(shareUrl)}
-              className="px-4 py-2 rounded-lg border border-ic-rule text-sm text-ic-ink
-                         hover:bg-ic-paper-deep transition font-mono"
-            >
-              Copy share link
-            </button>
+            <ShareButton />
             <Link
               href="/debate/new"
               className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition font-mono"
