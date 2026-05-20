@@ -7,10 +7,13 @@ import {
 import { eq, and, gte, count }        from "drizzle-orm";
 import { z }                          from "zod";
 import { parseJsonResponse }          from "@/lib/agents/json-helpers";
-import { callAgent }                  from "@/lib/agents/providers";
-import { getAgent }                   from "@/lib/agents/personas";
+import { callGroq }                   from "@/lib/agents/providers/groq";
 import { buildJudgeEvaluationPrompt } from "@/lib/agents/prompts";
 import { startOfToday }               from "@/lib/time";
+
+// Minimal system prompt — keeps input tokens low for fast response.
+// The full routing instructions are already in buildJudgeEvaluationPrompt.
+const JUDGE_SYSTEM = "You are a debate routing judge. Respond in valid JSON only. No markdown.";
 
 const BodySchema = z.object({
   input:          z.string().min(10).max(2000),
@@ -48,11 +51,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Use llama-3.3-70b for the Judge — it supports JSON mode and responds in <2s.
-  // Qwen3-32b (quality_checker) has an extended thinking mode that causes 2-5 min delays
-  // on synchronous API routes where the user is actively waiting.
-  const qcAgent = getAgent("ai_llama");
-  if (!qcAgent) return NextResponse.json({ error: "Judge unavailable." }, { status: 503 });
 
   // CASE 2 — Answering a clarifying question
   if (debateId && questionAnswer) {
@@ -74,7 +72,7 @@ export async function POST(req: NextRequest) {
       question: qRow.question,
       answer:   questionAnswer,
     });
-    const raw      = await callAgent(qcAgent, prompt, { maxTokens: 400, jsonMode: true });
+    const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true });
     const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
     return handleJudgeVerdict(judgment, debateId, userId, input);
@@ -91,7 +89,7 @@ export async function POST(req: NextRequest) {
   }).returning();
 
   const prompt   = buildJudgeEvaluationPrompt(input);
-  const raw      = await callAgent(qcAgent, prompt, { maxTokens: 400 });
+  const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true });
   const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
   return handleJudgeVerdict(judgment, newDebate.id, userId, input);
