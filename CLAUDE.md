@@ -56,6 +56,7 @@ Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new
 - **Rate limits** — 10 Judge calls/day, 5 full debates/day (DB count, works on Vercel serverless)
 - **Priority 1** — all `debate_turn` / `debate_archive` queue items; processed before AI Lab background items
 - **Prompt constraints (2026-05-21)** — Agent B must name and directly contest a specific claim from Agent A before making its own argument; Archivist must identify the crux and take a position (no "both sides valid" hedging); Judge defaults to `risk_scan` for predictions, comparisons, and causal claims
+- **Executor fixes (2026-05-21)** — `debate_turn`/`debate_archive` bypass the per-agent AI Lab daily cap (Quick Debate has its own API-level limits); archive handler now finds turns by creation order, not participant `agentId` (robust to agent swaps from rate limiting)
 - Migration 0008 applied; 4 new tables: `debates`, `debate_questions`, `debate_participants`, `debate_turns`
 - 341 tests passing · 0 TS errors · 60/60 integration checks passing
 

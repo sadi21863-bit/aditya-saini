@@ -262,15 +262,21 @@ async function executeItem(item: AIQueue): Promise<void> {
   if (!agent) throw new Error(`Agent not found: ${item.agentId}`);
 
   // Rate limit check — throw with "rate_limited:" prefix so outer catch
-  // can distinguish it from a real failure and set the correct status
+  // can distinguish it from a real failure and set the correct status.
+  // debate_turn and debate_archive are user-initiated Quick Debate actions with
+  // their own per-user API-level rate limits (5/day). Exclude them from the
+  // per-agent AI Lab daily cap so a busy AI Lab day can't block Quick Debate.
   const today = new Date().toISOString().slice(0, 10);
-  const [usage] = await db
-    .select()
-    .from(aiUsage)
-    .where(and(eq(aiUsage.agentId, agent.id), eq(aiUsage.date, today)));
+  const QUICK_DEBATE_ACTIONS = new Set(["debate_turn", "debate_archive"]);
+  if (!QUICK_DEBATE_ACTIONS.has(item.actionType)) {
+    const [usage] = await db
+      .select()
+      .from(aiUsage)
+      .where(and(eq(aiUsage.agentId, agent.id), eq(aiUsage.date, today)));
 
-  if (usage && usage.requestCount >= agent.dailyLimit) {
-    throw new Error(`rate_limited: ${agent.handle} has reached daily limit (${agent.dailyLimit})`);
+    if (usage && usage.requestCount >= agent.dailyLimit) {
+      throw new Error(`rate_limited: ${agent.handle} has reached daily limit (${agent.dailyLimit})`);
+    }
   }
 
   // Layer 4 pre-check: abort lab_discussion from private rooms BEFORE calling LLM.
@@ -1900,10 +1906,13 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
   }
 
   const participants = await getDebateParticipants(debateId);
-  const turns        = await getDebateTurns(debateId);
+  // Sort by createdAt so turn order is stable regardless of which agent ran
+  // (agents may be swapped from participants table if the original was rate-limited)
+  const turns = (await getDebateTurns(debateId))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  const agentATurn = turns.find(t => t.agentId === participants[0]?.agentId);
-  const agentBTurn = turns.find(t => t.agentId === participants[1]?.agentId);
+  const agentATurn = turns[0];
+  const agentBTurn = turns[1];
 
   if (!agentATurn || !agentBTurn) {
     await db.update(aiQueue)
@@ -1912,8 +1921,9 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
     return;
   }
 
-  const agentAAgent = getAgent(participants[0].agentId);
-  const agentBAgent = getAgent(participants[1].agentId);
+  // Resolve display names: prefer participants table, fall back to the agent that actually ran
+  const agentAAgent = getAgent(participants[0]?.agentId ?? agentATurn.agentId ?? "");
+  const agentBAgent = getAgent(participants[1]?.agentId ?? agentBTurn.agentId ?? "");
   const agentAName  = agentAAgent?.name ?? "Agent A";
   const agentBName  = agentBAgent?.name ?? "Agent B";
 
