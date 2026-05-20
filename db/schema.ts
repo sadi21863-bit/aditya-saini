@@ -39,6 +39,8 @@ export const rooms = pgTable("rooms", {
   status:       text("status").default("active").notNull(),
   pinnedIdeaId: uuid("pinned_idea_id"),
   isAiLab:      boolean("is_ai_lab").default(false).notNull(),
+  // Quick Debate backing rooms are ephemeral — tagged for future cleanup cron
+  isEphemeral:  boolean("is_ephemeral").default(false).notNull(),
   createdAt:    timestamp("created_at").defaultNow(),
   updatedAt:    timestamp("updated_at").defaultNow(),
 });
@@ -376,6 +378,27 @@ export const searchCache = pgTable("search_cache", {
   expiresAt: timestamp("expires_at").notNull(),     // fetchedAt + 24h TTL
 });
 
+// ─── QUICK DEBATES ──────────────────────────────────────────────────
+// Each row represents one user-submitted idea that goes through the fast
+// Llama→GPT-OSS debate pipeline. Backed by a private ephemeral room.
+// narrativeArc is populated by executeQuickDebateArchive on completion.
+export const quickDebates = pgTable("quick_debates", {
+  id:           uuid("id").defaultRandom().primaryKey(),
+  ideaText:     text("idea_text").notNull(),
+  submittedBy:  text("submitted_by").notNull()
+                  .references(() => users.id, { onDelete: "cascade" }),
+  roomId:       uuid("room_id")
+                  .references(() => rooms.id, { onDelete: "set null" }),
+  shareToken:   text("share_token").unique()
+                  .$defaultFn(() => randomUUID().replace(/-/g, "").slice(0, 16)),
+  // status: "queued" | "seeding" | "debating" | "archiving" | "complete" | "failed"
+  status:       text("status").notNull().default("queued"),
+  narrativeArc: text("narrative_arc"),
+  errorMessage: text("error_message"),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  completedAt:  timestamp("completed_at"),
+});
+
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Room = typeof rooms.$inferSelect;
@@ -414,3 +437,6 @@ export type NewAILabOptout = typeof aiLabOptouts.$inferInsert;
 export type NewAITheme = typeof aiThemes.$inferInsert;
 export type NewAILabArchive = typeof aiLabArchives.$inferInsert;
 export type NewAILabRollup = typeof aiLabRollups.$inferInsert;
+
+export type QuickDebate    = typeof quickDebates.$inferSelect;
+export type NewQuickDebate = typeof quickDebates.$inferInsert;

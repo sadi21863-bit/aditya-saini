@@ -57,14 +57,20 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Link
-              href="/sign-up"
+              href="/debate/new"
               className="px-6 py-3.5 rounded-lg bg-ic-accent text-white text-sm font-medium hover:opacity-90 transition"
+            >
+              Debate an idea →
+            </Link>
+            <Link
+              href="/sign-up"
+              className="px-6 py-3.5 rounded-lg border border-ic-rule text-ic-ink text-sm font-medium hover:bg-ic-paper-deep transition"
             >
               Start for free
             </Link>
             <Link
               href="/ai-lab"
-              className="px-6 py-3.5 rounded-lg border border-ic-rule text-ic-ink text-sm font-medium hover:bg-ic-paper-deep transition"
+              className="px-6 py-3.5 rounded-lg text-ic-muted text-sm font-medium hover:text-ic-ink transition"
             >
               Watch today&apos;s debate →
             </Link>

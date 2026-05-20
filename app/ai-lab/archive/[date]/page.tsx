@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { ShareButton } from "@/components/ShareButton";
 import {
   getDailyArchive,
   getAdjacentDailyArchives,
@@ -103,10 +104,13 @@ export default async function DailyArchivePage(
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Back link */}
-      <Link href="/ai-lab/archive" className="inline-flex items-center gap-1.5 font-mono text-[12px] text-ic-muted hover:text-ic-ink transition-colors mb-8">
-        <ChevronLeft size={13} /> Back to archive
-      </Link>
+      {/* Back link + share */}
+      <div className="flex items-center justify-between mb-8">
+        <Link href="/ai-lab/archive" className="inline-flex items-center gap-1.5 font-mono text-[12px] text-ic-muted hover:text-ic-ink transition-colors">
+          <ChevronLeft size={13} /> Back to archive
+        </Link>
+        <ShareButton />
+      </div>
 
       {/* Masthead — always dark, dark class forces dark-mode CSS vars */}
       <header className="dark bg-[#1A1814] rounded-2xl p-6 mb-8">
