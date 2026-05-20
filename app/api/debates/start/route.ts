@@ -5,7 +5,6 @@ import { debates, aiQueue }                    from "@/db/schema";
 import { eq, and, gte, count, ne }             from "drizzle-orm";
 import { z }                                   from "zod";
 import { getDebateParticipants, getDebateTurns } from "@/lib/agents/debate-helpers";
-import { processQueue }                        from "@/lib/agents/executor";
 import { startOfToday }                        from "@/lib/time";
 
 const BodySchema = z.object({ debateId: z.string().uuid() });
@@ -69,10 +68,9 @@ export async function POST(req: NextRequest) {
     status:        "pending",
   });
 
-  // Non-blocking — stays within Vercel 10s timeout
-  processQueue().catch((err: unknown) =>
-    console.error("[debates/start] processQueue error:", err)
-  );
+  // Do NOT call processQueue() here — Vercel kills the function after sending
+  // the response, leaving queue items stuck in_progress with executedAt=null.
+  // GHA process-queue.ts runs every 5 min and will pick this up reliably.
 
   return NextResponse.json({ status: "started", debateId });
 }

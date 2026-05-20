@@ -57,7 +57,7 @@ export default function NewDebatePage() {
       const res  = await fetch("/api/debates/judge", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ input, debateId, questionAnswer: answer }),
+        body:    JSON.stringify({ input, debateId, questionAnswer: answer, questionText: question }),
         signal:  AbortSignal.timeout(15_000),
       });
 

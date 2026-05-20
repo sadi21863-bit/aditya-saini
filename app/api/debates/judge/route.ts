@@ -4,19 +4,16 @@ import { db }                         from "@/db";
 import {
   debates, debateQuestions, debateParticipants,
 } from "@/db/schema";
-import { eq, and, gte, count }        from "drizzle-orm";
+import { eq }                         from "drizzle-orm";
 import { z }                          from "zod";
 import { parseJsonResponse }          from "@/lib/agents/json-helpers";
 import { callGroq }                   from "@/lib/agents/providers/groq";
 import { buildJudgeEvaluationPrompt } from "@/lib/agents/prompts";
-import { startOfToday }               from "@/lib/time";
 
-// Minimal system prompt — keeps input tokens low for fast response.
-// The full routing instructions are already in buildJudgeEvaluationPrompt.
+// 10-word system prompt — full instructions are inside buildJudgeEvaluationPrompt.
 const JUDGE_SYSTEM = "You are a debate routing judge. Respond in valid JSON only. No markdown.";
 
-// Vercel Hobby functions time out at 10s. Keep this under 8s so we return
-// a clean error rather than letting Vercel return a raw 504 to the browser.
+// Vercel Hobby hard limit is 10s. Declare it explicitly so it's visible.
 export const maxDuration = 10;
 
 const BodySchema = z.object({
@@ -42,47 +39,41 @@ export async function POST(req: NextRequest) {
   }
   const { input, debateId, questionAnswer } = parsed.data;
 
-  // Daily limit — DB count (works on Vercel serverless, no in-memory state)
-  const startOfDay = startOfToday();
-  const [limitRow] = await db
-    .select({ n: count() })
-    .from(debates)
-    .where(and(eq(debates.userId, userId), gte(debates.createdAt, startOfDay)));
-  if (Number(limitRow?.n ?? 0) >= 10) {
-    return NextResponse.json(
-      { error: "Judge limit reached for today (10/day). Check back tomorrow." },
-      { status: 429 },
-    );
-  }
-
-
-  // CASE 2 — Answering a clarifying question
+  // ── CASE 2: user answering a clarifying question ─────────────────────────
+  // Clarifying question text is passed from the client (stored in component
+  // state), so we avoid a DB read before the LLM call.
   if (debateId && questionAnswer) {
-    const [qRow] = await db
-      .select()
-      .from(debateQuestions)
-      .where(eq(debateQuestions.debateId, debateId))
-      .limit(1);
-
-    if (!qRow) {
-      return NextResponse.json({ error: "Question not found." }, { status: 404 });
-    }
-
-    await db.update(debateQuestions)
-      .set({ answer: questionAnswer })
-      .where(eq(debateQuestions.id, qRow.id));
-
-    const prompt   = buildJudgeEvaluationPrompt(input, {
-      question: qRow.question,
+    // LLM first — no DB before this
+    const questionText = body.questionText as string | undefined;
+    const prompt  = buildJudgeEvaluationPrompt(input, {
+      question: questionText ?? "Please clarify your idea.",
       answer:   questionAnswer,
     });
-    const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 });
+    const raw     = await callGroq(
+      "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
+      { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 },
+    );
     const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
+
+    // DB writes after LLM responds
+    await db.update(debateQuestions)
+      .set({ answer: questionAnswer })
+      .where(eq(debateQuestions.debateId, debateId));
 
     return handleJudgeVerdict(judgment, debateId, userId, input);
   }
 
-  // CASE 1 — Fresh submission
+  // ── CASE 1: fresh submission ──────────────────────────────────────────────
+  // Call LLM before any DB work — avoids Neon cold-start blocking the LLM call.
+  // Rate limit is enforced in /api/debates/start (which gates full debates).
+  const prompt   = buildJudgeEvaluationPrompt(input);
+  const raw      = await callGroq(
+    "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
+    { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 },
+  );
+  const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
+
+  // DB insert after LLM responds
   const [newDebate] = await db.insert(debates).values({
     userId,
     originalInput: input,
@@ -91,10 +82,6 @@ export async function POST(req: NextRequest) {
     judgeVerdict:  "pending",
     status:        "in_progress",
   }).returning();
-
-  const prompt   = buildJudgeEvaluationPrompt(input);
-  const raw      = await callGroq("llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt, { maxTokens: 400, jsonMode: true });
-  const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
   return handleJudgeVerdict(judgment, newDebate.id, userId, input);
 }
@@ -115,7 +102,7 @@ async function handleJudgeVerdict(
   userId:   string,
   input:    string,
 ): Promise<NextResponse> {
-  void userId; void input; // used for context, not in this function body
+  void userId; void input;
 
   if (judgment.needs_clarification && judgment.question) {
     await db.insert(debateQuestions).values({
@@ -124,8 +111,9 @@ async function handleJudgeVerdict(
       orderIndex: 0,
     });
     return NextResponse.json({
-      status:   "needs_clarification",
-      question: judgment.question,
+      status:       "needs_clarification",
+      question:     judgment.question,
+      questionText: judgment.question,
       debateId,
     });
   }
@@ -141,11 +129,7 @@ async function handleJudgeVerdict(
         updatedAt:    new Date(),
       })
       .where(eq(debates.id, debateId));
-    return NextResponse.json({
-      status:   "single_answer",
-      answer:   judgment.answer,
-      debateId,
-    });
+    return NextResponse.json({ status: "single_answer", answer: judgment.answer, debateId });
   }
 
   if (judgment.verdict === "full_debate") {
@@ -164,12 +148,7 @@ async function handleJudgeVerdict(
       { debateId, agentId: agents[1], slotIndex: 1 },
     ]);
 
-    return NextResponse.json({
-      status:   "full_debate",
-      debateId,
-      mode:     judgment.recommended_mode,
-      agents,
-    });
+    return NextResponse.json({ status: "full_debate", debateId, mode: judgment.recommended_mode, agents });
   }
 
   return NextResponse.json({ error: "Judge returned an unexpected verdict." }, { status: 500 });
