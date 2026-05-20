@@ -48,7 +48,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const qcAgent = getAgent("ai_quality_checker");
+  // Use llama-3.3-70b for the Judge — it supports JSON mode and responds in <2s.
+  // Qwen3-32b (quality_checker) has an extended thinking mode that causes 2-5 min delays
+  // on synchronous API routes where the user is actively waiting.
+  const qcAgent = getAgent("ai_llama");
   if (!qcAgent) return NextResponse.json({ error: "Judge unavailable." }, { status: 503 });
 
   // CASE 2 — Answering a clarifying question
@@ -71,7 +74,7 @@ export async function POST(req: NextRequest) {
       question: qRow.question,
       answer:   questionAnswer,
     });
-    const raw      = await callAgent(qcAgent, prompt, { maxTokens: 400 });
+    const raw      = await callAgent(qcAgent, prompt, { maxTokens: 400, jsonMode: true });
     const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
     return handleJudgeVerdict(judgment, debateId, userId, input);
