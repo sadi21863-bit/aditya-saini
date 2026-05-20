@@ -1,3 +1,8 @@
+/** Returns midnight (00:00:00.000) of the current local day. */
+export function startOfToday(): Date {
+  return new Date(new Date().setHours(0, 0, 0, 0));
+}
+
 export function relativeTime(date: Date | null | undefined): string {
   if (!date) return "";
   const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
