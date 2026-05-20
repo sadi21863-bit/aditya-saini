@@ -4,7 +4,7 @@ import { db }                               from "@/db";
 import { debates, aiQueue }                 from "@/db/schema";
 import { eq, and }                          from "drizzle-orm";
 import { getDebateParticipants }            from "@/lib/agents/debate-helpers";
-import { processQueue }                     from "@/lib/agents/executor";
+import { dispatchQueueProcessor }           from "@/lib/agents/dispatch-queue";
 
 export const maxDuration = 10;
 
@@ -50,12 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<Param
     status:        "pending",
   });
 
-  after(async () => {
-    for (let pass = 0; pass < 4; pass++) {
-      const result = await processQueue(1).catch(() => ({ processed: 0 }));
-      if (result.processed === 0) break;
-    }
-  });
+  after(async () => { await dispatchQueueProcessor(); });
 
   return NextResponse.json({ status: "started", debateId });
 }

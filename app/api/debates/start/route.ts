@@ -5,7 +5,7 @@ import { debates, aiQueue }                    from "@/db/schema";
 import { eq, and, gte, count, ne }             from "drizzle-orm";
 import { z }                                   from "zod";
 import { getDebateParticipants, getDebateTurns } from "@/lib/agents/debate-helpers";
-import { processQueue }                        from "@/lib/agents/executor";
+import { dispatchQueueProcessor }              from "@/lib/agents/dispatch-queue";
 import { startOfToday }                        from "@/lib/time";
 
 const BodySchema = z.object({ debateId: z.string().uuid() });
@@ -69,17 +69,11 @@ export async function POST(req: NextRequest) {
     status:        "pending",
   });
 
-  // after() keeps the function alive after the response is sent (Vercel waitUntil).
-  // Loop up to 4 passes: Agent A → Agent B → Archive each chain the next item,
-  // so each pass picks up what the previous one queued. DB connections are warm
-  // from the queries above, so each pass completes in ~2-4s.
-  // GHA remains as a 5-minute fallback if this is killed at the 10s limit.
-  after(async () => {
-    for (let pass = 0; pass < 4; pass++) {
-      const result = await processQueue(1).catch(() => ({ processed: 0 }));
-      if (result.processed === 0) break;
-    }
-  });
+  // Dispatch GHA workflow_dispatch to process the queue in GitHub Actions.
+  // GHA has no function timeout — all 3 passes (Agent A → B → Archive) complete
+  // there without hitting Vercel's 10s limit. Starts in ~30-60s.
+  // The 5-minute cron is the fallback if dispatch fails silently.
+  after(async () => { await dispatchQueueProcessor(); });
 
   return NextResponse.json({ status: "started", debateId });
 }
