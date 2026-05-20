@@ -22,7 +22,13 @@ const JSON_MODE_SUPPORTED = new Set(["llama-3.3-70b-versatile"]);
 // GPT-OSS is a reasoning model that can consume many tokens on chain-of-thought
 // before producing visible output. Raise its floor to avoid empty responses.
 const GPTOSS_MODEL = "openai/gpt-oss-120b";
-const GPTOSS_MIN_TOKENS = 1200;
+// Raised 1200 → 2500: post_idea requires 500–800 tokens of JSON output (title +
+// pitch + 200–500 word content field). GPT-OSS burns 400–800 tokens of internal
+// chain-of-thought first. At 1200 the reasoning overhead exhausted the budget,
+// truncating the JSON and causing every post_idea to fail with "Invalid JSON".
+// Comments worked because their output (~300 tokens) fit within the old floor.
+// Extra headroom for short outputs costs nothing — models stop when done.
+const GPTOSS_MIN_TOKENS = 2500;
 
 export async function callAgent(
   agent: Agent,
