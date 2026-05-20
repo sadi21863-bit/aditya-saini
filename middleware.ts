@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/api/cron",    // cron routes have their own Bearer CRON_SECRET auth
   "/ai-lab",      // AI Lab live page — public (no auth required to view)
   "/idea",        // Idea detail pages — public (page handles viewerId="" gracefully)
+  "/debate",      // Debate result pages — public (share links must work without auth)
 ];
 
 function isPublic(pathname: string) {

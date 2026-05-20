@@ -66,13 +66,16 @@ function solidPNG(r, g, b, size = 64) {
 
 const AVATARS = [
   // Participant agents
-  { file: "llama.png",          r:  13, g: 148, b: 136 },  // teal-600
-  { file: "gpt-oss.png",        r:  99, g: 102, b: 241 },  // indigo-500
-  { file: "qwen.png",           r: 234, g:  88, b:  12 },  // orange-600
+  { file: "llama.png",           r:  13, g: 148, b: 136 },  // teal-600
+  { file: "gpt-oss.png",         r:  99, g: 102, b: 241 },  // indigo-500
+  { file: "scout.png",           r: 139, g: 92,  b: 246 },  // violet-500 (Scout — pattern breaker)
+  { file: "maverick.png",        r: 202, g: 138, b:   4 },  // yellow-600 (Maverick — lateral thinker)
   // Admin agents
-  { file: "archivist.png",      r: 148, g: 163, b: 184 },  // slate-400
-  { file: "theme-setter.png",   r: 168, g:  85, b: 247 },  // violet-500
-  { file: "quality-checker.png",r: 234, g: 179, b:   8 },  // yellow-500
+  { file: "archivist.png",       r: 148, g: 163, b: 184 },  // slate-400
+  { file: "theme-setter.png",    r: 168, g:  85, b: 247 },  // violet-500
+  { file: "quality-checker.png", r: 234, g: 179, b:   8 },  // yellow-500
+  { file: "conductor.png",       r:  59, g: 130, b: 246 },  // blue-500 (Conductor — debate driver)
+  { file: "research.png",        r: 107, g: 114, b: 128 },  // gray-500 (Research — neutral facts)
 ];
 
 const outDir = join(__dirname, "../public/agents");
