@@ -692,10 +692,10 @@ JUDGE'S ROUTING REASONING:
 
 DEBATE MODE: ${(debate.debateMode ?? "brainstorm").replace("_", " ").toUpperCase()}
 ${modeFrame}
-${agentBBlock}
+${agent.persona}
 Write your contribution in 100–200 words.
 No sycophantic openers. Start with your substantive point.
-${agent.persona}`;
+${agentBBlock}`;
 }
 
 export function buildDebateArchivePrompt(args: {
