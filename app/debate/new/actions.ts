@@ -11,7 +11,7 @@ import { sql }            from "drizzle-orm";
 // Hard cap: max Quick Debates per calendar day (UTC) across all users.
 // Prevents coordinated traffic from burning the GitHub Models 150 RPD budget
 // before the daily AI Lab archive runs.
-const DAILY_CAP = 10;
+const DAILY_CAP = 5;
 
 const schema = z.object({
   ideaText: z
