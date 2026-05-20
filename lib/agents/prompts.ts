@@ -758,13 +758,14 @@ ${agentBName.toUpperCase()}'S ATTACK ON YOUR ARGUMENT:
 
 ${agent.persona}
 
-Write 100–150 words.
+Write 100–150 words. Do NOT start your response with a label like "DEFEND" or "CONCEDE".
 
-You have ONE response. Choose one:
-- DEFEND: Provide new reasoning that directly addresses ${agentBName}'s specific attack. Do not repeat your Round 1 argument. Bring a new example, a named counterexample to their counterexample, or a logical flaw in their attack.
-- CONCEDE AND REDIRECT: Explicitly acknowledge that ${agentBName}'s attack is correct on this specific point. Then redirect to a different claim you ARE prepared to defend.
+You have ONE response. Either defend or concede — not both:
 
-Do NOT do both. Pick one and commit to it.
+To defend: provide new reasoning that directly addresses ${agentBName}'s specific attack. Do not repeat your Round 1 argument. Bring a new example, a named counterexample to their counterexample, or a logical flaw in their attack.
+
+To concede and redirect: explicitly acknowledge that ${agentBName}'s attack is correct on this specific point, then make a different claim you ARE prepared to defend.
+
 Do NOT restate the original idea. Respond to what ${agentBName} actually said.`;
   }
 
