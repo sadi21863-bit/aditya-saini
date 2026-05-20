@@ -1,7 +1,7 @@
 # Quick Debate — Feature Documentation
 ## IdeaConnect Phase 5
 
-**Status:** Deployed on `quick-debate` branch · Verified 2026-05-20
+**Status:** Live on `main` · Verified 2026-05-20 · Post-launch fixes 2026-05-21
 **Routes:** `/debates/*` (new) — completely separate from `/debate/*` (old MVP)
 
 ---
@@ -33,30 +33,38 @@ Both limits use DB count queries (not in-memory state), so they work correctly o
 
 ```
 POST /api/debates/judge
-  → ai_quality_checker (Groq qwen3-32b) evaluates input
-  → returns JSON: { needs_clarification, verdict, recommended_agents, recommended_mode }
+  → callGroq("llama-3.3-70b-versatile") with 12-token system prompt
+  → LLM call happens FIRST — no DB before it (avoids Neon cold-start blocking)
+  → DB writes happen AFTER verdict returns
+  → 8s timeout on Groq call so Vercel's 10s limit is never hit cold
 
 POST /api/debates/start
-  → inserts debate_turn (slot=0, priority=2) for Agent A
-  → calls processQueue() non-blocking
+  → DB writes (rate limit check, debate validation, aiQueue insert)
+  → returns response immediately
+  → after() fires: processQueue(1) loop up to 4 passes in same warm function
+      Pass 1: Agent A turn (~2-3s, Groq)
+      Pass 2: Agent B turn (~2-3s, Groq/GitHub)
+      Pass 3: Archive (~1-2s, GitHub gpt-4o-mini)
+  → GHA 5-min cron handles any passes that got cut by Vercel's 10s limit
 
 executor picks up debate_turn (slot=0):
   → callAgent(Agent A) with buildDebateTurnPrompt (no agentATurn)
   → writes to debate_turns
-  → inserts debate_turn (slot=1) immediately (no timer)
+  → inserts debate_turn (slot=1, priority=1) immediately
 
 executor picks up debate_turn (slot=1):
   → callAgent(Agent B) with buildDebateTurnPrompt (agentATurn = Agent A's content)
   → writes to debate_turns
-  → inserts debate_archive immediately
+  → inserts debate_archive (priority=1) immediately
 
 executor picks up debate_archive:
   → callGitHub("openai/gpt-4o-mini") — 150 words, plain prose
-  → updates debates: status=archived, archivistSummary, shareToken=crypto.randomUUID(), archivedAt
-  → upsertUsage("ai_archivist", today, "github")
+  → updates debates: status=archived, archivistSummary, shareToken, archivedAt
 ```
 
-**Priority:** all `debate_*` items use priority 2. AI Lab items use priority 1. Lower = higher priority.
+**Priority:** all `debate_*` items use **priority 1** (same as AI Lab urgent items). Lower = higher priority. This ensures the after() loop processes them first in the same tick.
+
+**Expected end-to-end time:** 5-15 seconds on warm Vercel functions. Up to 5 minutes on cold start (GHA fallback).
 
 ---
 
@@ -72,7 +80,7 @@ Both executor handlers (`executeDebateTurn`, `executeDebateArchive`) check `deba
 
 ## Agent Selection
 
-The Judge (`ai_quality_checker`) returns `recommended_agents: [agentA, agentB]`. The current pool:
+The Judge uses `llama-3.3-70b-versatile` via `callGroq()` directly (NOT `callAgent` — avoids sending the full 450-token llama persona as system prompt). A 12-token system prompt is used instead, cutting input tokens from ~850 to ~418 for faster response. Returns `recommended_agents: [agentA, agentB]`. The current pool:
 
 | Agent | Handle | Style | Provider |
 |-------|--------|-------|---------|

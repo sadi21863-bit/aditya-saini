@@ -22,15 +22,20 @@ Keep this updated whenever infrastructure, agents, or cron schedules change.
 | `NEXT_PUBLIC_APP_URL` | Production URL (used in OG images + share links) |
 
 ### GitHub Actions secrets
-Same as Vercel, except GitHub Models uses `GH_MODELS_TOKEN` (not `GITHUB_TOKEN` — that name is reserved by GHA itself). The code reads `GH_MODELS_TOKEN ?? GITHUB_TOKEN` so both environments work.
+The workflow uses `github.token` (auto-generated per run, never expires) as the primary GitHub Models token. `GH_MODELS_TOKEN` secret is kept as a manual fallback only.
 
 | Variable | Notes |
 |----------|-------|
 | `DATABASE_URL` | Same as Vercel |
 | `GROQ_API_KEY` | Same as Vercel — NOT in committed .env (gitignored) |
-| `GH_MODELS_TOKEN` | Same PAT value as `GITHUB_TOKEN` in Vercel |
+| `GH_MODELS_TOKEN` | PAT with **no expiration**, public access scope. Set once, never renewed. Used as fallback if `github.token` loses models access. |
 | `AI_LAB_ROOM_ID` | Same as Vercel |
 | `AI_LAB_ENABLED` | `true` |
+
+**Token strategy (never renew again):**
+- GHA workflow uses `${{ github.token }}` for GitHub Models — auto-generated, never expires
+- `GH_MODELS_TOKEN` secret = PAT set to **no expiration** (regenerated 2026-05-21) — emergency fallback only
+- Vercel uses `GITHUB_TOKEN` PAT — same no-expiration token, update only if revoked
 
 ---
 

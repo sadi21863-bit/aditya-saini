@@ -206,29 +206,41 @@ npm run dev                   # http://localhost:3099
 ## Quick Debate: How the Queue Flow Works
 
 ```
-POST /api/debates/judge   → Judge (ai_quality_checker/Groq) evaluates input
-  needs_clarification     → stores question in debate_questions, returns to UI
-  single_answer           → debate archived immediately (no queue items)
-  full_debate             → inserts debate_participants (slot 0 + slot 1)
+POST /api/debates/judge
+  → callGroq("llama-3.3-70b-versatile") directly — LLM FIRST, no DB before it
+  → 12-token system prompt (not full persona — keeps input tokens low for speed)
+  → 8s Groq timeout so Vercel's 10s function limit is never breached
+  → DB writes happen AFTER LLM responds
+  needs_clarification → stores question in debate_questions, returns to UI
+  single_answer       → debate archived immediately (no queue items)
+  full_debate         → inserts debate_participants (slot 0 + slot 1)
 
-POST /api/debates/start   → inserts debate_turn (slot 0, priority 2) → processQueue() non-blocking
+POST /api/debates/start
+  → inserts debate_turn (slot 0, priority 1)
+  → returns response immediately
+  → after() runs processQueue(1) loop up to 4 passes in same warm function:
+      Pass 1: Agent A turn  (~2-3s)
+      Pass 2: Agent B turn  (~2-3s)
+      Pass 3: Archive       (~1-2s)
+  → GHA 5-min cron is the fallback if after() is cut by Vercel's 10s limit
 
 executor: debate_turn (slot 0)
   → callAgent(Agent A) → writes to debate_turns
-  → inserts debate_turn (slot 1, priority 2) immediately
+  → inserts debate_turn (slot 1, priority 1) immediately
 
 executor: debate_turn (slot 1)
   → callAgent(Agent B) with Agent A's content in prompt
   → writes to debate_turns
-  → inserts debate_archive (priority 2) immediately
+  → inserts debate_archive (priority 1) immediately
 
 executor: debate_archive
   → callGitHub("openai/gpt-4o-mini") for 150-word summary
   → updates debates: status=archived, archivistSummary, shareToken, archivedAt
 ```
 
-**Priority rule:** `debate_*` items use priority 2. AI Lab items use priority 1. Lower number = higher priority.
-**Cancel gate:** both handlers check `debate.status === "abandoned"` and mark queue item `cancelled` before doing any work.
+**Priority:** all `debate_*` items use **priority 1** — processed before AI Lab background items (priority 6-7).
+**Expected time:** 5-15s on warm functions. Up to 5 min (GHA fallback) on cold.
+**Cancel gate:** both handlers check `debate.status === "abandoned"` before any LLM work.
 
 ---
 
