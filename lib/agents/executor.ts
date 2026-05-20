@@ -45,6 +45,8 @@ import {
   buildRollupMonthPrompt,
   buildDebateTurnPrompt,
   buildDebateArchivePrompt,
+  buildRound2TurnPrompt,
+  buildRound2ArchivePrompt,
 } from "./prompts";
 import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
@@ -1790,6 +1792,7 @@ Be direct. No generic praise language. Name agents by handle.`;
 
 // ─── DEBATE_TURN ──────────────────────────────────────────────────────────────
 // Chains: debate_turn (slot 0) → debate_turn (slot 1) → debate_archive
+// Handles both round 1 and round 2. round defaults to 1 for legacy queue items.
 async function executeDebateTurn(
   agent: ReturnType<typeof getAgent> & object,
   item:  AIQueue,
@@ -1797,7 +1800,8 @@ async function executeDebateTurn(
 ): Promise<void> {
   const ctx      = (item.promptContext as Record<string, unknown>) ?? {};
   const debateId = String(ctx.debateId ?? "");
-  const slot     = Number(ctx.slot     ?? 0);
+  const slot     = Number(ctx.slot ?? 0);
+  const round    = Number((ctx.round as number | undefined) ?? 1);
 
   if (!debateId) throw new Error("debate_turn: missing debateId in promptContext");
 
@@ -1809,35 +1813,72 @@ async function executeDebateTurn(
   }
 
   const participants  = await getDebateParticipants(debateId);
-  const existingTurns = await getDebateTurns(debateId);
+  // All turns sorted by createdAt — order is stable regardless of which agent ran
+  const allTurns = (await getDebateTurns(debateId))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  const isAgentB   = slot === 1;
-  const agentATurn = isAgentB ? existingTurns[0] ?? null : null;
+  const round1Turns = allTurns.filter(t => t.round === 1);
+  const round2Turns = allTurns.filter(t => t.round === 2);
 
-  // Defensive retry — Agent B fires but Agent A's turn not yet written
-  if (isAgentB && !agentATurn) {
-    await db.update(aiQueue)
-      .set({ scheduledFor: new Date(Date.now() + 30_000) })
-      .where(eq(aiQueue.id, item.id));
-    return;
+  let prompt: string;
+
+  if (round === 2) {
+    const round1AgentATurn = round1Turns[0];
+    const round1AgentBTurn = round1Turns[1];
+    if (!round1AgentATurn || !round1AgentBTurn) {
+      throw new Error("debate_turn: round 2 requires both round 1 turns to exist");
+    }
+
+    // Agent B (round 2, slot 1) needs round 2 Agent A turn
+    if (slot === 1 && !round2Turns[0]) {
+      await db.update(aiQueue)
+        .set({ scheduledFor: new Date(Date.now() + 30_000) })
+        .where(eq(aiQueue.id, item.id));
+      return;
+    }
+
+    const agentAAgent = getAgent(participants[0]?.agentId ?? "");
+    const agentBAgent = getAgent(participants[1]?.agentId ?? "");
+    prompt = buildRound2TurnPrompt({
+      debate,
+      agent,
+      slot: slot as 0 | 1,
+      round1AgentATurn,
+      round1AgentBTurn,
+      round2AgentATurn: round2Turns[0],
+      agentAName: agentAAgent?.name ?? "Agent A",
+      agentBName: agentBAgent?.name ?? "Agent B",
+    });
+  } else {
+    // Round 1
+    const isAgentB   = slot === 1;
+    const agentATurn = isAgentB ? (round1Turns[0] ?? null) : null;
+
+    // Defensive retry — Agent B fires but Agent A's turn not yet written
+    if (isAgentB && !agentATurn) {
+      await db.update(aiQueue)
+        .set({ scheduledFor: new Date(Date.now() + 30_000) })
+        .where(eq(aiQueue.id, item.id));
+      return;
+    }
+
+    const [questionRow] = await db
+      .select()
+      .from(debateQuestions)
+      .where(eq(debateQuestions.debateId, debateId))
+      .limit(1);
+
+    const agentAAgent = isAgentB ? getAgent(participants[0]?.agentId ?? "") : null;
+    const agentAName  = agentAAgent?.name ?? null;
+
+    prompt = buildDebateTurnPrompt({
+      debate,
+      agent,
+      agentATurn,
+      agentAName,
+      question: questionRow ?? null,
+    });
   }
-
-  const [questionRow] = await db
-    .select()
-    .from(debateQuestions)
-    .where(eq(debateQuestions.debateId, debateId))
-    .limit(1);
-
-  const agentAAgent = isAgentB ? getAgent(participants[0]?.agentId ?? "") : null;
-  const agentAName  = agentAAgent?.name ?? null;
-
-  const prompt = buildDebateTurnPrompt({
-    debate,
-    agent,
-    agentATurn,
-    agentAName,
-    question: questionRow ?? null,
-  });
 
   const response = await callAgent(agent, prompt, { maxTokens: 400 });
   const content  = response.trim();
@@ -1849,6 +1890,7 @@ async function executeDebateTurn(
     agentId:    agent.id,
     authorType: "agent",
     content,
+    round,
   });
 
   await upsertUsage(agent.id, today, agent.provider);
@@ -1860,8 +1902,8 @@ async function executeDebateTurn(
     await db.insert(aiQueue).values({
       agentId:       agentBParticipant.agentId,
       actionType:    "debate_turn",
-      promptContext: { debateId, slot: 1 },
-      priority:      1,   // priority 1 so tick picks it up immediately after Agent A
+      promptContext: { debateId, slot: 1, round },
+      priority:      1,
       scheduledFor:  new Date(),
       status:        "pending",
     });
@@ -1874,8 +1916,8 @@ async function executeDebateTurn(
     await db.insert(aiQueue).values({
       agentId:       archivistAgent.id,
       actionType:    "debate_archive",
-      promptContext: { debateId },
-      priority:      1,   // priority 1 so tick picks it up immediately after Agent B
+      promptContext: { debateId, round },
+      priority:      1,
       scheduledFor:  new Date(),
       status:        "pending",
     });
@@ -1885,10 +1927,12 @@ async function executeDebateTurn(
 }
 
 // ─── DEBATE_ARCHIVE ───────────────────────────────────────────────────────────
-// Generates 150-word Archivist summary via gpt-4o-mini and marks debate archived.
+// Round 1: generates crux summary, sets status=archived, shareToken.
+// Round 2: generates verdict_reasoning + verdict JSON, preserves archivistSummary.
 async function executeDebateArchive(item: AIQueue): Promise<void> {
   const ctx      = (item.promptContext as Record<string, unknown>) ?? {};
   const debateId = String(ctx.debateId ?? "");
+  const round    = Number((ctx.round as number | undefined) ?? 1);
 
   if (!debateId) throw new Error("debate_archive: missing debateId in promptContext");
 
@@ -1900,19 +1944,80 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
   }
 
   // Idempotent guard — concurrent run protection
-  if (debate.status === "archived") {
+  if (debate.status === "archived" && round === 1) {
     await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
     return;
   }
 
   const participants = await getDebateParticipants(debateId);
-  // Sort by createdAt so turn order is stable regardless of which agent ran
-  // (agents may be swapped from participants table if the original was rate-limited)
-  const turns = (await getDebateTurns(debateId))
+  // Sort by createdAt — stable regardless of which agent ran (rate-limit swaps)
+  const allTurns = (await getDebateTurns(debateId))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  const agentATurn = turns[0];
-  const agentBTurn = turns[1];
+  // Resolve display names: prefer participants table, fall back to whoever actually ran
+  const agentAAgent = getAgent(participants[0]?.agentId ?? allTurns[0]?.agentId ?? "");
+  const agentBAgent = getAgent(participants[1]?.agentId ?? allTurns[1]?.agentId ?? "");
+  const agentAName  = agentAAgent?.name ?? "Agent A";
+  const agentBName  = agentBAgent?.name ?? "Agent B";
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (round === 2) {
+    const round1Turns = allTurns.filter(t => t.round === 1);
+    const round2Turns = allTurns.filter(t => t.round === 2);
+
+    if (round1Turns.length < 2 || round2Turns.length < 2) {
+      await db.update(aiQueue)
+        .set({ scheduledFor: new Date(Date.now() + 30_000) })
+        .where(eq(aiQueue.id, item.id));
+      return;
+    }
+
+    const { systemPrompt, userPrompt } = buildRound2ArchivePrompt({
+      debate,
+      round1AgentATurn: round1Turns[0],
+      round1AgentBTurn: round1Turns[1],
+      round2AgentATurn: round2Turns[0],
+      round2AgentBTurn: round2Turns[1],
+      agentAName,
+      agentBName,
+    });
+
+    const raw = await callGitHub(
+      "openai/gpt-4o-mini",
+      systemPrompt,
+      userPrompt,
+      { temperature: 0.5, maxTokens: 400 },
+    );
+
+    let parsed: { verdict_reasoning: string; verdict: string };
+    try {
+      parsed = parseJsonResponse(raw) as typeof parsed;
+    } catch {
+      throw new Error(`debate_archive round 2: failed to parse JSON from Archivist — ${raw.slice(0, 200)}`);
+    }
+
+    if (!parsed.verdict_reasoning || !parsed.verdict) {
+      throw new Error("debate_archive round 2: missing verdict_reasoning or verdict in response");
+    }
+
+    await db.update(debates)
+      .set({
+        status:           "archived",
+        verdictReasoning: parsed.verdict_reasoning.trim(),
+        verdict:          parsed.verdict.trim(),
+        updatedAt:        new Date(),
+      })
+      .where(eq(debates.id, debateId));
+
+    await upsertUsage("ai_archivist", today, "github");
+    await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
+    return;
+  }
+
+  // Round 1
+  const agentATurn = allTurns[0];
+  const agentBTurn = allTurns[1];
 
   if (!agentATurn || !agentBTurn) {
     await db.update(aiQueue)
@@ -1920,12 +2025,6 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
       .where(eq(aiQueue.id, item.id));
     return;
   }
-
-  // Resolve display names: prefer participants table, fall back to the agent that actually ran
-  const agentAAgent = getAgent(participants[0]?.agentId ?? agentATurn.agentId ?? "");
-  const agentBAgent = getAgent(participants[1]?.agentId ?? agentBTurn.agentId ?? "");
-  const agentAName  = agentAAgent?.name ?? "Agent A";
-  const agentBName  = agentBAgent?.name ?? "Agent B";
 
   const { systemPrompt, userPrompt } = buildDebateArchivePrompt({
     debate,
@@ -1954,8 +2053,6 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
     })
     .where(eq(debates.id, debateId));
 
-  const today = new Date().toISOString().slice(0, 10);
   await upsertUsage("ai_archivist", today, "github");
-
   await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
 }

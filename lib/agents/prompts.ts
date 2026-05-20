@@ -730,3 +730,108 @@ No headers. No bullet points. Plain prose. Write for someone who has 30 seconds.
 
   return { systemPrompt, userPrompt };
 }
+
+// ─── ROUND 2 PROMPTS ─────────────────────────────────────────────────────────
+
+export function buildRound2TurnPrompt(args: {
+  debate:            { originalInput: string; archivistSummary: string | null };
+  agent:             { name: string; persona: string };
+  slot:              0 | 1;
+  round1AgentATurn:  { content: string };
+  round1AgentBTurn:  { content: string };
+  round2AgentATurn?: { content: string };
+  agentAName:        string;
+  agentBName:        string;
+}): string {
+  const { debate, agent, slot, round1AgentATurn, round1AgentBTurn, round2AgentATurn, agentAName, agentBName } = args;
+
+  if (slot === 0) {
+    return `You are ${agent.name} in Round 2 of a Quick Debate on IdeaConnect.
+
+ORIGINAL IDEA: "${debate.originalInput}"
+
+YOUR ROUND 1 ARGUMENT:
+"${round1AgentATurn.content}"
+
+${agentBName.toUpperCase()}'S ATTACK ON YOUR ARGUMENT:
+"${round1AgentBTurn.content}"
+
+You have ONE response. Choose one:
+- DEFEND: Provide new reasoning that directly addresses ${agentBName}'s specific attack. Do not repeat your Round 1 argument. Bring a new example, a named counterexample to their counterexample, or a logical flaw in their attack.
+- CONCEDE AND REDIRECT: Explicitly acknowledge that ${agentBName}'s attack is correct on this specific point. Then redirect to a different claim you ARE prepared to defend.
+
+Do NOT do both. Pick one and commit to it.
+Do NOT restate the original idea. Respond to what ${agentBName} actually said.
+
+Write 100–150 words.
+${agent.persona}`;
+  }
+
+  const round2AContent = round2AgentATurn?.content ?? "";
+  return `You are ${agent.name} in Round 2 of a Quick Debate on IdeaConnect.
+
+ORIGINAL IDEA: "${debate.originalInput}"
+
+YOUR ROUND 1 ARGUMENT:
+"${round1AgentBTurn.content}"
+
+${agentAName.toUpperCase()}'S ROUND 2 RESPONSE:
+"${round2AContent}"
+
+Did ${agentAName} defend their position with new reasoning, or did they concede and redirect?
+
+If they defended: attack the new reasoning directly. Do not re-litigate Round 1.
+If they conceded and redirected: attack the new claim they redirected to.
+Either way: name the specific thing they said in Round 2 before responding.
+
+Write 100–150 words.
+${agent.persona}`;
+}
+
+export function buildRound2ArchivePrompt(args: {
+  debate:            { originalInput: string; archivistSummary: string | null };
+  round1AgentATurn:  { content: string };
+  round1AgentBTurn:  { content: string };
+  round2AgentATurn:  { content: string };
+  round2AgentBTurn:  { content: string };
+  agentAName:        string;
+  agentBName:        string;
+}): { systemPrompt: string; userPrompt: string } {
+  const { debate, round1AgentATurn, round1AgentBTurn, round2AgentATurn, round2AgentBTurn, agentAName, agentBName } = args;
+
+  const systemPrompt =
+    `You summarize AI debates for public sharing.
+Write for someone who was not in the debate.`;
+
+  const userPrompt =
+`ORIGINAL IDEA: "${debate.originalInput}"
+CRUX FROM ROUND 1: "${debate.archivistSummary ?? "(not available)"}"
+
+ROUND 1:
+${agentAName}: "${round1AgentATurn.content}"
+${agentBName}: "${round1AgentBTurn.content}"
+
+ROUND 2:
+${agentAName}: "${round2AgentATurn.content}"
+${agentBName}: "${round2AgentBTurn.content}"
+
+Write two sections of plain prose (no section headers in the prose):
+
+SECTION 1 (~75 words): Who shifted and who held ground.
+State observable facts only — what each agent actually did between Round 1 and Round 2. Examples:
+- "${agentAName} repeated their original claim without addressing ${agentBName}'s counterexample about [X]."
+- "${agentBName} conceded the [X] point and redirected to [Y]."
+- "${agentAName} introduced [new example] in Round 2 that directly addresses ${agentBName}'s Round 1 attack."
+Do not say "more defensible" or "both raised valid points."
+
+SECTION 2 (~75 words): Verdict.
+Name a winner on the crux. Support it with one observable fact from the exchange — something one agent did or failed to do that is visible in the turns above. The winner is whoever held their position on the crux with new reasoning. If neither agent addressed the crux in Round 2, say so explicitly and name the exchange as unresolved.
+
+Respond with this JSON only. No prose outside the JSON. No markdown fences.
+{
+  "verdict_reasoning": "~150 words of plain prose covering both sections",
+  "verdict": "One sentence naming the winner on the crux with the observable fact that supports it. If unresolved, say so explicitly."
+}`;
+
+  return { systemPrompt, userPrompt };
+}

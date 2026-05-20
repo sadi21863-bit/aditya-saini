@@ -412,7 +412,10 @@ export const debates = pgTable("debates", {
   judgeReasoning:   text("judge_reasoning"),
   judgeAnswer:      text("judge_answer"),
   debateMode:       text("debate_mode"),               // 'brainstorm' | 'risk_scan'
-  archivistSummary: text("archivist_summary"),
+  archivistSummary: text("archivist_summary"),  // Round 1 crux — never overwritten
+  roundCount:       integer("round_count").notNull().default(1),
+  verdict:          text("verdict"),             // one-line winner + observable fact (Round 2)
+  verdictReasoning: text("verdict_reasoning"),   // two-section Round 2 Archivist prose
   status:           text("status").notNull().default("in_progress"),
                     // 'in_progress' | 'archived' | 'abandoned'
   shareToken:       text("share_token").unique(),
@@ -453,6 +456,7 @@ export const debateTurns = pgTable("debate_turns", {
                 .references(() => users.id),           // null if authorType = 'judge'
   authorType: text("author_type").notNull(),           // 'agent' | 'judge'
   content:    text("content").notNull(),
+  round:      integer("round").notNull().default(1),   // 1 | 2
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxTurnsDebate: index("idx_debate_turns_debate").on(table.debateId, table.createdAt),

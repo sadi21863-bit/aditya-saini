@@ -7,6 +7,8 @@ import Link             from "next/link";
 import ReactMarkdown    from "react-markdown";
 import { DebatePoller } from "@/components/debates/DebatePoller";
 import { ShareButton }  from "@/components/ShareButton";
+import { getDebateTurns, getDebateParticipants } from "@/lib/agents/debate-helpers";
+import { getAgent }     from "@/lib/agents/personas";
 
 type Params = { id: string };
 
@@ -19,6 +21,19 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
 
   if (!debate) notFound();
   if (debate.userId !== session?.user?.id) notFound();
+
+  const turns        = debate.status !== "in_progress" ? await getDebateTurns(id) : [];
+  const participants = turns.length > 0 ? await getDebateParticipants(id) : [];
+
+  const agentAAgent = getAgent(participants[0]?.agentId ?? "");
+  const agentBAgent = getAgent(participants[1]?.agentId ?? "");
+
+  const round1Turns = turns.filter(t => t.round === 1).sort((a, b) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const round2Turns = turns.filter(t => t.round === 2).sort((a, b) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const agentNames = [agentAAgent?.name ?? "Agent A", agentBAgent?.name ?? "Agent B"];
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-12">
@@ -41,6 +56,7 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
 
       {debate.status === "archived" ? (
         <>
+          {/* Quick Take */}
           {debate.debateType === "quick_take" && debate.judgeAnswer && (
             <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-8">
               <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
@@ -52,35 +68,123 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
             </div>
           )}
 
-          {debate.debateType === "full_debate" && debate.archivistSummary && (
+          {/* Full debate */}
+          {debate.debateType === "full_debate" && (
             <>
-              <div className="flex items-center gap-2 mb-4">
-                <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
-                  Debate archive
-                </p>
-                <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  AI-generated
-                </span>
-              </div>
-              <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-8">
-                <article className="font-display text-base leading-relaxed text-ic-ink space-y-4
-                  [&_strong]:font-sans [&_strong]:font-semibold">
-                  <ReactMarkdown>{debate.archivistSummary}</ReactMarkdown>
-                </article>
-              </div>
-            </>
-          )}
+              {/* Round 1 turns */}
+              {round1Turns.length > 0 && (
+                <div className="space-y-6 mb-8">
+                  {round1Turns.map((turn, i) => {
+                    const agentAgent = i === 0 ? agentAAgent : agentBAgent;
+                    return (
+                      <div key={turn.id} className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6">
+                        <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
+                          {agentNames[i] ?? `Agent ${i + 1}`}
+                        </p>
+                        <p className="font-mono text-[10px] text-ic-muted mb-3">
+                          @{agentAgent?.handle ?? "agent"}
+                        </p>
+                        <p className="font-display text-base leading-relaxed text-ic-ink">
+                          {turn.content}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-          {debate.shareToken && (
-            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ic-rule">
-              <ShareButton url={`${process.env.NEXT_PUBLIC_APP_URL}/debates/share/${debate.shareToken}`} />
-              <Link
-                href="/debates/new"
-                className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition font-mono"
-              >
-                Debate another idea →
-              </Link>
-            </div>
+              {/* Round 1 archive summary */}
+              {debate.archivistSummary && (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
+                      Debate archive
+                    </p>
+                    <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      AI-generated
+                    </span>
+                  </div>
+                  <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-8">
+                    <article className="font-display text-base leading-relaxed text-ic-ink space-y-4
+                      [&_strong]:font-sans [&_strong]:font-semibold">
+                      <ReactMarkdown>{debate.archivistSummary}</ReactMarkdown>
+                    </article>
+                  </div>
+                </>
+              )}
+
+              {/* Round 2 turns + verdict */}
+              {round2Turns.length > 0 && (
+                <>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex-1 h-px bg-ic-rule" />
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
+                      Round 2
+                    </p>
+                    <div className="flex-1 h-px bg-ic-rule" />
+                  </div>
+
+                  <div className="space-y-6 mb-8">
+                    {round2Turns.map((turn, i) => {
+                      const agentAgent = i === 0 ? agentAAgent : agentBAgent;
+                      return (
+                        <div key={turn.id} className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6">
+                          <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
+                            {agentNames[i] ?? `Agent ${i + 1}`}
+                          </p>
+                          <p className="font-mono text-[10px] text-ic-muted mb-3">
+                            @{agentAgent?.handle ?? "agent"}
+                          </p>
+                          <p className="font-display text-base leading-relaxed text-ic-ink">
+                            {turn.content}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {debate.verdictReasoning && (
+                    <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-4">
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
+                        Round 2 analysis
+                      </p>
+                      <p className="font-display text-base leading-relaxed text-ic-ink">
+                        {debate.verdictReasoning}
+                      </p>
+                    </div>
+                  )}
+
+                  {debate.verdict && (
+                    <div className="border-l-2 border-ic-accent pl-4 mb-8">
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
+                        Verdict
+                      </p>
+                      <p className="font-display text-base font-medium text-ic-ink">
+                        {debate.verdict}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Push back button — only after Round 1, before Round 2 */}
+              {debate.roundCount < 2 && (
+                <PushBackButton debateId={debate.id} />
+              )}
+
+              {/* Share + start new */}
+              {debate.shareToken && (
+                <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ic-rule">
+                  <ShareButton url={`${process.env.NEXT_PUBLIC_APP_URL}/debates/share/${debate.shareToken}`} />
+                  <Link
+                    href="/debates/new"
+                    className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition font-mono"
+                  >
+                    Debate another idea →
+                  </Link>
+                </div>
+              )}
+            </>
           )}
         </>
       ) : debate.status === "abandoned" ? (
@@ -104,3 +208,6 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
     </main>
   );
 }
+
+// Client component for the "Push back →" button
+import { PushBackButton } from "@/components/debates/PushBackButton";

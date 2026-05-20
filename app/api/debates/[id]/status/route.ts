@@ -28,5 +28,8 @@ export async function GET(
     turns,
     archivistSummary: debate.archivistSummary ?? null,
     shareToken:       debate.shareToken ?? null,
+    roundCount:       debate.roundCount,
+    verdict:          debate.verdict ?? null,
+    verdictReasoning: debate.verdictReasoning ?? null,
   });
 }
