@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse }            from "next/server";
-import { after }                               from "next/server";
+import { NextRequest, NextResponse, after }     from "next/server";
 import { auth }                                from "@/lib/auth";
 import { db }                                  from "@/db";
 import { debates, aiQueue }                    from "@/db/schema";
 import { eq, and, gte, count, ne }             from "drizzle-orm";
 import { z }                                   from "zod";
 import { getDebateParticipants, getDebateTurns } from "@/lib/agents/debate-helpers";
+import { processQueue }                        from "@/lib/agents/executor";
 import { startOfToday }                        from "@/lib/time";
 
 const BodySchema = z.object({ debateId: z.string().uuid() });
@@ -69,15 +69,16 @@ export async function POST(req: NextRequest) {
     status:        "pending",
   });
 
-  // after() runs after the response is sent. It triggers the tick cron as a
-  // SEPARATE Vercel function with its own fresh budget — no stuck-item problem.
-  // GHA remains as a 5-minute fallback if the tick call fails or is slow.
-  after(() => {
-    const base   = process.env.NEXT_PUBLIC_APP_URL ?? "";
-    const secret = process.env.CRON_SECRET ?? "";
-    fetch(`${base}/api/cron/agents/tick`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    }).catch(() => {});
+  // after() keeps the function alive after the response is sent (Vercel waitUntil).
+  // Loop up to 4 passes: Agent A → Agent B → Archive each chain the next item,
+  // so each pass picks up what the previous one queued. DB connections are warm
+  // from the queries above, so each pass completes in ~2-4s.
+  // GHA remains as a 5-minute fallback if this is killed at the 10s limit.
+  after(async () => {
+    for (let pass = 0; pass < 4; pass++) {
+      const result = await processQueue(1).catch(() => ({ processed: 0 }));
+      if (result.processed === 0) break;
+    }
   });
 
   return NextResponse.json({ status: "started", debateId });
