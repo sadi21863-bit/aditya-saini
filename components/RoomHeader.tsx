@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Settings, Users } from "lucide-react";
 import type { Room } from "@/db/schema";
+import { catClass } from "@/lib/categories";
 
 interface Props {
   room: Room;
@@ -8,11 +9,6 @@ interface Props {
   callerRole: string | null;
 }
 
-const IC_CAT_KNOWN = ["climate","urbanism","ai","biotech","games","philosophy","hardware","tools"] as const;
-function catClass(cat: string | null): string {
-  const c = (cat ?? "").toLowerCase();
-  return IC_CAT_KNOWN.includes(c as typeof IC_CAT_KNOWN[number]) ? `ic-cat-${c}` : "ic-cat-tools";
-}
 
 export default function RoomHeader({ room, memberCount, callerRole }: Props) {
   const canManage = callerRole === "owner" || callerRole === "moderator";

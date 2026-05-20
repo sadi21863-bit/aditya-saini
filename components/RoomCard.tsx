@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
+import { catClass } from "@/lib/categories";
 
 interface Props {
   room: {
@@ -13,14 +14,6 @@ interface Props {
   isMember?: boolean;
 }
 
-const IC_CAT_KNOWN = ["climate","urbanism","ai","biotech","games","philosophy","hardware","tools"] as const;
-
-function catClass(cat: string | null): string {
-  const c = (cat ?? "").toLowerCase();
-  return IC_CAT_KNOWN.includes(c as typeof IC_CAT_KNOWN[number])
-    ? `ic-cat-${c}`
-    : "ic-cat-tools";
-}
 
 export default function RoomCard({ room, isMember }: Props) {
   return (

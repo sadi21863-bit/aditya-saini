@@ -1,26 +1,22 @@
-// components/FollowButton.tsx
 "use client";
 
 import { useState, useTransition } from "react";
 import { followUser, unfollowUser } from "@/app/actions/socialActions";
 import { UserPlus, UserCheck } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface FollowButtonProps {
     currentUserId: string;
     targetUserId: string;
-    targetHandle: string;
     initialIsFollowing: boolean;
     size?: "sm" | "md" | "lg";
-    variant?: "default" | "compact";
 }
 
 export default function FollowButton({
     currentUserId,
     targetUserId,
-    targetHandle,
     initialIsFollowing,
     size = "md",
-    variant = "default",
 }: FollowButtonProps) {
     const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
     const [isPending, startTransition] = useTransition();
@@ -28,18 +24,18 @@ export default function FollowButton({
     if (currentUserId === targetUserId) return null;
 
     const handleToggleFollow = () => {
+        const next = !isFollowing;
+        setIsFollowing(next);
         startTransition(async () => {
-            if (isFollowing) {
-                const result = await unfollowUser(targetUserId);
-                if (result.success) setIsFollowing(false);
-            } else {
-                const result = await followUser(targetUserId);
-                if (result.success) setIsFollowing(true);
+            const result = next
+                ? await followUser(targetUserId)
+                : await unfollowUser(targetUserId);
+            if (!result.success) {
+                setIsFollowing(!next);
+                toast.error(result.error ?? "Couldn't update follow status");
             }
         });
     };
-
-    void targetHandle;
 
     const sizeClasses = {
         sm: "text-xs px-3 py-1.5",

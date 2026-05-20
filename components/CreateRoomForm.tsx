@@ -4,11 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createRoom } from "@/app/actions/roomActions";
 import { Globe, Lock, Loader2 } from "lucide-react";
-
-const CATEGORIES = [
-  "Technology", "Design", "Business", "Science", "Education",
-  "Art", "Health", "Finance", "Social Impact",
-];
+import { IC_CATEGORIES, IC_CATEGORY_LABELS } from "@/lib/categories";
 
 const inputCls = "w-full bg-ic-card border border-ic-rule rounded-xl px-4 py-2.5 text-ic-ink placeholder:text-ic-muted text-sm focus:outline-none focus:border-ic-accent transition font-sans";
 const labelCls = "block font-mono text-[12px] text-ic-muted uppercase tracking-wide mb-1.5";
@@ -48,7 +44,8 @@ export default function CreateRoomForm() {
   }
 
   const visibilityBtnCls = (v: "private" | "public") =>
-    `flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex-1 ${
+    `flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex-1
+      focus-visible:ring-2 focus-visible:ring-ic-accent focus-visible:outline-none ${
       visibility === v
         ? "bg-ic-ink text-ic-paper border-ic-ink"
         : "border-ic-rule text-ic-muted hover:border-ic-accent"
@@ -66,7 +63,7 @@ export default function CreateRoomForm() {
       {/* Name */}
       <div>
         <label className={labelCls}>
-          Room name <span className="text-red-500">*</span>
+          Room name <span className="text-ic-danger">*</span>
         </label>
         <input
           name="name"
@@ -106,8 +103,8 @@ export default function CreateRoomForm() {
             className={inputCls}
           >
             <option value="">— Select a category —</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+            {IC_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{IC_CATEGORY_LABELS[c]}</option>
             ))}
           </select>
         ) : (
@@ -144,7 +141,7 @@ export default function CreateRoomForm() {
       </div>
 
       {error && (
-        <p className="font-mono text-[12px] text-red-500">{error}</p>
+        <p className="font-mono text-[12px] text-ic-danger">{error}</p>
       )}
 
       <button

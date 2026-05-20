@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ideas, users, ideaLikes } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import IdeaCard from "@/components/IdeaCard";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -22,13 +22,14 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
     .where(and(eq(ideas.roomId, roomId), eq(ideas.status, "published")))
     .orderBy(desc(ideas.createdAt));
 
-  const likedIds: string[] = [];
-  if (viewerId) {
+  const roomIdeaIds = roomIdeas.map((r) => r.idea.id);
+  const likedSet = new Set<string>();
+  if (viewerId && roomIdeaIds.length > 0) {
     const liked = await db
       .select({ ideaId: ideaLikes.ideaId })
       .from(ideaLikes)
-      .where(eq(ideaLikes.userId, viewerId));
-    likedIds.push(...liked.map((l) => l.ideaId));
+      .where(and(eq(ideaLikes.userId, viewerId), inArray(ideaLikes.ideaId, roomIdeaIds)));
+    liked.forEach((l) => likedSet.add(l.ideaId));
   }
 
   return (
@@ -67,7 +68,7 @@ export default async function RoomIdeasFeed({ roomId, viewerId, isMember }: Prop
               idea={idea}
               author={author}
               viewerId={viewerId ?? ""}
-              hasLiked={likedIds.includes(idea.id)}
+              hasLiked={likedSet.has(idea.id)}
               showActions
             />
           ))}

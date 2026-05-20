@@ -121,7 +121,7 @@ export default function RoomInviteModal({ roomId }: Props) {
       </div>
 
       {msg && (
-        <p className={`font-mono text-[12px] ${msg.ok ? "text-ic-accent" : "text-red-500"}`}>
+        <p className={`font-mono text-[12px] ${msg.ok ? "text-ic-accent" : "text-ic-danger"}`}>
           {msg.text}
         </p>
       )}

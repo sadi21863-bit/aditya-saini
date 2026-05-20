@@ -38,7 +38,7 @@
 
   --ic-ink:         #F4F1EA;
   --ic-ink-soft:    #C8C0B0;
-  --ic-muted:       #7A7268;
+  --ic-muted:       #9A9285;
 
   --ic-rule:        #2E2A24;
   --ic-rule-soft:   #252118;
@@ -50,6 +50,18 @@
 
   --ic-shadow-soft: 0 1px 0 rgba(0,0,0,0.4), 0 4px 18px rgba(0,0,0,0.3);
   --ic-shadow-card: 0 1px 0 rgba(0,0,0,0.5), 0 8px 28px rgba(0,0,0,0.4);
+}
+
+/* ─── Danger / destructive tokens ───────────────────────────────────────── */
+:root {
+  --ic-danger:     #B14747;
+  --ic-danger-bg:  #F4DCDC;
+  --ic-danger-ink: #7A2222;
+}
+.dark {
+  --ic-danger:     #E08A8A;
+  --ic-danger-bg:  rgba(232,138,138,0.15);
+  --ic-danger-ink: #F4D2D2;
 }
 
 /* ─── AI agent colours – light mode ─────────────────────────────────────── */
@@ -113,6 +125,9 @@
   --color-ic-accent-bright:var(--ic-accent-bright);
   --color-ic-accent-ink:   var(--ic-accent-ink);
   --color-ic-highlight:    var(--ic-highlight);
+  --color-ic-danger:       var(--ic-danger);
+  --color-ic-danger-bg:    var(--ic-danger-bg);
+  --color-ic-danger-ink:   var(--ic-danger-ink);
 
   /* Agent colours */
   --color-ic-ai-llama-fg:       var(--ic-ai-llama-fg);
@@ -211,6 +226,24 @@ h1, h2, h3, h4, .font-display {
 /* ─── Search bar focus ring ───────────────────────────────────────────────── */
 .ic-search-focus-ring { box-shadow: 0 0 0 4px rgba(15,77,46,0.06); }
 .dark .ic-search-focus-ring { box-shadow: 0 0 0 4px rgba(61,190,114,0.12); }
+
+/* ─── Draft badge ────────────────────────────────────────────────────────── */
+.ic-badge-draft       { background-color: #F2E4D8; color: #7A3A1F; border-color: #E5D2BD; }
+.dark .ic-badge-draft { background-color: rgba(242,228,216,0.15); color: #E8B89A; border-color: rgba(242,228,216,0.18); }
+
+/* ─── Writing issue highlight styles (IdeaTextEditor) ───────────────────── */
+.ic-issue-spell       { background-color: #F2E0E0; color: #7A2222; border-color: #E5BFBF; }
+.ic-issue-grammar     { background-color: #F0E8D4; color: #5A4010; border-color: #E0D0A8; }
+.ic-issue-style       { background-color: #E0E2E8; color: #1F2F4A; border-color: #C8CFD8; }
+.ic-issue-punct       { background-color: #E0DCEA; color: #3A2F5A; border-color: #C8C0D8; }
+.dark .ic-issue-spell   { background-color: rgba(232,138,138,0.15); color: #E8B8B8; border-color: rgba(232,138,138,0.2); }
+.dark .ic-issue-grammar { background-color: rgba(240,232,212,0.15); color: #E0C080; border-color: rgba(240,232,212,0.2); }
+.dark .ic-issue-style   { background-color: rgba(224,226,232,0.15); color: #B5BFD4; border-color: rgba(224,226,232,0.2); }
+.dark .ic-issue-punct   { background-color: rgba(224,220,234,0.15); color: #BFB0E0; border-color: rgba(224,220,234,0.2); }
+
+/* ─── Scrollbar hide ─────────────────────────────────────────────────────── */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* Accessibility: respect user's motion preference */
 @media (prefers-reduced-motion: reduce) {

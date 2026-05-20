@@ -9,7 +9,7 @@ interface Props {
   userHandle:  string;
 }
 
-const NO_BOTTOM_NAV = ["/sign-in", "/sign-up", "/onboarding", "/"];
+const NO_BOTTOM_NAV_PREFIXES = ["/sign-in", "/sign-up", "/onboarding"];
 
 const TABS = [
   { id: "feed",          href: "/feed",          Icon: Home,          label: "Feed" },
@@ -32,7 +32,7 @@ export default function BottomNav({ unreadCount, userHandle }: Props) {
   const pathname = usePathname();
 
   // Don't render on auth/onboarding/landing pages — same guard as Sidebar
-  if (NO_BOTTOM_NAV.some((p) => pathname.startsWith(p))) return null;
+  if (pathname === "/" || NO_BOTTOM_NAV_PREFIXES.some((p) => pathname.startsWith(p))) return null;
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40
@@ -53,7 +53,7 @@ export default function BottomNav({ unreadCount, userHandle }: Props) {
               className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-14 min-w-0 transition-colors ${
                 active ? "text-ic-accent" : "text-ic-muted hover:text-ic-ink-soft"
               }`}
-              aria-label={label}
+              aria-label={id === "notifications" && unreadCount > 0 ? `${label}, ${unreadCount} unread` : label}
             >
               <Icon size={22} />
               {/* Unread dot on notifications tab */}

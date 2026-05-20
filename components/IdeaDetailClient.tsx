@@ -5,13 +5,7 @@ import { Eye, MessageCircle, FlaskConical, PenLine } from "lucide-react";
 import SparkButton from "@/components/SparkButton";
 import type { Idea, User } from "@/db/schema";
 import Link from "next/link";
-
-const KNOWN_CATEGORIES = ["climate", "urbanism", "ai", "biotech", "games", "philosophy", "hardware", "tools"];
-
-function normalizeCat(cat: string | null): string {
-  const c = (cat ?? "").toLowerCase();
-  return KNOWN_CATEGORIES.includes(c) ? c : "tools";
-}
+import { catClass } from "@/lib/categories";
 
 interface IdeaDetailClientProps {
   idea: Idea;
@@ -28,7 +22,7 @@ export default function IdeaDetailClient({
 }: IdeaDetailClientProps) {
   const [commentCount] = useState(idea.totalComments ?? 0);
 
-  const catClass = `ic-cat-${normalizeCat(idea.category)}`;
+  const categoryClass = catClass(idea.category);
 
   return (
     <>
@@ -38,7 +32,7 @@ export default function IdeaDetailClient({
         <article>
           {/* Category + room badge */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
-            <span className={`${catClass} font-mono text-[10px] font-medium px-2 py-1 rounded-sm`}>
+            <span className={`${categoryClass} font-mono text-[10px] font-medium px-2 py-1 rounded-sm`}>
               {idea.category ?? "General"}
             </span>
 
@@ -132,7 +126,6 @@ export default function IdeaDetailClient({
             {!isOwner && (
               <SparkButton
                 ideaId={idea.id}
-                viewerId={viewerId}
                 initialLikes={idea.totalLikes ?? 0}
                 initialHasLiked={hasLiked}
               />
@@ -180,7 +173,6 @@ export default function IdeaDetailClient({
         {!isOwner ? (
           <SparkButton
             ideaId={idea.id}
-            viewerId={viewerId}
             initialLikes={idea.totalLikes ?? 0}
             initialHasLiked={hasLiked}
           />

@@ -13,7 +13,7 @@ interface MentionInputProps {
   onSubmit:      (input: MentionInputType) => Promise<MentionResult>;
 }
 
-const AI_MENTION_RE = /(?:^|\s)@(llama|gpt-oss|scout|ai|random)\b/i;
+const AI_MENTION_RE = /(?:^|\s)@(llama|gpt-oss|scout|maverick|ai|random)\b/i;
 
 function hasAIMention(text: string): boolean {
   return AI_MENTION_RE.test(text);
@@ -55,7 +55,7 @@ export default function MentionInput({
     }
     if (!hasMention) {
       setStatus("error");
-      setMessage("Include @llama, @gpt-oss, @scout, or @ai to ask the AI");
+      setMessage("Include @llama, @gpt-oss, @scout, @maverick, or @ai to ask the AI");
       return;
     }
 
@@ -97,7 +97,7 @@ export default function MentionInput({
         <textarea
           value={text}
           onChange={(e) => { setText(e.target.value); setStatus("idle"); }}
-          placeholder="Ask an AI… include @llama, @gpt-oss, @scout, or @ai"
+          placeholder="Ask an AI… include @llama, @gpt-oss, @scout, @maverick, or @ai"
           maxLength={1000}
           rows={3}
           disabled={isPending}
@@ -107,7 +107,7 @@ export default function MentionInput({
 
         {/* Helper text */}
         <p className="font-mono text-[11px] text-ic-muted mt-1">
-          Mention an AI: @llama @gpt-oss @scout @ai (random)
+          Mention an AI: @llama @gpt-oss @scout @maverick @ai (random)
         </p>
 
         {/* Privacy choice */}

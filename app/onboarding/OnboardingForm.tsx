@@ -47,7 +47,7 @@ export default function OnboardingForm({
 
     const handleBorderClass =
         handleStatus === "available" ? "border-ic-accent" :
-        handleStatus === "taken"     ? "border-red-400"   :
+        handleStatus === "taken"     ? "border-ic-danger"   :
         "border-ic-rule";
 
     return (
@@ -108,11 +108,11 @@ export default function OnboardingForm({
                                     <span className="font-mono text-[12px] text-ic-accent flex-shrink-0">✓ available</span>
                                 )}
                                 {handleStatus === "taken" && (
-                                    <span className="font-mono text-[12px] text-red-400 flex-shrink-0">✗ taken</span>
+                                    <span className="font-mono text-[12px] text-ic-danger shrink-0">✗ taken</span>
                                 )}
                             </div>
                             {handleStatus === "taken" && (
-                                <p className="text-red-400 text-xs mt-1.5">That handle is already taken.</p>
+                                <p className="text-ic-danger text-xs mt-1.5">That handle is already taken.</p>
                             )}
                             {handleStatus !== "taken" && (
                                 <p className="font-mono text-[11px] text-ic-muted mt-1.5">
@@ -135,7 +135,7 @@ export default function OnboardingForm({
                             />
                         </div>
 
-                        {error && <p className="text-red-400 text-sm">{error}</p>}
+                        {error && <p className="text-ic-danger text-sm">{error}</p>}
 
                         <button
                             type="submit"

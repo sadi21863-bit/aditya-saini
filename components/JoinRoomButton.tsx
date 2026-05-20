@@ -33,7 +33,7 @@ export default function JoinRoomButton({ roomId }: { roomId: string }) {
         {isPending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
         {isPending ? "Joining…" : "Join Room"}
       </button>
-      {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+      {error && <p className="text-xs text-ic-danger text-center">{error}</p>}
     </div>
   );
 }

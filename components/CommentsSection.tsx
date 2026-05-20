@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import { Trash2, MessageCircle, Send, CornerDownRight, Pencil, X, Check } from "lucide-react";
 import { addComment, deleteComment, updateComment } from "@/app/actions/commentActions";
 import Link from "next/link";
+import { relativeTime } from "@/lib/time";
 
 interface CommentUser {
   id: string | null;
@@ -35,6 +36,23 @@ interface CommentsSectionProps {
   isAiLab?: boolean;
 }
 
+interface CommentRowProps {
+  c: Comment;
+  isReply: boolean;
+  isAiLab: boolean;
+  viewerId: string;
+  ideaOwnerId?: string;
+  editingId: string | null;
+  editText: string;
+  isPending: boolean;
+  replyingTo: string | null;
+  setReplyingTo: (id: string | null) => void;
+  setEditingId: (id: string | null) => void;
+  setEditText: (t: string) => void;
+  onEdit: (commentId: string) => void;
+  onDelete: (commentId: string) => void;
+}
+
 const COLLAPSE_AFTER = 3;
 
 // ── AI agent styling lookup — only applied when isAiLab === true ────────
@@ -50,18 +68,160 @@ const AI_AGENT_CLASSES: Record<string, {
 };
 const CONDUCTOR_HANDLE = "conductor";
 
-function relativeTime(date: Date | null): string {
-  if (!date) return "";
-  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 function wasEdited(c: Comment) {
   if (!c.updatedAt || !c.createdAt) return false;
-  return new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime() > 2000;
+  return new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime() > 5000;
+}
+
+// ── Single comment row — module-level so React gets a stable component identity ──
+function CommentRow({
+  c, isReply, isAiLab, viewerId, ideaOwnerId,
+  editingId, editText, isPending,
+  replyingTo, setReplyingTo,
+  setEditingId, setEditText,
+  onEdit, onDelete,
+}: CommentRowProps) {
+  const isOwn = c.user.id === viewerId;
+  const isOP  = !!ideaOwnerId && c.user.id === ideaOwnerId;
+  const name  = c.user.handle ?? c.user.name ?? "Anonymous";
+  const init  = (name[0] ?? "?").toUpperCase();
+
+  // AI Lab–specific agent/conductor detection
+  const handle       = c.user.handle ?? "";
+  const agentInfo    = isAiLab ? (AI_AGENT_CLASSES[handle] ?? null) : null;
+  const isConductor  = isAiLab && handle === CONDUCTOR_HANDLE;
+
+  // ── Conductor card ─────────────────────────────────────────────────
+  if (isConductor) {
+    return (
+      <div className="bg-ic-paper-deep border-l-[3px] border-l-ic-muted rounded-r-xl px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-ic-muted font-semibold">
+            Conductor
+          </span>
+          <span className="font-mono text-[10px] text-ic-muted ml-auto">
+            {relativeTime(c.createdAt)}
+          </span>
+        </div>
+        <p className="font-display italic text-ic-ink-soft text-sm leading-relaxed">
+          &ldquo;{c.content}&rdquo;
+        </p>
+        <p className="font-mono text-[10px] text-ic-muted mt-2">
+          Auto-fires when a thread stalls · doesn&apos;t take positions
+        </p>
+      </div>
+    );
+  }
+
+  // ── AI agent card ───────────────────────────────────────────────────
+  if (agentInfo) {
+    return (
+      <div className={`border-l-4 ${agentInfo.rowBorder} ${agentInfo.rowBg} pl-4 py-3 rounded-r-xl`}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${agentInfo.avatarBg} ${agentInfo.avatarFg} font-mono text-xs font-semibold shrink-0`}>
+            {agentInfo.glyph}
+          </span>
+          <span className={`font-mono text-[12px] font-semibold ${agentInfo.nameFg}`}>
+            @{handle}
+          </span>
+          <span className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded ${agentInfo.avatarBg} ${agentInfo.nameFg}`}>
+            AI
+          </span>
+          <span className="font-mono text-[10px] text-ic-muted ml-auto">
+            {relativeTime(c.createdAt)}
+          </span>
+        </div>
+        <p className="font-sans text-sm text-ic-ink leading-relaxed">{c.content}</p>
+      </div>
+    );
+  }
+
+  // ── Human comment row ───────────────────────────────────────────────
+  return (
+    <div className={`flex gap-3 ${isAiLab ? "bg-ic-card border border-ic-rule rounded-xl px-4 py-3" : ""}`}>
+      <div className={`${isReply ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs"} rounded-full
+        bg-ic-paper-deep border border-ic-rule flex items-center justify-center
+        shrink-0 mt-0.5 font-mono font-semibold text-ic-muted`}>
+        {init}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {c.user.handle ? (
+            <Link href={`/profile/${c.user.handle}`}
+              className="font-mono text-[12px] font-semibold text-ic-ink hover:text-ic-accent transition-colors">
+              @{name}
+            </Link>
+          ) : (
+            <span className="font-mono text-[12px] font-semibold text-ic-ink">@{name}</span>
+          )}
+          {isOP && (
+            <span className="font-mono text-[10px] font-bold bg-ic-accent/20 text-ic-accent px-1.5 py-0.5 rounded">
+              OP
+            </span>
+          )}
+          <span className="font-mono text-[10px] text-ic-muted">{relativeTime(c.createdAt)}</span>
+          {wasEdited(c) && (
+            <span className="font-mono text-[10px] italic text-ic-muted opacity-60">edited</span>
+          )}
+        </div>
+
+        {editingId === c.id ? (
+          <div className="mt-2">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-ic-rule bg-ic-paper-deep
+                text-ic-ink text-sm resize-none focus:outline-none focus:border-ic-accent transition"
+            />
+            <div className="flex gap-2 mt-1.5">
+              <button onClick={() => onEdit(c.id)} disabled={isPending}
+                className="flex items-center gap-1 px-3 py-1 rounded-lg bg-ic-accent
+                  text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 transition">
+                <Check size={11} /> Save
+              </button>
+              <button onClick={() => setEditingId(null)}
+                className="flex items-center gap-1 px-3 py-1 rounded-lg bg-ic-paper-deep border border-ic-rule
+                  text-ic-muted text-xs hover:border-ic-accent transition">
+                <X size={11} /> Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-ic-ink-soft mt-1 leading-relaxed whitespace-pre-wrap">
+            {c.content}
+          </p>
+        )}
+
+        {!isReply && editingId !== c.id && (
+          <button
+            onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
+            className="flex items-center gap-1 mt-1.5 font-mono text-[11px] text-ic-muted
+              hover:text-ic-accent transition-colors">
+            <CornerDownRight size={11} /> Reply
+          </button>
+        )}
+      </div>
+
+      {isOwn && editingId !== c.id && (
+        <div className="flex gap-1 shrink-0 self-start mt-0.5">
+          <button
+            onClick={() => { setEditingId(c.id); setEditText(c.content); }}
+            disabled={isPending} title="Edit"
+            className="p-1.5 rounded-lg text-ic-muted hover:text-ic-accent hover:bg-ic-paper-deep transition-colors">
+            <Pencil size={12} />
+          </button>
+          <button onClick={() => onDelete(c.id)} disabled={isPending} title="Delete"
+            className="p-1.5 rounded-lg text-ic-muted hover:text-ic-danger hover:bg-ic-paper-deep transition-colors">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CommentsSection({
@@ -161,149 +321,20 @@ export default function CommentsSection({
   const topLevel   = commentList.filter((c) => !c.parentId);
   const repliesFor = (id: string) => commentList.filter((c) => c.parentId === id);
 
-  // ── Single comment row ──────────────────────────────────────────────
-  function CommentRow({ c, isReply }: { c: Comment; isReply: boolean }) {
-    const isOwn = c.user.id === viewerId;
-    const isOP  = !!ideaOwnerId && c.user.id === ideaOwnerId;
-    const name  = c.user.handle ?? c.user.name ?? "Anonymous";
-    const init  = name[0].toUpperCase();
-
-    // AI Lab–specific agent/conductor detection
-    const handle       = c.user.handle ?? "";
-    const agentInfo    = isAiLab ? (AI_AGENT_CLASSES[handle] ?? null) : null;
-    const isConductor  = isAiLab && handle === CONDUCTOR_HANDLE;
-
-    // ── Conductor card ─────────────────────────────────────────────────
-    if (isConductor) {
-      return (
-        <div className="bg-ic-paper-deep border-l-[3px] border-l-ic-muted rounded-r-xl px-4 py-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-ic-muted font-semibold">
-              Conductor
-            </span>
-            <span className="font-mono text-[10px] text-ic-muted ml-auto">
-              {relativeTime(c.createdAt)}
-            </span>
-          </div>
-          <p className="font-display italic text-ic-ink-soft text-sm leading-relaxed">
-            &ldquo;{c.content}&rdquo;
-          </p>
-          <p className="font-mono text-[10px] text-ic-muted mt-2">
-            Auto-fires when a thread stalls · doesn&apos;t take positions
-          </p>
-        </div>
-      );
-    }
-
-    // ── AI agent card ───────────────────────────────────────────────────
-    if (agentInfo) {
-      return (
-        <div className={`border-l-4 ${agentInfo.rowBorder} ${agentInfo.rowBg} pl-4 py-3 rounded-r-xl`}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${agentInfo.avatarBg} ${agentInfo.avatarFg} font-mono text-xs font-semibold shrink-0`}>
-              {agentInfo.glyph}
-            </span>
-            <span className={`font-mono text-[12px] font-semibold ${agentInfo.nameFg}`}>
-              @{handle}
-            </span>
-            <span className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded ${agentInfo.avatarBg} ${agentInfo.nameFg}`}>
-              AI
-            </span>
-            <span className="font-mono text-[10px] text-ic-muted ml-auto">
-              {relativeTime(c.createdAt)}
-            </span>
-          </div>
-          <p className="font-sans text-sm text-ic-ink leading-relaxed">{c.content}</p>
-        </div>
-      );
-    }
-
-    // ── Human comment row ───────────────────────────────────────────────
-    return (
-      <div className={`flex gap-3 ${isAiLab ? "bg-ic-card border border-ic-rule rounded-xl px-4 py-3" : ""}`}>
-        <div className={`${isReply ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs"} rounded-full
-          bg-ic-paper-deep border border-ic-rule flex items-center justify-center
-          shrink-0 mt-0.5 font-mono font-semibold text-ic-muted`}>
-          {init}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {c.user.handle ? (
-              <Link href={`/profile/${c.user.handle}`}
-                className="font-mono text-[12px] font-semibold text-ic-ink hover:text-ic-accent transition-colors">
-                @{name}
-              </Link>
-            ) : (
-              <span className="font-mono text-[12px] font-semibold text-ic-ink">@{name}</span>
-            )}
-            {isOP && (
-              <span className="font-mono text-[10px] font-bold bg-ic-accent/20 text-ic-accent px-1.5 py-0.5 rounded">
-                OP
-              </span>
-            )}
-            <span className="font-mono text-[10px] text-ic-muted">{relativeTime(c.createdAt)}</span>
-            {wasEdited(c) && (
-              <span className="font-mono text-[10px] italic text-ic-muted opacity-60">edited</span>
-            )}
-          </div>
-
-          {editingId === c.id ? (
-            <div className="mt-2">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                maxLength={1000}
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-ic-rule bg-ic-paper-deep
-                  text-ic-ink text-sm resize-none focus:outline-none focus:border-ic-accent transition"
-              />
-              <div className="flex gap-2 mt-1.5">
-                <button onClick={() => handleEdit(c.id)} disabled={isPending}
-                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-ic-accent
-                    text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 transition">
-                  <Check size={11} /> Save
-                </button>
-                <button onClick={() => setEditingId(null)}
-                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-ic-paper-deep border border-ic-rule
-                    text-ic-muted text-xs hover:border-ic-accent transition">
-                  <X size={11} /> Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-ic-ink-soft mt-1 leading-relaxed whitespace-pre-wrap">
-              {c.content}
-            </p>
-          )}
-
-          {!isReply && editingId !== c.id && (
-            <button
-              onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
-              className="flex items-center gap-1 mt-1.5 font-mono text-[11px] text-ic-muted
-                hover:text-ic-accent transition-colors">
-              <CornerDownRight size={11} /> Reply
-            </button>
-          )}
-        </div>
-
-        {isOwn && editingId !== c.id && (
-          <div className="flex gap-1 shrink-0 self-start mt-0.5">
-            <button
-              onClick={() => { setEditingId(c.id); setEditText(c.content); }}
-              disabled={isPending} title="Edit"
-              className="p-1.5 rounded-lg text-ic-muted hover:text-ic-accent hover:bg-ic-paper-deep transition-colors">
-              <Pencil size={12} />
-            </button>
-            <button onClick={() => handleDelete(c.id)} disabled={isPending} title="Delete"
-              className="p-1.5 rounded-lg text-ic-muted hover:text-red-400 hover:bg-ic-paper-deep transition-colors">
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const rowProps = {
+    isAiLab,
+    viewerId,
+    ideaOwnerId,
+    editingId,
+    editText,
+    isPending,
+    replyingTo,
+    setReplyingTo,
+    setEditingId,
+    setEditText,
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+  };
 
   return (
     <section className="mt-10 pt-8 border-t border-ic-rule">
@@ -332,7 +363,7 @@ export default function CommentsSection({
                 text-ic-ink text-sm resize-none focus:outline-none focus:border-ic-accent
                 placeholder:text-ic-muted transition"
             />
-            {topError && <p className="text-red-400 text-xs mt-1">{topError}</p>}
+            {topError && <p className="text-ic-danger text-xs mt-1">{topError}</p>}
             <div className="flex items-center justify-between mt-2">
               <span className="font-mono text-[11px] text-ic-muted">{text.length}/1000</span>
               <button onClick={handleAdd} disabled={isPending || !text.trim()}
@@ -363,7 +394,7 @@ export default function CommentsSection({
 
           return (
             <div key={comment.id}>
-              <CommentRow c={comment} isReply={false} />
+              <CommentRow c={comment} isReply={false} {...rowProps} />
 
               {/* Inline reply input */}
               {replyingTo === comment.id && (
@@ -373,7 +404,7 @@ export default function CommentsSection({
                     <span className="text-ic-accent font-medium">@{displayName}</span>
                   </p>
                   {isAiLab && (
-                    <p className="font-mono text-[11px] text-amber-500/80 mb-1.5">
+                    <p className="font-mono text-[11px] text-ic-ai-maverick-accent/80 mb-1.5">
                       Replies here are public but won&apos;t trigger an AI response.
                       Use the @mention box above to get a reply from an agent.
                     </p>
@@ -410,7 +441,7 @@ export default function CommentsSection({
               {replies.length > 0 && (
                 <div className="ml-8 sm:ml-11 mt-3 border-l-2 border-ic-rule-soft pl-4 flex flex-col gap-4">
                   {visible.map((reply) => (
-                    <CommentRow key={reply.id} c={reply} isReply />
+                    <CommentRow key={reply.id} c={reply} isReply {...rowProps} />
                   ))}
                   {!isExpanded && hiddenCount > 0 && (
                     <button

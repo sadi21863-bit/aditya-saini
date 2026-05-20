@@ -150,6 +150,9 @@ export default function Sidebar({
                     <Search size={13} className="text-ic-muted shrink-0" />
                     <input
                       type="search"
+                      aria-label="Search IdeaConnect"
+                      minLength={2}
+                      title="Type at least 2 characters to search"
                       placeholder="Search…"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -186,7 +189,7 @@ export default function Sidebar({
                       onClick={() => setMobileOpen(false)}
                       className={navItemCls(`/profile/${currentHandle}`)}
                     >
-                      <User size={16} className={`shrink-0 ${pathname.startsWith("/profile") ? "text-ic-ink" : "text-ic-muted"}`} />
+                      <User size={16} className={`shrink-0 ${currentHandle && pathname === `/profile/${currentHandle}` ? "text-ic-ink" : "text-ic-muted"}`} />
                       <span className="flex-1 text-[13px]">My Profile</span>
                     </Link>
                   )}
@@ -343,7 +346,7 @@ export default function Sidebar({
                     href={`/profile/${currentHandle}`}
                     className={navItemCls(`/profile/${currentHandle}`)}
                   >
-                    <User size={16} className={`shrink-0 ${pathname.startsWith("/profile") ? "text-ic-ink" : "text-ic-muted"}`} />
+                    <User size={16} className={`shrink-0 ${currentHandle && pathname === `/profile/${currentHandle}` ? "text-ic-ink" : "text-ic-muted"}`} />
                     <span className="flex-1 text-[13px]">My Profile</span>
                   </Link>
                 )}

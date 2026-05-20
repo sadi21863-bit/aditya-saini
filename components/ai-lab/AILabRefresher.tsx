@@ -8,14 +8,22 @@ export default function AILabRefresher() {
   const [secs, setSecs] = useState(0);
 
   useEffect(() => {
+    const doRefresh = () => { router.refresh(); setSecs(0); };
+
     const refresh = setInterval(() => {
-      router.refresh();
-      setSecs(0);
+      if (document.visibilityState === "visible") doRefresh();
     }, 60_000);
 
     const tick = setInterval(() => setSecs((s) => s + 1), 1_000);
 
-    return () => { clearInterval(refresh); clearInterval(tick); };
+    const onVis = () => { if (document.visibilityState === "visible") doRefresh(); };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      clearInterval(refresh);
+      clearInterval(tick);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [router]);
 
   return (

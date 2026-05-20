@@ -10,7 +10,7 @@ interface Member {
 }
 
 const ROLE_ICON: Record<string, React.ReactNode> = {
-  owner:     <Crown  size={10} className="text-amber-400" />,
+  owner:     <Crown  size={10} className="text-ic-ai-maverick-accent" />,
   moderator: <Shield size={10} className="text-ic-accent" />,
 };
 
@@ -32,26 +32,46 @@ export default function RoomMemberList({
       <ul className="flex flex-col gap-2.5">
         {visible.map((m) => (
           <li key={m.userId}>
-            <Link
-              href={m.handle ? `/profile/${m.handle}` : "#"}
-              className="flex items-center gap-2.5 hover:opacity-70 transition-opacity"
-            >
-              <div className="w-7 h-7 rounded bg-ic-paper border border-ic-rule flex items-center justify-center font-mono text-[11px] font-semibold text-ic-muted shrink-0">
-                {m.name?.[0]?.toUpperCase() ?? "?"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-mono text-[12px] font-semibold text-ic-ink truncate">
-                    {m.name ?? "Unknown"}
-                    {m.userId === callerId && (
-                      <span className="ml-1 text-ic-muted font-normal">(you)</span>
-                    )}
-                  </span>
-                  {ROLE_ICON[m.role]}
+            {m.handle ? (
+              <Link
+                href={`/profile/${m.handle}`}
+                className="flex items-center gap-2.5 hover:opacity-70 transition-opacity"
+              >
+                <div className="w-7 h-7 rounded bg-ic-paper border border-ic-rule flex items-center justify-center font-mono text-[11px] font-semibold text-ic-muted shrink-0">
+                  {m.name?.[0]?.toUpperCase() ?? "?"}
                 </div>
-                <p className="font-mono text-[10px] text-ic-muted truncate">@{m.handle ?? "—"}</p>
-              </div>
-            </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[12px] font-semibold text-ic-ink truncate">
+                      {m.name ?? "Unknown"}
+                      {m.userId === callerId && (
+                        <span className="ml-1 text-ic-muted font-normal">(you)</span>
+                      )}
+                    </span>
+                    {ROLE_ICON[m.role]}
+                  </div>
+                  <p className="font-mono text-[10px] text-ic-muted truncate">@{m.handle}</p>
+                </div>
+              </Link>
+            ) : (
+              <span className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded bg-ic-paper border border-ic-rule flex items-center justify-center font-mono text-[11px] font-semibold text-ic-muted shrink-0">
+                  {m.name?.[0]?.toUpperCase() ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-[12px] font-semibold text-ic-ink truncate">
+                      {m.name ?? "Unknown"}
+                      {m.userId === callerId && (
+                        <span className="ml-1 text-ic-muted font-normal">(you)</span>
+                      )}
+                    </span>
+                    {ROLE_ICON[m.role]}
+                  </div>
+                  <p className="font-mono text-[10px] text-ic-muted truncate">@—</p>
+                </div>
+              </span>
+            )}
           </li>
         ))}
       </ul>

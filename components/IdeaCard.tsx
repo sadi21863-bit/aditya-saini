@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { Trash2, Edit3, Eye, Loader2, Heart, Send, Link2, Check } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { publishIdea, deleteIdea } from "@/app/actions/ideaActions";
+import { publishIdea, deleteIdea, sparkIdea } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
+import { catClass } from "@/lib/categories";
 
 interface Author {
   name:      string | null;
@@ -23,15 +24,6 @@ interface IdeaCardProps {
   showActions?: boolean;
 }
 
-const IC_CAT_KNOWN = ["climate","urbanism","ai","biotech","games","philosophy","hardware","tools"] as const;
-
-function catClass(cat: string | null): string {
-  const c = (cat ?? "").toLowerCase();
-  return IC_CAT_KNOWN.includes(c as typeof IC_CAT_KNOWN[number])
-    ? `ic-cat-${c}`
-    : "ic-cat-tools";
-}
-
 export default function IdeaCard({
   idea, author, viewerId = "", hasLiked = false,
   isOwner: isOwnerProp, showActions = false,
@@ -40,10 +32,14 @@ export default function IdeaCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [liked, setLiked]               = useState(hasLiked);
   const [likeCount, setLikeCount]       = useState(idea.totalLikes ?? 0);
-  const [hovered, setHovered]           = useState(false);
+  const [expanded, setExpanded]         = useState(false);
   const [copied, setCopied]             = useState(false);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduce = useReducedMotion();
+
+  // Detect touch-primary devices so we swap hover → tap
+  const isTouch = typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: none)").matches;
 
   useEffect(() => {
     return () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current); };
@@ -64,6 +60,21 @@ export default function IdeaCard({
     }
   };
 
+  async function handleSpark(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (liked || !viewerId) return;
+    setLiked(true);
+    setLikeCount((n) => n + 1);
+    try {
+      const r = await sparkIdea(idea.id);
+      if (!r?.success) { setLiked(false); setLikeCount((n) => n - 1); }
+    } catch {
+      setLiked(false);
+      setLikeCount((n) => n - 1);
+    }
+  }
+
   const isOwner = isOwnerProp ?? (idea.userId === viewerId && viewerId !== "");
 
   function copyLink() {
@@ -75,24 +86,31 @@ export default function IdeaCard({
   return (
     <div
       className="bg-ic-card border border-ic-rule rounded-2xl px-5 py-4 hover:border-ic-accent transition-colors duration-200 cursor-pointer"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => !isTouch && setExpanded(true)}
+      onMouseLeave={() => !isTouch && setExpanded(false)}
+      onClick={() => isTouch && setExpanded((v) => !v)}
     >
       <div className="grid grid-cols-[40px_1fr] gap-4">
 
         {/* LEFT — spark / like gutter */}
-        <div className="flex flex-col items-center gap-1 pt-1">
+        <button
+          onClick={handleSpark}
+          aria-pressed={liked}
+          aria-label={liked ? "Sparked" : "Spark this idea"}
+          className="flex flex-col items-center gap-1 pt-1 group"
+        >
           <motion.span
             whileTap={reduce ? {} : { scale: 1.4 }}
+            whileHover={reduce ? {} : { scale: 1.1 }}
             transition={{ duration: 0.1, ease: "easeOut" }}
             className="inline-flex"
           >
-            <Heart size={16} className={liked ? "fill-current text-ic-accent-bright" : "text-ic-muted"} />
+            <Heart size={16} className={liked ? "fill-current text-ic-accent-bright" : "text-ic-muted group-hover:text-ic-ink transition-colors"} />
           </motion.span>
           <span className={`font-mono text-[13px] font-semibold ${liked ? "text-ic-accent-bright" : "text-ic-ink"}`}>
             {likeCount}
           </span>
-        </div>
+        </button>
 
         {/* RIGHT — content */}
         <div className="min-w-0">
@@ -107,7 +125,7 @@ export default function IdeaCard({
 
             {/* Draft badge */}
             {idea.status === "draft" && (
-              <span className="font-mono text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-900/50 text-amber-300 border-amber-700">
+              <span className="font-mono text-[10px] font-medium px-1.5 py-0.5 rounded border ic-badge-draft">
                 Draft
               </span>
             )}
@@ -135,9 +153,9 @@ export default function IdeaCard({
             {idea.title}
           </h3>
 
-          {/* Hover-expand: pitch + author + actions */}
+          {/* Expand panel — hover on desktop, tap on touch */}
           <AnimatePresence>
-            {hovered && (
+            {expanded && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -162,6 +180,7 @@ export default function IdeaCard({
                             {author.handle?.[0]?.toUpperCase() ?? "?"}
                           </div>
                           {author.avatarUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={author.avatarUrl}
                               alt=""
@@ -196,12 +215,13 @@ export default function IdeaCard({
                   <div className="flex items-center gap-1.5 pt-2 border-t border-ic-rule-soft">
                     <Link
                       href={`/idea/${idea.id}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-ic-accent rounded-lg hover:opacity-90 transition"
                     >
                       <Eye size={12} /> View
                     </Link>
                     <button
-                      onClick={copyLink}
+                      onClick={(e) => { e.stopPropagation(); copyLink(); }}
                       className="flex items-center gap-1 text-xs text-ic-muted hover:text-ic-ink transition-colors px-2 py-1.5"
                       title="Copy link"
                     >
@@ -215,13 +235,14 @@ export default function IdeaCard({
                       <>
                         <Link
                           href={`/idea/${idea.id}/edit`}
+                          onClick={(e) => e.stopPropagation()}
                           className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-ic-muted bg-ic-paper-deep rounded-lg hover:bg-ic-rule transition"
                         >
                           <Edit3 size={12} /> Edit
                         </Link>
                         {idea.status === "draft" && (
                           <button
-                            onClick={() => run("publish", publishIdea)}
+                            onClick={(e) => { e.stopPropagation(); run("publish", publishIdea); }}
                             disabled={!!loading}
                             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-ic-accent rounded-lg hover:opacity-90 disabled:opacity-50 transition"
                           >
@@ -230,16 +251,16 @@ export default function IdeaCard({
                           </button>
                         )}
                         <button
-                          onClick={handleDeleteClick}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
                           disabled={loading === "delete"}
                           className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${
                             confirmDelete
-                              ? "bg-red-600 text-white animate-pulse"
-                              : "text-red-400 bg-ic-paper-deep hover:bg-red-50 dark:hover:bg-red-900/30"
+                              ? "bg-ic-danger text-white animate-pulse"
+                              : "text-ic-danger bg-ic-paper-deep hover:bg-ic-danger-bg"
                           }`}
                         >
                           {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          {confirmDelete ? "Sure?" : "Del"}
+                          {confirmDelete ? "Sure?" : "Delete"}
                         </button>
                       </>
                     )}

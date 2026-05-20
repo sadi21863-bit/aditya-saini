@@ -7,7 +7,6 @@ import toast from "react-hot-toast";
 
 interface SparkProps {
   ideaId: string;
-  viewerId: string;
   initialLikes: number;
   initialHasLiked?: boolean;
   onSuccess?: () => void;
@@ -16,7 +15,6 @@ interface SparkProps {
 
 export default function SparkButton({
   ideaId,
-  viewerId,
   initialLikes,
   initialHasLiked = false,
   onSuccess,
@@ -26,20 +24,24 @@ export default function SparkButton({
   const [isActive, setIsActive] = useState(false);
   const [hasLiked, setHasLiked] = useState(initialHasLiked);
 
-  void viewerId;
-
   const handleSpark = async () => {
     if (hasLiked || isActive || disabled) return;
 
     setIsActive(true);
     setCount((prev) => prev + 1);
 
-    const result = await sparkIdea(ideaId);
-
-    if (!result.success) {
+    try {
+      const result = await sparkIdea(ideaId);
+      if (!result.success) {
+        setCount((prev) => prev - 1);
+        setIsActive(false);
+        toast.error(result.error ?? "Could not spark idea");
+        return;
+      }
+    } catch {
       setCount((prev) => prev - 1);
       setIsActive(false);
-      toast.error(result.error ?? "Could not spark idea");
+      toast.error("Could not spark idea");
       return;
     }
 

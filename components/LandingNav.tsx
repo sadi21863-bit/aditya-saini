@@ -48,13 +48,15 @@ export default function LandingNav() {
         className="md:hidden p-2 text-ic-muted hover:text-ic-ink transition-colors"
         onClick={() => setMenuOpen((v) => !v)}
         aria-label="Toggle menu"
+        aria-expanded={menuOpen}
+        aria-controls="landing-mobile-menu"
       >
         {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-ic-card border-t border-ic-rule px-6 py-4 flex flex-col gap-1 z-50">
+        <div id="landing-mobile-menu" className="md:hidden absolute top-full left-0 right-0 bg-ic-card border-t border-ic-rule px-6 py-4 flex flex-col gap-1 z-50">
           <Link href="/ai-lab" onClick={() => setMenuOpen(false)}
             className="text-ic-muted hover:text-ic-ink text-sm py-2 transition-colors">
             AI Lab

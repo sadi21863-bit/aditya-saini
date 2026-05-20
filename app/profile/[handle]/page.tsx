@@ -161,7 +161,6 @@ export default async function ProfilePage({
               <FollowButton
                 currentUserId={currentUserId}
                 targetUserId={profileUser.id}
-                targetHandle={profileUser.handle ?? ""}
                 initialIsFollowing={isFollowing}
               />
             )}

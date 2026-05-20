@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateRoom, archiveRoom, leaveRoom, removeMember, updateMemberRole } from "@/app/actions/roomActions";
 import { Globe, Lock, Loader2, AlertTriangle } from "lucide-react";
 import type { Room } from "@/db/schema";
-
-const CATEGORIES = [
-  "Technology", "Design", "Business", "Science", "Education",
-  "Art", "Health", "Finance", "Social Impact",
-];
+import { IC_CATEGORIES, IC_CATEGORY_LABELS } from "@/lib/categories";
 
 interface Member {
   userId: string;
@@ -39,7 +35,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
 
-  const isPreset = !room.category || CATEGORIES.includes(room.category);
+  const isPreset = !room.category || IC_CATEGORIES.includes(room.category as typeof IC_CATEGORIES[number]);
   const [categoryMode, setCategoryMode] = useState<"preset" | "custom">(isPreset ? "preset" : "custom");
   const [customCategory, setCustomCategory] = useState(isPreset ? "" : (room.category ?? ""));
 
@@ -126,7 +122,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
         <h2 className="font-display text-base text-ic-ink mb-4">Room Details</h2>
         <form ref={formRef} onSubmit={handleSave} className="flex flex-col gap-4">
           <div>
-            <label className={labelCls}>Name <span className="text-red-500">*</span></label>
+            <label className={labelCls}>Name <span className="text-ic-danger">*</span></label>
             <input
               name="name"
               required
@@ -162,7 +158,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
                 className={inputCls}
               >
                 <option value="">— Select —</option>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {IC_CATEGORIES.map((c) => <option key={c} value={c}>{IC_CATEGORY_LABELS[c]}</option>)}
               </select>
             ) : (
               <input
@@ -188,7 +184,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
           </div>
 
           {saveMsg && (
-            <p className={`font-mono text-[12px] ${saveMsg.ok ? "text-ic-accent" : "text-red-500"}`}>
+            <p className={`font-mono text-[12px] ${saveMsg.ok ? "text-ic-accent" : "text-ic-danger"}`}>
               {saveMsg.text}
             </p>
           )}
@@ -242,7 +238,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
                   </select>
                   <button
                     onClick={() => handleRemove(m.userId)}
-                    className="px-2 py-1 rounded-lg text-xs text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
+                    className="px-2 py-1 rounded-lg text-xs text-ic-danger bg-ic-danger-bg hover:opacity-80 transition"
                   >
                     Remove
                   </button>
@@ -255,12 +251,12 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
 
       {/* Danger zone */}
       <section className="border-t border-ic-rule pt-8">
-        <h2 className="font-mono text-[12px] text-red-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <h2 className="font-mono text-[12px] text-ic-danger uppercase tracking-wide mb-4 flex items-center gap-2">
           <AlertTriangle size={14} /> Danger Zone
         </h2>
         <div className="flex flex-col gap-3">
           {isOwner && room.status === "active" && (
-            <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between bg-ic-danger-bg border border-ic-rule rounded-xl px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-ic-ink">Archive this room</p>
                 <p className="font-mono text-[11px] text-ic-muted">The room becomes read-only. Ideas are preserved.</p>
@@ -270,8 +266,8 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
                 disabled={isPending}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
                   archiveConfirm
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    ? "bg-ic-danger text-white animate-pulse"
+                    : "border border-ic-danger/40 text-ic-danger hover:bg-ic-danger-bg"
                 }`}
               >
                 {archiveConfirm ? "Confirm?" : "Archive"}
@@ -280,7 +276,7 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
           )}
 
           {!isOwner && (
-            <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between bg-ic-danger-bg border border-ic-rule rounded-xl px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-ic-ink">Leave this room</p>
                 <p className="font-mono text-[11px] text-ic-muted">You will lose access to private ideas.</p>
@@ -290,8 +286,8 @@ export default function RoomSettingsForm({ room, members, callerId, callerRole }
                 disabled={isPending}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
                   leaveConfirm
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    ? "bg-ic-danger text-white animate-pulse"
+                    : "border border-ic-danger/40 text-ic-danger hover:bg-ic-danger-bg"
                 }`}
               >
                 {leaveConfirm ? "Confirm?" : "Leave"}

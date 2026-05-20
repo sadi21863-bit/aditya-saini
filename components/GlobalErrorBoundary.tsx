@@ -10,16 +10,17 @@ interface Props {
 
 interface State {
     hasError: boolean;
+    retried: boolean;
     error?: Error;
 }
 
 export class GlobalErrorBoundary extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
-        this.state = { hasError: false };
+        this.state = { hasError: false, retried: false };
     }
 
-    static getDerivedStateFromError(error: Error): State {
+    static getDerivedStateFromError(error: Error): Partial<State> {
         return { hasError: true, error };
     }
 
@@ -40,13 +41,19 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                                 Something went wrong
                             </h2>
                             <p className="font-mono text-[12px] text-ic-muted">
-                                Something went wrong. Your ideas and data are safe.
+                                Your ideas and data are safe. Reload the page if the problem continues.
                             </p>
                             <button
-                                onClick={() => this.setState({ hasError: false })}
+                                onClick={() => {
+                                    if (this.state.retried) {
+                                        window.location.href = "/";
+                                    } else {
+                                        this.setState({ hasError: false, retried: true });
+                                    }
+                                }}
                                 className="px-4 py-2 bg-ic-accent text-white rounded-lg text-sm hover:opacity-90 transition"
                             >
-                                Try Again
+                                {this.state.retried ? "Go Home" : "Try Again"}
                             </button>
                         </div>
                     </div>

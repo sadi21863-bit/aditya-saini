@@ -1,10 +1,11 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
 export default function FeedFilter({ categories }: { categories: string[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const active = searchParams.get('category') || 'all';
 
   const setFilter = (cat: string) => {
@@ -14,7 +15,7 @@ export default function FeedFilter({ categories }: { categories: string[] }) {
     } else {
       params.set('category', cat);
     }
-    router.push(`/feed?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   return (

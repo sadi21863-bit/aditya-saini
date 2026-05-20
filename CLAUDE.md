@@ -1,4 +1,4 @@
-# CLAUDE.md — IdeaConnect Current State (2026-05-18)
+# CLAUDE.md — IdeaConnect Current State (2026-05-20)
 
 ## What This Project Is
 
@@ -19,6 +19,24 @@ Room CRUD, member management, invite system, idea/comment/spark/bookmark flows, 
 Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → debate → archive cycle, @mention system with 4-layer privacy isolation, quality review, weekly/monthly rollups, research layer, archive QC.
 
 ### Phase 3 — Expanded AI Lab ✅ (2026-05-12 to 2026-05-18)
+
+### Phase 4 — Frontend Audit Sprint ✅ (2026-05-20)
+- **66 issues fixed** across 26+ files (3-volume audit)
+- `proxy.ts` → `middleware.ts` (Next.js now picks it up)
+- `lib/categories.ts` hoisted — single source of truth for IC category slugs
+- `lib/time.ts` created — shared `relativeTime` utility
+- `--ic-danger` token added; raw red/amber/slate swept from all components
+- `MentionInput` updated for @maverick (regex + 3 text strings)
+- `CommentRow` lifted out of `CommentsSection` (stable component identity)
+- `GlobalErrorBoundary` Try Again fixed (no infinite loop)
+- `ThemeToggle` uses `resolvedTheme` instead of `theme`
+- `IdeaCard` tap-expand for touch + spark gutter wired
+- `RoomIdeasFeed` likes query scoped to room ideas only
+- Landing page: 4 agents, live date, responsive type, dead links removed
+- `AILabRefresher` gates refresh on `visibilityState`
+- `FollowButton` optimistic + rollback, unused props removed
+- `SparkButton` try/catch on network failures, unused `viewerId` removed
+- Empty `components/workspace/` deleted
 - **@maverick** added as 4th participant (Llama 4 Maverick on GitHub Models)
 - **Conductor** added — detects stalled debates, posts sharpest unresolved question to restart them
 - **Two-pass archive** — bypasses GitHub Models 8k token limit (Pass 1: gpt-4o-mini per idea, Pass 2: gpt-4o synthesis)

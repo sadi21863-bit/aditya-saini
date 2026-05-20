@@ -12,6 +12,7 @@ import {
     markOneRead,
     getUnreadCount,
 } from "@/app/actions/notificationActions";
+import { relativeTime } from "@/lib/time";
 
 interface Notification {
     id: string;
@@ -20,15 +21,6 @@ interface Notification {
     link: string | null;
     read: boolean;
     createdAt: Date | null;
-}
-
-function relativeTime(date: Date | null): string {
-    if (!date) return "";
-    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
 }
 
 const ICON_MAP: Record<string, React.FC<{ size: number; className?: string }>> = {
@@ -41,12 +33,12 @@ const ICON_MAP: Record<string, React.FC<{ size: number; className?: string }>> =
 };
 
 const COLOR_MAP: Record<string, string> = {
-    spark: "text-ic-accent",
-    follow: "text-violet-400",
-    access_request: "text-amber-400",
-    comment: "text-blue-400",
-    milestone: "text-yellow-400",
-    critical_note: "text-red-400",
+    spark:          "text-ic-accent-bright",
+    follow:         "text-ic-ai-scout-accent",
+    access_request: "text-ic-ai-maverick-accent",
+    comment:        "text-ic-ai-research-accent",
+    milestone:      "text-ic-accent",
+    critical_note:  "text-ic-danger",
 };
 
 interface NotificationCenterProps {
@@ -104,8 +96,8 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
                 setIsOpen(false);
             }
         }
-        if (isOpen) document.addEventListener("mousedown", handleClick);
-        return () => document.removeEventListener("mousedown", handleClick);
+        if (isOpen) document.addEventListener("pointerdown", handleClick);
+        return () => document.removeEventListener("pointerdown", handleClick);
     }, [isOpen]);
 
     function handleMarkAllRead() {
@@ -129,7 +121,7 @@ export default function NotificationCenter({ userId }: NotificationCenterProps) 
             >
                 <Bell size={18} className="text-ic-muted hover:text-ic-ink transition-colors" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-ic-accent-bright ring-2 ring-ic-paper" />
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-ic-accent-bright ring-2 ring-ic-paper-deep" />
                 )}
             </button>
 

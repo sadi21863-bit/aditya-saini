@@ -22,11 +22,11 @@ type LTMatch = {
 type IssueType = "spelling" | "grammar" | "style" | "punctuation" | "other";
 
 const ISSUE_STYLES: Record<IssueType, { underline: string; badge: string; dot: string }> = {
-  spelling:    { underline: "underline decoration-red-400 decoration-2 decoration-wavy",    badge: "bg-red-50 border-red-200 text-red-700",      dot: "bg-red-400" },
-  grammar:     { underline: "underline decoration-amber-400 decoration-2 decoration-wavy",  badge: "bg-amber-50 border-amber-200 text-amber-700", dot: "bg-amber-400" },
-  style:       { underline: "underline decoration-blue-400 decoration-2 decoration-wavy",   badge: "bg-blue-50 border-blue-200 text-blue-700",    dot: "bg-blue-400" },
-  punctuation: { underline: "underline decoration-purple-400 decoration-2 decoration-wavy", badge: "bg-purple-50 border-purple-200 text-purple-700", dot: "bg-purple-400" },
-  other:       { underline: "underline decoration-ic-muted decoration-2 decoration-wavy",   badge: "bg-ic-paper-deep border-ic-rule text-ic-muted", dot: "bg-ic-muted" },
+  spelling:    { underline: "underline decoration-ic-danger decoration-2 decoration-wavy",             badge: "ic-issue-spell",   dot: "bg-ic-danger" },
+  grammar:     { underline: "underline decoration-ic-ai-maverick-accent decoration-2 decoration-wavy", badge: "ic-issue-grammar", dot: "bg-ic-ai-maverick-accent" },
+  style:       { underline: "underline decoration-ic-ai-research-accent decoration-2 decoration-wavy", badge: "ic-issue-style",   dot: "bg-ic-ai-research-accent" },
+  punctuation: { underline: "underline decoration-ic-ai-scout-accent decoration-2 decoration-wavy",    badge: "ic-issue-punct",   dot: "bg-ic-ai-scout-accent" },
+  other:       { underline: "underline decoration-ic-muted decoration-2 decoration-wavy",              badge: "bg-ic-paper-deep border-ic-rule text-ic-muted", dot: "bg-ic-muted" },
 };
 
 function classify(m: LTMatch): IssueType {
@@ -238,7 +238,7 @@ export default function IdeaTextEditor({
             {matches.length > 0 && (
               <>
                 <span className="text-ic-rule">|</span>
-                <span className="text-amber-500 font-semibold">
+                <span className="text-ic-ai-maverick-accent font-semibold">
                   {matches.length} issue{matches.length !== 1 ? "s" : ""}
                 </span>
               </>
@@ -246,18 +246,13 @@ export default function IdeaTextEditor({
           </div>
           <button
             type="button"
-            onClick={handleCheck}
-            disabled={isChecking || !value.trim()}
+            disabled
+            title="Writing check coming soon"
             className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold px-3 py-1 rounded-xl
-              bg-ic-accent/10 text-ic-accent hover:bg-ic-accent/20
-              disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              bg-ic-accent/10 text-ic-accent opacity-40 cursor-not-allowed"
           >
-            {isChecking ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <Wand2 size={11} />
-            )}
-            {isChecking ? "Checking…" : "Check writing"}
+            <Wand2 size={11} />
+            Check writing
           </button>
         </div>
 
@@ -353,7 +348,7 @@ export default function IdeaTextEditor({
                           <div className="flex-1 min-w-0">
                             <p className="text-[12px] text-ic-ink leading-snug">{m.message}</p>
                             <p className="font-mono text-[10px] text-ic-muted mt-0.5 truncate">
-                              Original: &quot;{value.substr(m.offset, m.length)}&quot;
+                              Original: &quot;{value.slice(m.offset, m.offset + m.length)}&quot;
                             </p>
                           </div>
                           <button
