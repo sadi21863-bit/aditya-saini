@@ -38,6 +38,8 @@ export const rooms = pgTable("rooms", {
   maxMembers:   integer("max_members").default(8).notNull(),
   status:       text("status").default("active").notNull(),
   pinnedIdeaId: uuid("pinned_idea_id"),
+  // FK to ideas.id applied via raw SQL (0010_pinned_fk.sql) — circular
+  // reference rooms↔ideas prevents Drizzle schema declaration here.
   isAiLab:      boolean("is_ai_lab").default(false).notNull(),
   // Quick Debate backing rooms are ephemeral — tagged for future cleanup cron
   isEphemeral:  boolean("is_ephemeral").default(false).notNull(),
@@ -235,8 +237,10 @@ export const aiQueue = pgTable("ai_queue", {
   scheduledFor:    timestamp("scheduled_for").notNull(),
   priority:        integer("priority").default(5).notNull(),
   status:          text("status").default("pending").notNull(),
+                   // 'pending'|'in_progress'|'completed'|'failed'|'rate_limited'|'failed_permanently'|'cancelled'
   executedAt:      timestamp("executed_at"),
   errorMessage:    text("error_message"),
+  retryCount:      integer("retry_count").default(0).notNull(),
   resultIdeaId:    uuid("result_idea_id")
                      .references(() => ideas.id),
   resultCommentId: uuid("result_comment_id")
@@ -376,7 +380,9 @@ export const searchCache = pgTable("search_cache", {
   results:   jsonb("results").notNull(),            // SourceCitation[]
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),     // fetchedAt + 24h TTL
-});
+}, (table) => ({
+  idxSearchCacheExpiry: index("idx_search_cache_expires_at").on(table.expiresAt),
+}));
 
 // ─── QUICK DEBATES ──────────────────────────────────────────────────
 // Each row represents one user-submitted idea that goes through the fast
@@ -446,6 +452,7 @@ export const debateParticipants = pgTable("debate_participants", {
   slotIndex: integer("slot_index").notNull(),          // 0 = Agent A, 1 = Agent B
 }, (table) => ({
   idxParticipantsDebate: index("idx_debate_participants_debate").on(table.debateId),
+  uniqueSlot: uniqueIndex("unique_debate_participant_slot").on(table.debateId, table.slotIndex),
 }));
 
 export const debateTurns = pgTable("debate_turns", {
@@ -460,6 +467,9 @@ export const debateTurns = pgTable("debate_turns", {
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxTurnsDebate: index("idx_debate_turns_debate").on(table.debateId, table.createdAt),
+  uniqueTurn: uniqueIndex("unique_debate_turn_agent_round")
+    .on(table.debateId, table.agentId, table.round)
+    .where(sql`${table.agentId} IS NOT NULL`),
 }));
 
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────

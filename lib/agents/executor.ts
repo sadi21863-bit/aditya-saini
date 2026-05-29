@@ -227,12 +227,27 @@ export async function processQueue(
         .where(eq(aiQueue.id, item.id));
       processed++;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const status  = message.startsWith("rate_limited") ? "rate_limited" : "failed";
+      const message       = err instanceof Error ? err.message : String(err);
+      const isRateLimited = message.startsWith("rate_limited");
+      const newRetryCount = (item.retryCount ?? 0) + 1;
+      const isPermanent   = !isRateLimited && newRetryCount >= 3;
+      const status        = isRateLimited
+        ? "rate_limited"
+        : isPermanent
+          ? "failed_permanently"
+          : "failed";
+
       await db
         .update(aiQueue)
-        .set({ status, errorMessage: message, executedAt: new Date() })
+        .set({ status, errorMessage: message, executedAt: new Date(), retryCount: newRetryCount })
         .where(eq(aiQueue.id, item.id));
+
+      if (isPermanent) {
+        console.error(
+          `[ai-lab] DEAD LETTER: job ${item.id} (${item.actionType} / ${item.agentId}) failed permanently after ${newRetryCount} attempts. Last error: ${message}`
+        );
+      }
+
       errors.push({ id: item.id, agentId: item.agentId, actionType: item.actionType, error: message });
       failed++;
     }
@@ -252,7 +267,11 @@ export async function resetStuckQueueItems(): Promise<number> {
   const reset = await db
     .update(aiQueue)
     .set({ status: "pending", errorMessage: "reset by catchup — was stuck in_progress" })
-    .where(and(eq(aiQueue.status, "in_progress"), lt(aiQueue.scheduledFor, staleThreshold)))
+    .where(and(
+      eq(aiQueue.status, "in_progress"),
+      lt(aiQueue.scheduledFor, staleThreshold),
+      lt(aiQueue.retryCount, 3),
+    ))
     .returning({ id: aiQueue.id });
   return reset.length;
 }

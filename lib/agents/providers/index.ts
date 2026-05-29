@@ -1,5 +1,4 @@
 import { callGroq } from "./groq";
-import { callCerebras } from "./cerebras";
 import { callGitHub } from "./github";
 import { stripThinkingTags, normalizeHyphens } from "../response-cleaner";
 import type { Agent } from "../personas";
@@ -35,13 +34,6 @@ export async function callAgent(
   userPrompt: string,
   opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
 ): Promise<string> {
-  // Cerebras agents call Cerebras directly.
-  if (agent.provider === "cerebras") {
-    return stripThinkingTags(
-      await callCerebras(agent.model, agent.persona, userPrompt, opts)
-    );
-  }
-
   // GitHub Models agents (Qwen participant — meta/llama-4-scout-17b-16e-instruct).
   // On transient errors (429, 5xx, network), fall back to Groq llama-3.1-8b-instant.
   if (agent.provider === "github") {
