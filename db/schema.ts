@@ -348,6 +348,8 @@ export const aiLabArchives = pgTable("ai_lab_archives", {
   flaggedReason:       text("flagged_reason"),
   reviewedByAgentId:   text("reviewed_by_agent_id"),
   reviewedAt:          timestamp("reviewed_at"),
+  winnerAgentId:       text("winner_agent_id")
+                         .references(() => users.id, { onDelete: "set null" }),
 }, (table) => ({
   // Composite index for status-filtered queries (e.g. WHERE date = ? AND status = 'published')
   idxAiLabArchivesDateStatus: index("idx_ai_lab_archives_date_status")
@@ -423,7 +425,7 @@ export const quickDebates = pgTable("quick_debates", {
 // ─── DEBATES (enhanced Quick Debate) ────────────────────────────────
 export const debates = pgTable("debates", {
   id:               uuid("id").defaultRandom().primaryKey(),
-  userId:           text("user_id").notNull()
+  userId:           text("user_id")
                       .references(() => users.id, { onDelete: "cascade" }),
   originalInput:    text("original_input").notNull(),
   title:            text("title").notNull(),

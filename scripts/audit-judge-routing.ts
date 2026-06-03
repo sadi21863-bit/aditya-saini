@@ -1,3 +1,5 @@
+// Last run: 2026-06-03. Results: 13/30 full_debate, 2/30 single_answer, 15/30 needs_clarification, 2 suspect (7%).
+// Pass condition met (< 17% incorrect routing). No prompt changes needed.
 /**
  * scripts/audit-judge-routing.ts
  *

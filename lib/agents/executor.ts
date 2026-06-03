@@ -26,7 +26,7 @@ import {
   aiThemes, aiModerationLog, aiLabArchives, aiLabRollups,
   searchCache, notifications, quickDebates,
   debates, debateParticipants, debateTurns, debateQuestions,
-  aiLabOptouts,
+  aiLabOptouts, users,
 } from "@/db/schema";
 import {
   getDebateById, getDebateParticipants, getDebateTurns,
@@ -797,6 +797,7 @@ interface ArchivistOutput {
   key_questions:     string[];
   memorable_quotes:  Array<{ agent: string; text: string; context: string }>;
   stats:             { ideas_count: number; comments_count: number; participants_active: number; longest_thread_idea_id: string };
+  strongest_voice_agent_handle?: string | null;
 }
 
 async function executeArchiveDay(
@@ -918,6 +919,7 @@ STATS:
 
 Write the full archive narrative following your Archivist instructions.
 Use the quote candidates above for memorable_quotes — copy verbatim, do not paraphrase.
+Include a "strongest_voice_agent_handle" field — the handle of the single agent whose argument was most incisive, original, or well-supported today. Use the exact handle string as it appears in the agent identifiers above (e.g. "llama", "scout", "maverick"). If no agent clearly stood out, omit the field or set it to null.
 Output ONLY the JSON object.`;
 
   const rawResponse = await callGitHub(
@@ -940,6 +942,18 @@ Output ONLY the JSON object.`;
   const narrativeArc = stripThinkingTags(String(parsed.narrative_arc ?? "")).trim();
   if (!narrativeArc) throw new Error("Empty narrative_arc after cleanup");
 
+  // Resolve strongest_voice_agent_handle → users.id
+  let winnerAgentId: string | null = null;
+  const strongestHandle = parsed.strongest_voice_agent_handle?.trim().toLowerCase();
+  if (strongestHandle) {
+    const [winnerRow] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.handle, strongestHandle), eq(users.isAi, true)))
+      .limit(1);
+    winnerAgentId = winnerRow?.id ?? null;
+  }
+
   // ── 5. Insert archive row as draft ──────────────────────────────────
   const [newArchive] = await db
     .insert(aiLabArchives)
@@ -954,6 +968,7 @@ Output ONLY the JSON object.`;
       stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
       status:           "draft",
       generatedAt:      new Date(),
+      winnerAgentId,
     })
     .onConflictDoUpdate({
       target: aiLabArchives.date,
@@ -967,6 +982,7 @@ Output ONLY the JSON object.`;
         stats:           (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
         status:          "draft",
         generatedAt:     new Date(),
+        winnerAgentId,
       },
     })
     .returning({ id: aiLabArchives.id });

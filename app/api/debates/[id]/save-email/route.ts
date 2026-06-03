@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { debates } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { debates, aiUsage } from "@/db/schema";
+import { and, count, eq, gte } from "drizzle-orm";
 import { z } from "zod";
 
 const BodySchema = z.object({
   email:      z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email address."),
   shareToken: z.string().min(1),  // proof of access — caller must have the share link
 });
-
-// Simple in-memory rate limit: max 3 email saves per IP per 10 minutes
-const emailSaveAttempts = new Map<string, { count: number; resetAt: number }>();
 
 type Params = { id: string };
 
@@ -20,17 +17,21 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  // Per-IP rate limit
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const now      = Date.now();
-  const entry    = emailSaveAttempts.get(clientIp);
-  if (entry && entry.resetAt > now) {
-    if (entry.count >= 3) {
-      return NextResponse.json({ error: "Too many requests." }, { status: 429 });
-    }
-    entry.count++;
-  } else {
-    emailSaveAttempts.set(clientIp, { count: 1, resetAt: now + 10 * 60 * 1000 });
+  // DB-backed rate limit: max 3 email saves per IP per 10 minutes
+  const clientIp      = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  const [recentRow]   = await db
+    .select({ n: count() })
+    .from(aiUsage)
+    .where(
+      and(
+        eq(aiUsage.ipAddress, clientIp),
+        eq(aiUsage.feature, "email_save"),
+        gte(aiUsage.createdAt, tenMinutesAgo),
+      ),
+    );
+  if (Number(recentRow?.n ?? 0) >= 3) {
+    return NextResponse.json({ error: "Too many requests." }, { status: 429 });
   }
 
   const body   = await req.json().catch(() => null);
@@ -57,6 +58,8 @@ export async function POST(
   }
 
   await db.update(debates).set({ userEmail: email }).where(eq(debates.id, id));
+
+  await db.insert(aiUsage).values({ ipAddress: clientIp, feature: "email_save", tokens: 0 });
 
   // TODO: wire email provider
   // If an email service is configured, send the share link here.

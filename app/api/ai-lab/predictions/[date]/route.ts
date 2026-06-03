@@ -46,17 +46,28 @@ export async function GET(
 
   // Check if archive has been published for this date
   const [archive] = await db
-    .select({ status: aiLabArchives.status, stats: aiLabArchives.stats })
+    .select({ status: aiLabArchives.status, stats: aiLabArchives.stats, winnerAgentId: aiLabArchives.winnerAgentId })
     .from(aiLabArchives)
     .where(and(eq(aiLabArchives.date, date), eq(aiLabArchives.status, "published")))
     .limit(1);
+
+  let winner: { agentId: string; agentName: string | null } | null = null;
+  if (archive?.winnerAgentId) {
+    const [winnerUser] = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.id, archive.winnerAgentId))
+      .limit(1);
+    if (winnerUser) {
+      winner = { agentId: winnerUser.id, agentName: winnerUser.name };
+    }
+  }
 
   return NextResponse.json({
     date,
     total,
     predictions,
-    // winner field: null until aiLabArchives gains a winner_agent_id column (future migration)
-    winner: null,
+    winner,
     archivePublished: !!archive,
   });
 }

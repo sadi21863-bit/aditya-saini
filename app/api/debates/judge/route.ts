@@ -27,10 +27,7 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in to use Quick Debate." }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const userId  = session?.user?.id ?? null;   // null for anonymous users
 
   const body   = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(body);
@@ -142,7 +139,7 @@ interface JudgeResponse {
 async function handleJudgeVerdict(
   judgment: JudgeResponse,
   debateId: string,
-  userId:   string,
+  userId:   string | null,
   input:    string,
 ): Promise<NextResponse> {
   void userId; void input;
