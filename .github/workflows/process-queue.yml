@@ -29,6 +29,7 @@ jobs:
       - run: npm ci
 
       - name: Check agent connectivity
+        id: check_agents
         if: ${{ github.event.inputs.skip_checks != 'true' }}
         run: npx tsx scripts/check-agents.ts
         env:
@@ -36,7 +37,27 @@ jobs:
           # github.token is auto-generated per run — never expires, no manual renewal needed.
           # GH_MODELS_TOKEN secret is kept as fallback if github.token loses models access.
           GH_MODELS_TOKEN: ${{ github.token }}
-        continue-on-error: false
+        continue-on-error: true
+
+      - name: Report agent health
+        if: always()
+        env:
+          CHECK_OUTCOME: ${{ steps.check_agents.outcome }}
+          APP_URL:       ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          CRON_SECRET:   ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "## Agent Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "- Outcome: **${CHECK_OUTCOME}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          if [ "${CHECK_OUTCOME}" = "failure" ]; then
+            echo "- :warning: One or more agents failed connectivity. Queue processing continues with available agents." >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "${APP_URL}" ] && [ -n "${CRON_SECRET}" ]; then
+            curl -sf -X POST "${APP_URL}/api/internal/agent-health-report" \
+              -H "Content-Type: application/json" \
+              -H "x-cron-secret: ${CRON_SECRET}" \
+              -d "{\"checkOutcome\":\"${CHECK_OUTCOME}\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" || true
+          fi
 
       - name: Process AI queue
         run: npx tsx scripts/process-queue.ts

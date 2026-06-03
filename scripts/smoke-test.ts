@@ -1,12 +1,9 @@
 /**
  * scripts/smoke-test.ts
  *
- * Step 9: Quick smoke test against real APIs.
- * Makes one real call to Groq (qwen/qwen3-32b) and one real call to
- * Cerebras (qwen-3-235b-a22b-instruct-2507). Both must return text.
- *
- * Dynamic imports inside the async main ensure dotenv runs BEFORE the
- * OpenAI client modules initialise (they read API keys at module load time).
+ * Quick smoke test against real APIs.
+ * Makes one real call to Groq (qwen/qwen3-32b) and one to GitHub Models (gpt-4o-mini).
+ * Both must return text.
  *
  * Run with:  npx tsx scripts/smoke-test.ts
  */
@@ -14,17 +11,15 @@
 import * as dotenv from "dotenv";
 import * as path from "path";
 
-// Load env vars before any openai-dependent module is imported
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 
-const GROQ_MODEL     = process.env.AGENT_MODEL_ADMIN    ?? "qwen/qwen3-32b";
-const CEREBRAS_MODEL = process.env.AGENT_MODEL_ARCHIVIST ?? "qwen-3-235b-a22b-instruct-2507";
+const GROQ_MODEL   = process.env.AGENT_MODEL_ADMIN    ?? "qwen/qwen3-32b";
+const GITHUB_MODEL = process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-4o-mini";
 
 async function runSmoke() {
-  // Dynamic imports so provider modules initialise AFTER env vars are loaded
-  const { callGroq }     = await import("../lib/agents/providers/groq");
-  const { callCerebras } = await import("../lib/agents/providers/cerebras");
+  const { callGroq }   = await import("../lib/agents/providers/groq");
+  const { callGitHub } = await import("../lib/agents/providers/github");
 
   console.log("=== AI Lab Smoke Test ===\n");
 
@@ -39,9 +34,7 @@ async function runSmoke() {
       { maxTokens: 60, temperature: 0.5 }
     );
     const groqMs = Date.now() - groqStart;
-    if (!groqResult || groqResult.trim().length === 0) {
-      throw new Error("Groq returned empty content");
-    }
+    if (!groqResult || groqResult.trim().length === 0) throw new Error("Groq returned empty content");
     console.log(`  ✓ Groq OK (${groqMs}ms)`);
     console.log(`  Response: "${groqResult.slice(0, 200)}"`);
   } catch (err) {
@@ -49,24 +42,22 @@ async function runSmoke() {
     process.exit(1);
   }
 
-  // ─── Test 2: Cerebras ────────────────────────────────────────────────
-  console.log(`\n[2/2] Calling Cerebras with model: ${CEREBRAS_MODEL}`);
-  const cerebrasStart = Date.now();
+  // ─── Test 2: GitHub Models ────────────────────────────────────────────
+  console.log(`\n[2/2] Calling GitHub Models with model: ${GITHUB_MODEL}`);
+  const ghStart = Date.now();
   try {
-    const cerebrasResult = await callCerebras(
-      CEREBRAS_MODEL,
+    const ghResult = await callGitHub(
+      GITHUB_MODEL,
       "You are a test assistant. Reply with exactly one sentence.",
       "Say hello and confirm you are working.",
       { maxTokens: 60, temperature: 0.5 }
     );
-    const cerebrasMs = Date.now() - cerebrasStart;
-    if (!cerebrasResult || cerebrasResult.trim().length === 0) {
-      throw new Error("Cerebras returned empty content");
-    }
-    console.log(`  ✓ Cerebras OK (${cerebrasMs}ms)`);
-    console.log(`  Response: "${cerebrasResult.slice(0, 200)}"`);
+    const ghMs = Date.now() - ghStart;
+    if (!ghResult || ghResult.trim().length === 0) throw new Error("GitHub Models returned empty content");
+    console.log(`  ✓ GitHub Models OK (${ghMs}ms)`);
+    console.log(`  Response: "${ghResult.slice(0, 200)}"`);
   } catch (err) {
-    console.error(`  ✗ Cerebras FAILED: ${(err as Error).message}`);
+    console.error(`  ✗ GitHub Models FAILED: ${(err as Error).message}`);
     process.exit(1);
   }
 

@@ -25,8 +25,9 @@ export default function LandingNav() {
       {/* Desktop right group */}
       <div className="hidden md:flex items-center gap-6">
         <nav className="flex items-center gap-7 text-sm font-medium text-ic-muted mr-2">
-          <Link href="/ai-lab"  className="hover:text-ic-ink transition-colors">AI Lab</Link>
-          <Link href="/explore" className="hover:text-ic-ink transition-colors">Explore</Link>
+          <Link href="/ai-lab"      className="hover:text-ic-ink transition-colors">AI Lab</Link>
+          <Link href="/debates/new" className="hover:text-ic-ink transition-colors">Quick Debate</Link>
+          <Link href="/ai-lab/archive" className="hover:text-ic-ink transition-colors">Archives</Link>
         </nav>
         <ThemeToggle collapsed />
         <Link
@@ -61,9 +62,13 @@ export default function LandingNav() {
             className="text-ic-muted hover:text-ic-ink text-sm py-2 transition-colors">
             AI Lab
           </Link>
-          <Link href="/explore" onClick={() => setMenuOpen(false)}
+          <Link href="/debates/new" onClick={() => setMenuOpen(false)}
             className="text-ic-muted hover:text-ic-ink text-sm py-2 transition-colors">
-            Explore
+            Quick Debate
+          </Link>
+          <Link href="/ai-lab/archive" onClick={() => setMenuOpen(false)}
+            className="text-ic-muted hover:text-ic-ink text-sm py-2 transition-colors">
+            Archives
           </Link>
           <Link href="/sign-in" onClick={() => setMenuOpen(false)}
             className="text-ic-muted hover:text-ic-ink text-sm py-2 transition-colors">

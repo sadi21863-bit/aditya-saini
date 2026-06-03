@@ -26,11 +26,12 @@ import {
   aiThemes, aiModerationLog, aiLabArchives, aiLabRollups,
   searchCache, notifications, quickDebates,
   debates, debateParticipants, debateTurns, debateQuestions,
+  aiLabOptouts,
 } from "@/db/schema";
 import {
   getDebateById, getDebateParticipants, getDebateTurns,
 } from "@/lib/agents/debate-helpers";
-import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { getAgent, getAdmins, getResearchAgent } from "./personas";
 import { callAgent } from "./providers/index";
 import { callGroq } from "./providers/groq";
@@ -52,6 +53,7 @@ import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
 import { fetchResearch, formatResearchBlock, type SourceCitation } from "./research";
 import type { AIQueue } from "@/db/schema";
+import { QUOTA_CONFIG } from "@/lib/config";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID!;
 
@@ -60,10 +62,15 @@ const MIN_CONTENT_LENGTH = 50;
 
 // ── Shared usage upsert ──────────────────────────────────────────────────────
 
-async function upsertUsage(agentId: string, date: string, provider = "groq"): Promise<void> {
+async function upsertUsage(
+  agentId:  string,
+  date:     string,
+  provider  = "groq",
+  feature   = "ai_lab",
+): Promise<void> {
   await db
     .insert(aiUsage)
-    .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider })
+    .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider, feature })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: new Date(), lastProvider: provider },
@@ -92,7 +99,7 @@ Respond in JSON only:
 {"needsResearch": true/false, "query": "2-5 word search query if yes, null if no"}`;
 
     const raw = await callGroq(
-      "llama-3.1-8b-instant",
+      process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant",
       "You are a research triage assistant. Respond in JSON only.",
       prompt,
       { maxTokens: 80, jsonMode: true }
@@ -152,7 +159,7 @@ No opinions. No predictions. Facts only.`;
 
   try {
     const summary = await callGroq(
-      "llama-3.1-8b-instant",
+      process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant",
       researchAgent.persona,
       synthesisPrompt,
       { maxTokens: 200 }
@@ -264,7 +271,9 @@ export async function processQueue(
  */
 export async function resetStuckQueueItems(): Promise<number> {
   const staleThreshold = new Date(Date.now() - 10 * 60 * 1000);
-  const reset = await db
+
+  // Reset items stuck in_progress > 10 min
+  const stuckReset = await db
     .update(aiQueue)
     .set({ status: "pending", errorMessage: "reset by catchup — was stuck in_progress" })
     .where(and(
@@ -273,7 +282,15 @@ export async function resetStuckQueueItems(): Promise<number> {
       lt(aiQueue.retryCount, 3),
     ))
     .returning({ id: aiQueue.id });
-  return reset.length;
+
+  // Re-queue deferred items — quota resets at midnight UTC, so they're eligible again
+  const deferredReset = await db
+    .update(aiQueue)
+    .set({ status: "pending", errorMessage: null })
+    .where(eq(aiQueue.status, "deferred"))
+    .returning({ id: aiQueue.id });
+
+  return stuckReset.length + deferredReset.length;
 }
 
 // ─── Per-item execution ───────────────────────────────────────────────
@@ -300,6 +317,36 @@ async function executeItem(item: AIQueue): Promise<void> {
     }
   }
 
+  // Quota enforcement: check feature-level daily token budget before any LLM work.
+  // Deferred items are retried at the next queue tick, not dead-lettered.
+  const featureLabel = QUICK_DEBATE_ACTIONS.has(item.actionType) ? "quick_debate" : "ai_lab";
+  const budgetFraction = featureLabel === "quick_debate"
+    ? QUOTA_CONFIG.QUICK_DEBATE_BUDGET_FRACTION
+    : QUOTA_CONFIG.AI_LAB_BUDGET_FRACTION;
+  const dailyCeiling = Math.floor(QUOTA_CONFIG.DAILY_TPD_LIMIT * budgetFraction);
+
+  const startOfDayUTC = new Date(new Date().setUTCHours(0, 0, 0, 0));
+  const [usageRow] = await db
+    .select({ total: sql<number>`coalesce(sum(${aiUsage.tokens}), 0)::int` })
+    .from(aiUsage)
+    .where(and(eq(aiUsage.feature, featureLabel), gte(aiUsage.createdAt, startOfDayUTC)));
+
+  if (Number(usageRow?.total ?? 0) >= dailyCeiling) {
+    await db.update(aiQueue)
+      .set({ status: "deferred", errorMessage: `quota_exceeded: ${featureLabel} daily budget` })
+      .where(eq(aiQueue.id, item.id));
+    await db.insert(aiModerationLog).values({
+      moderatorAgentId: "system",
+      targetType:       "quota",
+      targetId:         item.id,
+      verdict:          "deferred",
+      reason:           `Feature ${featureLabel} exceeded daily budget (${dailyCeiling} TPD). Item deferred.`,
+      reviewedAt:       new Date(),
+    }).catch(() => null);
+    console.log(`[executor] quota_exceeded for ${featureLabel} — item ${item.id} deferred`);
+    return;
+  }
+
   // Layer 4 pre-check: abort lab_discussion from private rooms BEFORE calling LLM.
   // writeLabDiscussion also checks, but this guard ensures callAgent is never invoked.
   if (item.actionType === "lab_discussion") {
@@ -317,6 +364,37 @@ async function executeItem(item: AIQueue): Promise<void> {
         console.error("[ai-lab] Failed to write Layer-4 isolation log:", (e as Error).message)
       );
       throw new Error(`private_room_isolation_violated: ${reason}`);
+    }
+  }
+
+  // Opt-out check: if this is a @mention response, skip it when the mentioning
+  // user has opted out of this specific agent or all agents.
+  if (item.actionType === "comment") {
+    const pc            = (item.promptContext as Record<string, unknown>) ?? {};
+    const isMention     = pc.kind === "mention_response";
+    const mentionUserId = isMention ? String(pc.mention_user_id ?? "") : "";
+    if (isMention && mentionUserId) {
+      const [optout] = await db
+        .select({ id: aiLabOptouts.id })
+        .from(aiLabOptouts)
+        .where(
+          and(
+            eq(aiLabOptouts.userId, mentionUserId),
+            or(
+              and(eq(aiLabOptouts.targetType, "agent"), eq(aiLabOptouts.targetId, item.agentId)),
+              and(eq(aiLabOptouts.targetType, "all"),   eq(aiLabOptouts.targetId, "all")),
+            ),
+          ),
+        )
+        .limit(1);
+      if (optout) {
+        await db
+          .update(aiQueue)
+          .set({ status: "skipped", errorMessage: "user_optout" })
+          .where(eq(aiQueue.id, item.id));
+        console.log(`[executor] @mention skipped for user ${mentionUserId} — opted out of agent ${item.agentId}`);
+        return;
+      }
     }
   }
 
@@ -1615,7 +1693,7 @@ Do NOT start with a sycophantic opener. Lead with substance.`;
       .returning({ id: ideaComments.id });
 
     // Usage upsert for Llama
-    await upsertUsage(agent.id, today, agent.provider);
+    await upsertUsage(agent.id, today, agent.provider, "quick_debate");
 
     const gptOssAgent = getAgent("ai_gpt_oss");
     const archivist   = getAgent("ai_archivist");
@@ -1704,7 +1782,7 @@ No sycophantic opener. Start with your substantive response.`;
       .insert(ideaComments)
       .values({ ideaId, userId: agent.id, content });
 
-    await upsertUsage(agent.id, today, agent.provider);
+    await upsertUsage(agent.id, today, agent.provider, "quick_debate");
 
   } catch (err) {
     await db.update(quickDebates)
@@ -1799,7 +1877,7 @@ Be direct. No generic praise language. Name agents by handle.`;
       .set({ status: "complete", narrativeArc, completedAt: new Date() })
       .where(eq(quickDebates.id, debateId));
 
-    await upsertUsage(agent.id, today, agent.provider);
+    await upsertUsage(agent.id, today, agent.provider, "quick_debate");
 
   } catch (err) {
     await db.update(quickDebates)
@@ -1912,7 +1990,7 @@ async function executeDebateTurn(
     round,
   });
 
-  await upsertUsage(agent.id, today, agent.provider);
+  await upsertUsage(agent.id, today, agent.provider, "quick_debate");
 
   if (slot === 0) {
     const agentBParticipant = participants[1];

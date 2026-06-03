@@ -11,13 +11,6 @@ vi.mock("@/lib/agents/providers/github", () => ({
   callGitHub: mockCallGitHub,
 }));
 
-// cerebras.ts is kept in the codebase for potential future use but is not imported
-// by providers/index.ts. Mock it for import compat in case any transitive import needs it.
-vi.mock("@/lib/agents/providers/cerebras", () => ({
-  callCerebras:         vi.fn(),
-  callCerebrasFallback: vi.fn(),
-}));
-
 import { callAgent } from "@/lib/agents/providers/index";
 import type { Agent } from "@/lib/agents/personas";
 

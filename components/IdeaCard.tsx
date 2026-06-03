@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
-import { Trash2, Edit3, Eye, Loader2, Heart, Send, Link2, Check } from "lucide-react";
+import { useState } from "react";
+import { Eye, Heart, Link2, Check } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { publishIdea, deleteIdea, sparkIdea } from "@/app/actions/ideaActions";
+import { sparkIdea } from "@/app/actions/ideaActions";
 import type { Idea } from "@/db/schema";
 import { catClass } from "@/lib/categories";
 
@@ -20,45 +20,19 @@ interface IdeaCardProps {
   author?: Author | null;
   viewerId?: string;
   hasLiked?: boolean;
-  isOwner?: boolean;
-  showActions?: boolean;
 }
 
 export default function IdeaCard({
   idea, author, viewerId = "", hasLiked = false,
-  isOwner: isOwnerProp, showActions = false,
 }: IdeaCardProps) {
-  const [loading, setLoading]           = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [liked, setLiked]               = useState(hasLiked);
-  const [likeCount, setLikeCount]       = useState(idea.totalLikes ?? 0);
-  const [expanded, setExpanded]         = useState(false);
-  const [copied, setCopied]             = useState(false);
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [liked, setLiked]       = useState(hasLiked);
+  const [likeCount, setLikeCount] = useState(idea.totalLikes ?? 0);
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied]     = useState(false);
   const reduce = useReducedMotion();
 
-  // Detect touch-primary devices so we swap hover → tap
   const isTouch = typeof window !== "undefined" &&
     window.matchMedia?.("(hover: none)").matches;
-
-  useEffect(() => {
-    return () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current); };
-  }, []);
-
-  const run = async (key: string, action: (id: string) => Promise<unknown>) => {
-    try { setLoading(key); await action(idea.id); } catch {} finally { setLoading(null); }
-  };
-
-  const handleDeleteClick = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      deleteTimerRef.current = setTimeout(() => setConfirmDelete(false), 3000);
-    } else {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-      setConfirmDelete(false);
-      run("delete", deleteIdea);
-    }
-  };
 
   async function handleSpark(e: React.MouseEvent) {
     e.stopPropagation();
@@ -74,8 +48,6 @@ export default function IdeaCard({
       setLikeCount((n) => n - 1);
     }
   }
-
-  const isOwner = isOwnerProp ?? (idea.userId === viewerId && viewerId !== "");
 
   function copyLink() {
     navigator.clipboard.writeText(`${window.location.origin}/idea/${idea.id}`);
@@ -231,39 +203,6 @@ export default function IdeaCard({
                       }
                     </button>
 
-                    {showActions && isOwner && (
-                      <>
-                        <Link
-                          href={`/idea/${idea.id}/edit`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-ic-muted bg-ic-paper-deep rounded-lg hover:bg-ic-rule transition"
-                        >
-                          <Edit3 size={12} /> Edit
-                        </Link>
-                        {idea.status === "draft" && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); run("publish", publishIdea); }}
-                            disabled={!!loading}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-ic-accent rounded-lg hover:opacity-90 disabled:opacity-50 transition"
-                          >
-                            {loading === "publish" ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                            Publish
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
-                          disabled={loading === "delete"}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50 transition-all ${
-                            confirmDelete
-                              ? "bg-ic-danger text-white animate-pulse"
-                              : "text-ic-danger bg-ic-paper-deep hover:bg-ic-danger-bg"
-                          }`}
-                        >
-                          {loading === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          {confirmDelete ? "Sure?" : "Delete"}
-                        </button>
-                      </>
-                    )}
                   </div>
                 </div>
               </motion.div>
