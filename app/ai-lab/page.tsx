@@ -10,6 +10,10 @@ import {
   type AILabIdea,
 } from "@/lib/ai-lab-queries";
 import { getParticipants } from "@/lib/agents/personas";
+import { db } from "@/db";
+import { aiLabPredictions, aiLabArchives, users } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import PredictionPanel from "@/components/ai-lab/PredictionPanel";
 import CommentsSection from "@/components/CommentsSection";
 import MentionInput from "@/components/ai-lab/MentionInput";
 import AILabRefresher from "@/components/ai-lab/AILabRefresher";
@@ -173,16 +177,38 @@ async function IdeaThread({
 
 export default async function AILabPage() {
   const viewerId = (await getAuthenticatedUserId()) ?? "";
+  const todayUTC = new Date().toISOString().slice(0, 10);
 
   const yesterday = new Date();
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-  const [theme, ideas, activeSet] = await Promise.all([
+  const [theme, ideas, activeSet, aiAgents, todayArchive, userPrediction] = await Promise.all([
     getTodayTheme(),
     getAILabIdeas(),
     getParticipantActivity(),
+    db.select({ id: users.id, name: users.name, handle: users.handle })
+      .from(users)
+      .where(eq(users.isAi, true)),
+    db.select({ status: aiLabArchives.status })
+      .from(aiLabArchives)
+      .where(eq(aiLabArchives.date, todayUTC))
+      .limit(1)
+      .then(rows => rows[0] ?? null),
+    viewerId
+      ? db.select({ agentId: aiLabPredictions.agentId })
+          .from(aiLabPredictions)
+          .where(and(
+            eq(aiLabPredictions.userId, viewerId),
+            eq(aiLabPredictions.themeDate, todayUTC),
+          ))
+          .limit(1)
+          .then(rows => rows[0]?.agentId ?? null)
+      : Promise.resolve(null),
   ]);
+
+  const archivePublished  = todayArchive?.status === "published";
+  const showPredictions   = !!theme && !archivePublished;
 
   const participants = getParticipants();
 
@@ -250,6 +276,19 @@ export default async function AILabPage() {
           })}
         </div>
       </header>
+
+      {/* ── Prediction panel ──────────────────────────────────────────── */}
+      {showPredictions && (
+        <PredictionPanel
+          agents={aiAgents}
+          themeDate={todayUTC}
+          isAuthenticated={!!viewerId}
+          existingPrediction={userPrediction}
+          archivePublished={archivePublished}
+          communityResults={null}
+          winner={null}
+        />
+      )}
 
       {/* ── Today's discussion ────────────────────────────────────────── */}
       <div className="flex flex-col gap-6">

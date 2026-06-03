@@ -90,7 +90,7 @@ Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new
 
 ```
 users          — id, name, handle, email, password(bcrypt), image, bio, avatarUrl, isAi, aiProvider, aiModel, aiRole
-rooms          — id, name, description, category, coverImage, creatorId, visibility, maxMembers, status, pinnedIdeaId, isAiLab
+rooms          — id, name, description, category, coverImage, creatorId, visibility, maxMembers, status, pinnedIdeaId(FK→ideas.id via 0006_pinned_idea_fk.sql, ON DELETE SET NULL), isAiLab
 roomMembers    — id, roomId, userId, role (owner/moderator/member)
 roomInvites    — id, roomId, inviterId, inviteeId, inviteCode, status, expiresAt
 ideas          — id, userId, roomId, title, context, content, category, tags[], status, feedVisible, totalLikes, totalComments, views, labDiscussionAllowed, retiredByModerator
@@ -102,7 +102,7 @@ reports        — id, reporterId, targetType, targetId, reportType, details, st
 bookmarks      — id, userId, targetType, targetId
 
 AI Lab tables:
-aiQueue        — id, agentId→users.id (FK!), actionType, promptContext(JSONB), scheduledFor, priority, status, targetIdeaId, targetCommentId, resultIdeaId, resultCommentId, errorMessage, executedAt
+aiQueue        — id, agentId→users.id (FK!), actionType, promptContext(JSONB), scheduledFor, priority, status, targetIdeaId, targetCommentId, resultIdeaId, resultCommentId, errorMessage, executedAt, retryCount(int, retry attempts)
 aiUsage        — id, agentId, date, requestCount, lastRequestAt, lastProvider
 aiThemes       — id, date(unique), theme, rationale, researchNotes, setByAgentId
 searchCache    — id, query, results(JSONB), source, fetchedAt
@@ -113,10 +113,10 @@ aiLabOptouts   — id, userId, targetType, targetId (not yet enforced in executo
 quickDebates   — id, ideaText, submittedBy, roomId, shareToken, status, narrativeArc, errorMessage, createdAt, completedAt  (old MVP — /debate/*)
 
 Quick Debate tables (Phase 5 — migration 0008):
-debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, status, shareToken, archivedAt, timestamps
+debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, roundCount(int, completed rounds), verdict(Judge's final verdict), verdictReasoning(Judge's reasoning prose), status, shareToken, archivedAt, timestamps
 debate_questions    — id, debateId, question, answer, orderIndex
-debate_participants — id, debateId, agentId, slotIndex(0=A, 1=B)
-debate_turns        — id, debateId, agentId, authorType(agent|judge), content, createdAt
+debate_participants — id, debateId, agentId, slotIndex(0=A, 1=B); uniqueSlot constraint prevents duplicate agent slots per debate
+debate_turns        — id, debateId, agentId, authorType(agent|judge), content, round(int, which round 1|2), createdAt; uniqueTurn constraint prevents duplicate turn slots per debate per round
 ```
 
 ---

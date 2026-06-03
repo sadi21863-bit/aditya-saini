@@ -9,6 +9,7 @@ import { DebatePoller } from "@/components/debates/DebatePoller";
 import { ShareButton }  from "@/components/ShareButton";
 import { getDebateTurns, getDebateParticipants } from "@/lib/agents/debate-helpers";
 import { getAgent }     from "@/lib/agents/personas";
+import EmailSaveCard    from "@/components/debates/EmailSaveCard";
 
 type Params = { id: string };
 
@@ -21,6 +22,7 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
 
   if (!debate) notFound();
   if (debate.userId !== session?.user?.id) notFound();
+  const isAuthenticated = !!session?.user?.id;
 
   const turns        = debate.status !== "in_progress" ? await getDebateTurns(id) : [];
   const participants = turns.length > 0 ? await getDebateParticipants(id) : [];
@@ -170,6 +172,11 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
               {/* Push back button — only after Round 1, before Round 2 */}
               {debate.roundCount < 2 && (
                 <PushBackButton debateId={debate.id} />
+              )}
+
+              {/* Email save — only for unauthenticated users */}
+              {!isAuthenticated && debate.shareToken && (
+                <EmailSaveCard debateId={debate.id} shareToken={debate.shareToken} />
               )}
 
               {/* Share + start new */}

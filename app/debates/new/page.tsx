@@ -6,9 +6,10 @@ import Link            from "next/link";
 
 export default function NewDebatePage() {
   const router = useRouter();
-  const [input,   setInput]   = useState("");
-  const [error,   setError]   = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [input,     setInput]     = useState("");
+  const [error,     setError]     = useState<string | null>(null);
+  const [rateLimit, setRateLimit] = useState<{ message: string; resetAt?: string } | null>(null);
+  const [loading,   setLoading]   = useState(false);
 
   const [waitingAnswer, setWaitingAnswer] = useState(false);
   const [question,      setQuestion]      = useState<string | null>(null);
@@ -17,7 +18,7 @@ export default function NewDebatePage() {
 
   async function handleSubmit() {
     if (input.trim().length < 10) { setError("Needs at least 10 characters."); return; }
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setRateLimit(null);
 
     try {
       const res  = await fetch("/api/debates/judge", {
@@ -31,6 +32,10 @@ export default function NewDebatePage() {
       try { data = await res.json(); }
       catch { throw new Error("The judge took too long. Try again."); }
 
+      if (res.status === 429) {
+        setRateLimit({ message: data.error as string, resetAt: data.resetAt as string | undefined });
+        return;
+      }
       if (!res.ok) throw new Error((data.error as string) ?? "Something went wrong.");
 
       if (data.status === "needs_clarification") {
@@ -152,7 +157,19 @@ export default function NewDebatePage() {
                      placeholder:text-ic-muted resize-none focus:outline-none focus:ring-2
                      focus:ring-ic-accent font-display text-base leading-relaxed"
         />
-        {error && <p className="text-red-500 text-sm font-mono">{error}</p>}
+        {error && (
+          <p className="text-ic-danger text-sm font-mono">{error}</p>
+        )}
+        {rateLimit && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+            <p className="font-medium">{rateLimit.message}</p>
+            {rateLimit.resetAt && (
+              <p className="mt-1 text-xs opacity-75">
+                Resets at {new Date(rateLimit.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <button
             onClick={handleSubmit}

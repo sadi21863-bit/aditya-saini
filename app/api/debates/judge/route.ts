@@ -2,13 +2,16 @@ import { NextRequest, NextResponse }  from "next/server";
 import { auth }                       from "@/lib/auth";
 import { db }                         from "@/db";
 import {
-  debates, debateQuestions, debateParticipants,
+  debates, debateQuestions, debateParticipants, aiUsage,
 } from "@/db/schema";
-import { eq }                         from "drizzle-orm";
+import { and, count, eq, gte }        from "drizzle-orm";
 import { z }                          from "zod";
 import { parseJsonResponse }          from "@/lib/agents/json-helpers";
 import { callGroq }                   from "@/lib/agents/providers/groq";
 import { buildJudgeEvaluationPrompt } from "@/lib/agents/prompts";
+
+const QUICK_DEBATE_HOURLY_LIMIT = 3;
+const QUICK_DEBATE_DAILY_CAP    = parseInt(process.env.QUICK_DEBATE_DAILY_CAP ?? "150");
 
 // 10-word system prompt — full instructions are inside buildJudgeEvaluationPrompt.
 const JUDGE_SYSTEM = "You are a debate routing judge. Respond in valid JSON only. No markdown.";
@@ -24,10 +27,7 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in to use Quick Debate." }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const userId  = session?.user?.id ?? null;   // null for anonymous users
 
   const body   = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(body);
@@ -40,22 +40,19 @@ export async function POST(req: NextRequest) {
   const { input, debateId, questionAnswer } = parsed.data;
 
   // ── CASE 2: user answering a clarifying question ─────────────────────────
-  // Clarifying question text is passed from the client (stored in component
-  // state), so we avoid a DB read before the LLM call.
+  // Re-routing only — the debate already exists. Skip IP rate limit.
   if (debateId && questionAnswer) {
-    // LLM first — no DB before this
     const questionText = body.questionText as string | undefined;
     const prompt  = buildJudgeEvaluationPrompt(input, {
       question: questionText ?? "Please clarify your idea.",
       answer:   questionAnswer,
     });
     const raw     = await callGroq(
-      "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
+      process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
       { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 },
     );
     const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
-    // DB writes after LLM responds
     await db.update(debateQuestions)
       .set({ answer: questionAnswer })
       .where(eq(debateQuestions.debateId, debateId));
@@ -63,17 +60,53 @@ export async function POST(req: NextRequest) {
     return handleJudgeVerdict(judgment, debateId, userId, input);
   }
 
-  // ── CASE 1: fresh submission ──────────────────────────────────────────────
-  // Call LLM before any DB work — avoids Neon cold-start blocking the LLM call.
-  // Rate limit is enforced in /api/debates/start (which gates full debates).
+  // ── CASE 1: fresh submission — IP rate limiting ───────────────────────────
+  const clientIp   = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const startOfDayUTC = new Date(new Date().setUTCHours(0, 0, 0, 0));
+
+  const [[hourlyRow], [dailyRow]] = await Promise.all([
+    db.select({ n: count() }).from(aiUsage).where(
+      and(
+        eq(aiUsage.ipAddress, clientIp),
+        eq(aiUsage.feature, "quick_debate"),
+        gte(aiUsage.createdAt, oneHourAgo),
+      ),
+    ),
+    db.select({ n: count() }).from(aiUsage).where(
+      and(
+        eq(aiUsage.feature, "quick_debate"),
+        gte(aiUsage.createdAt, startOfDayUTC),
+      ),
+    ),
+  ]);
+
+  if (Number(hourlyRow?.n ?? 0) >= QUICK_DEBATE_HOURLY_LIMIT) {
+    return NextResponse.json(
+      { error: "You can start 3 debates per hour. Try again shortly." },
+      { status: 429 },
+    );
+  }
+
+  if (Number(dailyRow?.n ?? 0) >= QUICK_DEBATE_DAILY_CAP) {
+    const resetAt = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    return NextResponse.json(
+      {
+        error:   "The Debate Arena has reached its daily capacity. It resets at midnight UTC.",
+        resetAt,
+      },
+      { status: 429 },
+    );
+  }
+
+  // ── LLM call — no DB before this ─────────────────────────────────────────
   const prompt   = buildJudgeEvaluationPrompt(input);
   const raw      = await callGroq(
-    "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
+    process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile", JUDGE_SYSTEM, prompt,
     { maxTokens: 400, jsonMode: true, timeoutMs: 8_000 },
   );
   const judgment = parseJsonResponse(raw) as unknown as JudgeResponse;
 
-  // DB insert after LLM responds
   const [newDebate] = await db.insert(debates).values({
     userId,
     originalInput: input,
@@ -82,6 +115,13 @@ export async function POST(req: NextRequest) {
     judgeVerdict:  "pending",
     status:        "in_progress",
   }).returning();
+
+  // Write rate limit tracking row after debate creation
+  await db.insert(aiUsage).values({
+    ipAddress: clientIp,
+    feature:   "quick_debate",
+    tokens:    0,
+  });
 
   return handleJudgeVerdict(judgment, newDebate.id, userId, input);
 }
@@ -99,7 +139,7 @@ interface JudgeResponse {
 async function handleJudgeVerdict(
   judgment: JudgeResponse,
   debateId: string,
-  userId:   string,
+  userId:   string | null,
   input:    string,
 ): Promise<NextResponse> {
   void userId; void input;

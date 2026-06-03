@@ -29,13 +29,6 @@ function getGitHubClient(): OpenAI {
   });
 }
 
-function getCerebrasClient(): OpenAI {
-  return new OpenAI({
-    apiKey:  process.env.CEREBRAS_API_KEY ?? "",
-    baseURL: "https://api.cerebras.ai/v1",
-  });
-}
-
 async function probe(
   client: OpenAI,
   model: string,
@@ -65,15 +58,13 @@ async function probe(
 
 async function main() {
   console.log("\n🔍 IdeaConnect Agent Diagnostic\n");
-  console.log(`ENV: GROQ_API_KEY     = ${process.env.GROQ_API_KEY     ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GITHUB_TOKEN     = ${process.env.GITHUB_TOKEN     ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GH_MODELS_TOKEN  = ${process.env.GH_MODELS_TOKEN  ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: CEREBRAS_API_KEY = ${process.env.CEREBRAS_API_KEY ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GROQ_API_KEY    = ${process.env.GROQ_API_KEY    ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GITHUB_TOKEN    = ${process.env.GITHUB_TOKEN    ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GH_MODELS_TOKEN = ${process.env.GH_MODELS_TOKEN ? "✓ set" : "✗ MISSING"}`);
   console.log("");
 
-  const groq     = getGroqClient();
-  const github   = getGitHubClient();
-  const cerebras = getCerebrasClient();
+  const groq   = getGroqClient();
+  const github = getGitHubClient();
 
   const results: Result[] = [];
 
@@ -82,9 +73,8 @@ async function main() {
 
     let client: OpenAI;
     switch (agent.provider) {
-      case "groq":     client = groq;     break;
-      case "github":   client = github;   break;
-      case "cerebras": client = cerebras; break;
+      case "groq":   client = groq;   break;
+      case "github": client = github; break;
       default:
         console.log("SKIP (unknown provider)");
         continue;

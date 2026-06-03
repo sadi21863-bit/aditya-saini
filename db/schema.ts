@@ -38,7 +38,7 @@ export const rooms = pgTable("rooms", {
   maxMembers:   integer("max_members").default(8).notNull(),
   status:       text("status").default("active").notNull(),
   pinnedIdeaId: uuid("pinned_idea_id"),
-  // FK to ideas.id applied via raw SQL (0010_pinned_fk.sql) — circular
+  // FK to ideas.id applied via raw SQL (0006_pinned_idea_fk.sql) — circular
   // reference rooms↔ideas prevents Drizzle schema declaration here.
   isAiLab:      boolean("is_ai_lab").default(false).notNull(),
   // Quick Debate backing rooms are ephemeral — tagged for future cleanup cron
@@ -237,7 +237,7 @@ export const aiQueue = pgTable("ai_queue", {
   scheduledFor:    timestamp("scheduled_for").notNull(),
   priority:        integer("priority").default(5).notNull(),
   status:          text("status").default("pending").notNull(),
-                   // 'pending'|'in_progress'|'completed'|'failed'|'rate_limited'|'failed_permanently'|'cancelled'
+                   // 'pending'|'in_progress'|'completed'|'failed'|'rate_limited'|'failed_permanently'|'cancelled'|'skipped'|'deferred'
   executedAt:      timestamp("executed_at"),
   errorMessage:    text("error_message"),
   retryCount:      integer("retry_count").default(0).notNull(),
@@ -260,18 +260,33 @@ export const aiQueue = pgTable("ai_queue", {
 }));
 
 // ─── AI USAGE (Phase 2) ──────────────────────────────────────────────
+// Dual-purpose table:
+//   Agent usage rows  — agentId set, ipAddress null, feature='agent_usage'
+//   Rate limit events — agentId null, ipAddress set, feature='quick_debate' etc.
 export const aiUsage = pgTable("ai_usage", {
   id:            uuid("id").defaultRandom().primaryKey(),
-  agentId:       text("agent_id").notNull()
+  // Agent rows: FK set. Rate-limit rows: null (nullable, no FK violation).
+  agentId:       text("agent_id")
                    .references(() => users.id, { onDelete: "cascade" }),
-  date:          date("date").notNull(),
+  date:          date("date"),
   requestCount:  integer("request_count").default(0).notNull(),
   fallbackCount: integer("fallback_count").default(0).notNull(),
   lastRequestAt: timestamp("last_request_at"),
   lastProvider:  text("last_provider"),
+  // Rate limiting columns (migration 0010)
+  ipAddress:     text("ip_address"),           // varchar(45) covers IPv6
+  feature:       text("feature").default("agent_usage").notNull(),
+  tokens:        integer("tokens").default(0),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
+  // Partial index: only agent-scoped rows need the uniqueness constraint.
   uniqueAgentDate: uniqueIndex("unique_ai_usage_agent_date")
-    .on(table.agentId, table.date),
+    .on(table.agentId, table.date)
+    .where(sql`${table.agentId} IS NOT NULL AND ${table.date} IS NOT NULL`),
+  // Covers IP-based hourly rate limit query
+  idxIpFeatureCreated: index("idx_ai_usage_ip_feature_created")
+    .on(table.ipAddress, table.feature, table.createdAt)
+    .where(sql`${table.ipAddress} IS NOT NULL`),
 }));
 
 // ─── AI LAB OPT-OUTS (Phase 2) ───────────────────────────────────────
@@ -333,6 +348,8 @@ export const aiLabArchives = pgTable("ai_lab_archives", {
   flaggedReason:       text("flagged_reason"),
   reviewedByAgentId:   text("reviewed_by_agent_id"),
   reviewedAt:          timestamp("reviewed_at"),
+  winnerAgentId:       text("winner_agent_id")
+                         .references(() => users.id, { onDelete: "set null" }),
 }, (table) => ({
   // Composite index for status-filtered queries (e.g. WHERE date = ? AND status = 'published')
   idxAiLabArchivesDateStatus: index("idx_ai_lab_archives_date_status")
@@ -408,7 +425,7 @@ export const quickDebates = pgTable("quick_debates", {
 // ─── DEBATES (enhanced Quick Debate) ────────────────────────────────
 export const debates = pgTable("debates", {
   id:               uuid("id").defaultRandom().primaryKey(),
-  userId:           text("user_id").notNull()
+  userId:           text("user_id")
                       .references(() => users.id, { onDelete: "cascade" }),
   originalInput:    text("original_input").notNull(),
   title:            text("title").notNull(),
@@ -425,6 +442,7 @@ export const debates = pgTable("debates", {
   status:           text("status").notNull().default("in_progress"),
                     // 'in_progress' | 'archived' | 'abandoned'
   shareToken:       text("share_token").unique(),
+  userEmail:        text("user_email"),   // optional email for share link delivery (migration 0012)
   archivedAt:       timestamp("archived_at"),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
   updatedAt:        timestamp("updated_at").defaultNow().notNull(),
@@ -470,6 +488,22 @@ export const debateTurns = pgTable("debate_turns", {
   uniqueTurn: uniqueIndex("unique_debate_turn_agent_round")
     .on(table.debateId, table.agentId, table.round)
     .where(sql`${table.agentId} IS NOT NULL`),
+}));
+
+// ─── AI LAB PREDICTIONS (Phase 5) ───────────────────────────────────
+// One prediction per user per day: which agent will the Archivist name?
+// Created before the archive is published; revealed after.
+export const aiLabPredictions = pgTable("ai_lab_predictions", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  userId:    text("user_id").notNull()
+               .references(() => users.id, { onDelete: "cascade" }),
+  themeDate: date("theme_date").notNull(),
+  agentId:   text("agent_id").notNull()
+               .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserDate: uniqueIndex("unique_ai_lab_prediction_user_date")
+    .on(table.userId, table.themeDate),
 }));
 
 // ─── TYPE EXPORTS ───────────────────────────────────────────────────

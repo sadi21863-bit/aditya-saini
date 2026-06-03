@@ -48,7 +48,7 @@ export async function callAgent(
           `[ai-lab] GitHub Models failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
         );
         return normalizeHyphens(stripThinkingTags(
-          await callGroq("llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+          await callGroq(process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
         ));
       } catch (fallbackErr) {
         console.error(
@@ -88,7 +88,7 @@ export async function callAgent(
         `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
       );
       return normalizeHyphens(stripThinkingTags(
-        await callGroq("llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+        await callGroq(process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
       ));
     } catch (fallbackErr) {
       console.error(
