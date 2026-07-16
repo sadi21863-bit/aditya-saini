@@ -68,7 +68,7 @@ describe("callAgent — GitHub Models provider routing", () => {
     expect(result).toBe("The real take.");
   });
 
-  it("falls back to Groq llama-3.1-8b-instant when GitHub Models returns 429", async () => {
+  it("falls back to Groq openai/gpt-oss-20b when GitHub Models returns 429", async () => {
     const rateLimitErr = Object.assign(new Error("rate limit exceeded"), { status: 429 });
     mockCallGitHub.mockRejectedValueOnce(rateLimitErr);
     mockCallGroq.mockResolvedValueOnce("fallback response");
@@ -76,7 +76,7 @@ describe("callAgent — GitHub Models provider routing", () => {
     const result = await callAgent(githubAgent, "test prompt");
 
     expect(mockCallGroq).toHaveBeenCalledWith(
-      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
       githubAgent.persona,
       "test prompt",
       expect.objectContaining({ maxTokens: 600 }),
@@ -111,7 +111,7 @@ describe("callAgent — Groq primary agents (success path)", () => {
 describe("callAgent — Groq fallback on transient errors", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("falls back to Groq llama-3.1-8b-instant on 429 rate-limit error", async () => {
+  it("falls back to Groq openai/gpt-oss-20b on 429 rate-limit error", async () => {
     const rateLimitErr = Object.assign(new Error("rate limit"), { status: 429 });
     mockCallGroq
       .mockRejectedValueOnce(rateLimitErr)
@@ -122,7 +122,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     expect(mockCallGroq).toHaveBeenCalledTimes(2);
     expect(mockCallGroq).toHaveBeenNthCalledWith(
       2,
-      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
       groqAgent.persona,
       "prompt",
       expect.objectContaining({ maxTokens: 600 })
@@ -130,7 +130,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     expect(result).toBe("fallback answer");
   });
 
-  it("falls back to Groq llama-3.1-8b-instant on 503 server error", async () => {
+  it("falls back to Groq openai/gpt-oss-20b on 503 server error", async () => {
     const serverErr = Object.assign(new Error("service unavailable"), { status: 503 });
     mockCallGroq
       .mockRejectedValueOnce(serverErr)
@@ -140,7 +140,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
 
     expect(mockCallGroq).toHaveBeenCalledTimes(2);
     expect(mockCallGroq).toHaveBeenNthCalledWith(2,
-      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
       expect.any(String),
       "prompt",
       expect.objectContaining({ maxTokens: 600 })
@@ -158,7 +158,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
 
     expect(mockCallGroq).toHaveBeenCalledTimes(2);
     expect(mockCallGroq).toHaveBeenNthCalledWith(2,
-      "llama-3.1-8b-instant",
+      "openai/gpt-oss-20b",
       expect.any(String),
       "prompt",
       expect.objectContaining({ maxTokens: 600 })

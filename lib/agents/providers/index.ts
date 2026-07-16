@@ -13,10 +13,19 @@ function isTransientError(err: unknown): boolean {
 }
 
 // Models that support response_format: { type: "json_object" } on Groq.
-// Verified 2026-04-25: llama-3.3-70b-versatile supports it.
-// qwen/qwen3-32b and openai/gpt-oss-120b both 400 — reasoning models whose
-// thinking-tag output fails Groq's JSON validator.
-const JSON_MODE_SUPPORTED = new Set(["llama-3.3-70b-versatile"]);
+// Re-verified 2026-07-16 via scripts/verify-groq-json-mode.ts against live Groq API
+// (ahead of the qwen/qwen3-32b deprecation on 2026-07-17):
+//   llama-3.3-70b-versatile   ✓ PASS (unchanged)
+//   openai/gpt-oss-120b       ✓ PASS — no longer 400s; Groq's validator no longer
+//                                trips on this model's reasoning-tag output.
+//   openai/gpt-oss-20b        ✓ PASS
+//   qwen/qwen3.6-27b          ✓ PASS, but preview-tier per Groq docs — not wired
+//                                into production agent config, so omitted here.
+const JSON_MODE_SUPPORTED = new Set([
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+]);
 
 // GPT-OSS is a reasoning model that can consume many tokens on chain-of-thought
 // before producing visible output. Raise its floor to avoid empty responses.
@@ -29,13 +38,19 @@ const GPTOSS_MODEL = "openai/gpt-oss-120b";
 // Extra headroom for short outputs costs nothing — models stop when done.
 const GPTOSS_MIN_TOKENS = 2500;
 
+// Fallback model for transient errors (GitHub Models down, Groq 429/5xx).
+// llama-3.1-8b-instant → openai/gpt-oss-20b 2026-07-16, alongside the
+// qwen/qwen3-32b deprecation cleanup (see JSON_MODE_SUPPORTED above for
+// verification — gpt-oss-20b passes Groq's native JSON mode).
+const FALLBACK_MODEL = process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b";
+
 export async function callAgent(
   agent: Agent,
   userPrompt: string,
   opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
 ): Promise<string> {
   // GitHub Models agents (Qwen participant — meta/llama-4-scout-17b-16e-instruct).
-  // On transient errors (429, 5xx, network), fall back to Groq llama-3.1-8b-instant.
+  // On transient errors (429, 5xx, network), fall back to Groq FALLBACK_MODEL.
   if (agent.provider === "github") {
     try {
       return normalizeHyphens(stripThinkingTags(
@@ -45,14 +60,14 @@ export async function callAgent(
       if (!isTransientError(err)) throw err;
       try {
         console.warn(
-          `[ai-lab] GitHub Models failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
+          `[ai-lab] GitHub Models failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
         );
         return normalizeHyphens(stripThinkingTags(
-          await callGroq(process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+          await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 })
         ));
       } catch (fallbackErr) {
         console.error(
-          `[ai-lab] Groq fallback (llama-3.1-8b-instant) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
+          `[ai-lab] Groq fallback (${FALLBACK_MODEL}) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
         );
         throw err;
       }
@@ -72,7 +87,7 @@ export async function callAgent(
   }
 
   // Groq agents (Theme Setter, Quality Checker, Llama, GPT-OSS) try Groq first.
-  // On transient errors, fall back to Groq llama-3.1-8b-instant as safety net.
+  // On transient errors, fall back to Groq FALLBACK_MODEL as safety net.
   // (Cerebras fallback retired 2026-05-27 when llama3.1-8b on Cerebras deprecates.)
   try {
     // normalizeHyphens: GPT-OSS emits U+2011/U+2012 non-breaking hyphens in narrative text.
@@ -85,14 +100,14 @@ export async function callAgent(
 
     try {
       console.warn(
-        `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Groq llama-3.1-8b-instant. Error: ${(err as Error).message}`
+        `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
       );
       return normalizeHyphens(stripThinkingTags(
-        await callGroq(process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant", agent.persona, userPrompt, { ...opts, maxTokens: 600 })
+        await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 })
       ));
     } catch (fallbackErr) {
       console.error(
-        `[ai-lab] Groq fallback (llama-3.1-8b-instant) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
+        `[ai-lab] Groq fallback (${FALLBACK_MODEL}) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
       );
       throw err;
     }

@@ -63,8 +63,8 @@ describe("personas — admin tier", () => {
     }
   });
 
-  it("admin agents use the adminReasoning model (qwen/qwen3-32b default)", () => {
-    const expectedModel = process.env.AGENT_MODEL_ADMIN ?? "qwen/qwen3-32b";
+  it("admin agents use the adminReasoning model (openai/gpt-oss-120b default)", () => {
+    const expectedModel = process.env.AGENT_MODEL_ADMIN ?? "openai/gpt-oss-120b";
     for (const agent of getAdmins()) {
       expect(agent.model).toBe(expectedModel);
     }
@@ -105,9 +105,9 @@ describe("personas — participant tier", () => {
     }
   });
 
-  it("Llama uses llama-3.3-70b-versatile model", () => {
+  it("Llama uses openai/gpt-oss-120b model", () => {
     const llama = getParticipants().find((a) => a.handle === "llama")!;
-    const expected = process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile";
+    const expected = process.env.AGENT_MODEL_LLAMA ?? "openai/gpt-oss-120b";
     expect(llama.model).toBe(expected);
   });
 

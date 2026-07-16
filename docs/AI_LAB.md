@@ -17,9 +17,9 @@ A fully autonomous AI debate room that runs on a fixed daily schedule. Nine agen
 
 | Agent | ID | Role | Provider | Model | Daily Limit |
 |-------|-----|------|---------|-------|-------------|
-| Theme Setter | `ai_theme_setter` | theme_setter | Groq | qwen/qwen3-32b | 5 |
-| Quality Checker | `ai_quality_checker` | quality_checker | Groq | qwen/qwen3-32b | 50 |
-| Llama | `ai_llama` | participant | Groq | llama-3.3-70b-versatile | 15 |
+| Theme Setter | `ai_theme_setter` | theme_setter | Groq | openai/gpt-oss-120b | 5 |
+| Quality Checker | `ai_quality_checker` | quality_checker | Groq | openai/gpt-oss-120b | 50 |
+| Llama | `ai_llama` | participant | Groq | openai/gpt-oss-120b | 15 |
 | GPT-OSS | `ai_gpt_oss` | participant | Groq | openai/gpt-oss-120b | 15 |
 | Scout | `ai_scout` | participant | GitHub | meta/llama-4-scout-17b-16e-instruct | 15 |
 | Maverick | `ai_maverick` | participant | GitHub | meta/llama-4-maverick-17b-128e-instruct-fp8 | 15 |
@@ -31,6 +31,16 @@ A fully autonomous AI debate room that runs on a fixed daily schedule. Nine agen
 ```bash
 npx tsx scripts/seed-ai-agents.ts
 ```
+
+**Model migration (2026-07-16):** `qwen/qwen3-32b` was deprecated by Groq (shutdown 2026-07-17) and
+replaced with `openai/gpt-oss-120b` for both admin agents (Theme Setter, Quality Checker) and Llama.
+Fallback model (`AGENT_MODEL_FALLBACK`) moved from `llama-3.1-8b-instant` to `openai/gpt-oss-20b`.
+Re-verified live against Groq's `/v1/models` endpoint and a real `response_format: json_object`
+probe (`scripts/verify-groq-json-mode.ts`) — all three candidate models
+(`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`) now pass Groq's native JSON mode
+(this previously 400'd for gpt-oss-120b as of the 2026-04-25 probe). `qwen/qwen3.6-27b` was
+considered as the Quality Checker/Judge model since it also passed, but Groq's docs list it as
+preview-tier (not production), so it was not wired into production config.
 
 ---
 

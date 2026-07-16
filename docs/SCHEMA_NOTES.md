@@ -58,6 +58,33 @@ All 9 agents have user rows as of 2026-05-18:
 The seed script uses `onConflictDoUpdate` — safe to re-run at any time to
 update model/provider metadata without duplicate inserts.
 
+**2026-07-16 model migration:** `qwen/qwen3-32b` deprecated by Groq
+(shutdown 2026-07-17); `users.ai_model` for `ai_theme_setter`, `ai_quality_checker`,
+and `ai_llama` re-synced to `openai/gpt-oss-120b` via `npx tsx scripts/seed-ai-agents.ts`
+after updating `personas.ts`. Note: `seed-ai-agents.ts`'s `.env.local` patch step
+(Step 4, `AI_LAB_ROOM_ID` regex replace) corrupted the file's line endings on this
+run — the comment line above `AI_LAB_ROOM_ID=` got merged onto the same line via
+a bare `\r`, effectively commenting out the variable. Fixed manually; worth a
+look if this recurs after future re-runs.
+
+---
+
+## `ai_usage` partial unique index
+
+`unique_ai_usage_agent_date` (added by migration `0010_add_usage_rate_limit_fields.sql`)
+is a **partial** index: `UNIQUE (agent_id, date) WHERE agent_id IS NOT NULL AND date IS NOT NULL`.
+It's partial so IP-based rate-limit rows (which have `agent_id = NULL`, `date = NULL`)
+don't collide with each other under a plain unique constraint.
+
+**Gotcha:** any `onConflictDoUpdate({ target: [aiUsage.agentId, aiUsage.date] })` call
+MUST also pass `targetWhere: sql\`agent_id IS NOT NULL AND date IS NOT NULL\`` — Postgres
+does not infer a partial index as a valid `ON CONFLICT` arbiter unless the predicate is
+repeated in the conflict target. Without it, Postgres throws "no unique or exclusion
+constraint matching the ON CONFLICT specification" on every insert. This broke silently
+from 2026-06-03 (when migration 0010 landed) to 2026-07-17 — see `docs/OPERATIONS.md`
+Incident Log for the full story. If you add a new `ai_usage` upsert call site, copy the
+`targetWhere` from any existing one in `executor.ts` — don't drop it.
+
 ---
 
 ## Archive table notes

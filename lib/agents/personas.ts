@@ -28,8 +28,11 @@ export interface Agent {
 // Set defaults in .env.example; override in .env.local or Vercel env config.
 
 const MODELS = {
-  // Admin tier — Qwen3 32B on Groq for reasoning admin roles (500K TPD cap)
-  adminReasoning: process.env.AGENT_MODEL_ADMIN ?? "qwen/qwen3-32b",
+  // Admin tier — qwen/qwen3-32b deprecated by Groq 2026-07-17 (announced 2026-06-17).
+  // Migrated to openai/gpt-oss-120b (Groq's own recommended replacement) 2026-07-16.
+  // qwen/qwen3.6-27b was considered but is preview-tier per Groq docs — not used as
+  // primary model for admin roles (Quality Checker/Judge depends on reliable JSON).
+  adminReasoning: process.env.AGENT_MODEL_ADMIN ?? "openai/gpt-oss-120b",
 
   // Archivist: two-pass approach (2026-05-18). All free-tier providers enforce an 8k token
   // hard limit per request (Groq TPM cap, GitHub Models per-request — confirmed on gpt-4o,
@@ -38,7 +41,9 @@ const MODELS = {
   archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
-  llama: process.env.AGENT_MODEL_LLAMA ?? "llama-3.3-70b-versatile",
+  // Llama migrated llama-3.3-70b-versatile → openai/gpt-oss-120b 2026-07-16
+  // (part of the qwen/qwen3-32b deprecation cleanup; consolidates on gpt-oss-120b).
+  llama: process.env.AGENT_MODEL_LLAMA ?? "openai/gpt-oss-120b",
   gptOss: process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b",
   // Scout: Llama 4 Scout on GitHub Models (migrated from Cerebras 2026-05-04).
   qwenFrontier: process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct",

@@ -27,8 +27,8 @@ const paraphraseQuote = {
   context: "Responding to the proposal",
 };
 
-const sourceIdeas = [
-  { id: "idea-1", userId: "ai_llama", title: "Federated ML proposal", content: "We should federate the training pipeline.", context: null },
+const ideaSummaries = [
+  { title: "Federated ML proposal", handle: "llama", summary: "Llama proposed federating the training pipeline; pushback centered on feasibility." },
 ];
 
 const sourceComments = [
@@ -52,7 +52,7 @@ function makeArchive(overrides: {
 
 describe("buildQualityReviewArchivePrompt — verbatim quote found", () => {
   it("shows FOUND VERBATIM alongside the full source comment when the quote is an exact substring", () => {
-    const prompt = buildQualityReviewArchivePrompt(makeArchive(), sourceIdeas, sourceComments);
+    const prompt = buildQualityReviewArchivePrompt(makeArchive(), ideaSummaries, sourceComments);
 
     expect(prompt).toContain("FOUND VERBATIM");
     expect(prompt).toContain(SOURCE_COMMENT_TEXT);
@@ -63,7 +63,7 @@ describe("buildQualityReviewArchivePrompt — verbatim quote found", () => {
 describe("buildQualityReviewArchivePrompt — paraphrased quote not found verbatim", () => {
   it("shows NOT FOUND VERBATIM with the agent's actual comments when the quote does not appear in any source comment", () => {
     const archive = makeArchive({ memorableQuotes: [paraphraseQuote] });
-    const prompt = buildQualityReviewArchivePrompt(archive, sourceIdeas, sourceComments);
+    const prompt = buildQualityReviewArchivePrompt(archive, ideaSummaries, sourceComments);
 
     expect(prompt).toContain("NOT FOUND VERBATIM");
     // Still shows the agent's actual comment text so the QC can compare
@@ -77,7 +77,7 @@ describe("buildQualityReviewArchivePrompt — paraphrased quote not found verbat
       context: "nowhere",
     };
     const archive = makeArchive({ memorableQuotes: [fabricatedQuote] });
-    const prompt = buildQualityReviewArchivePrompt(archive, sourceIdeas, sourceComments);
+    const prompt = buildQualityReviewArchivePrompt(archive, ideaSummaries, sourceComments);
 
     expect(prompt).toContain("made no comments in this session");
   });
@@ -85,17 +85,17 @@ describe("buildQualityReviewArchivePrompt — paraphrased quote not found verbat
 
 describe("buildQualityReviewArchivePrompt — static flag instructions", () => {
   it("instructs QC to flag sycophantic language with concrete examples", () => {
-    const prompt = buildQualityReviewArchivePrompt(makeArchive(), sourceIdeas, sourceComments);
+    const prompt = buildQualityReviewArchivePrompt(makeArchive(), ideaSummaries, sourceComments);
 
     expect(prompt).toContain("sycophantic");
     expect(prompt).toContain("rich and engaging");
   });
 
   it("instructs QC to flag misattribution by checking handles against source data", () => {
-    const prompt = buildQualityReviewArchivePrompt(makeArchive(), sourceIdeas, sourceComments);
+    const prompt = buildQualityReviewArchivePrompt(makeArchive(), ideaSummaries, sourceComments);
 
     expect(prompt).toContain("wrong agent handle");
-    expect(prompt).toContain("source comments");
+    expect(prompt).toContain("idea summaries");
   });
 });
 

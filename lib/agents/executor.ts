@@ -73,6 +73,11 @@ async function upsertUsage(
     .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider, feature })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      // unique_ai_usage_agent_date is a PARTIAL index (WHERE agent_id IS NOT NULL AND date
+      // IS NOT NULL — added by migration 0010 to also allow NULL-agentId rate-limit rows).
+      // Without a matching targetWhere, Postgres rejects this as "no unique or exclusion
+      // constraint matching the ON CONFLICT specification" — every call site below needs it.
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: new Date(), lastProvider: provider },
     });
 }
@@ -99,7 +104,7 @@ Respond in JSON only:
 {"needsResearch": true/false, "query": "2-5 word search query if yes, null if no"}`;
 
     const raw = await callGroq(
-      process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant",
+      process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b",
       "You are a research triage assistant. Respond in JSON only.",
       prompt,
       { maxTokens: 80, jsonMode: true }
@@ -159,7 +164,7 @@ No opinions. No predictions. Facts only.`;
 
   try {
     const summary = await callGroq(
-      process.env.AGENT_MODEL_FALLBACK ?? "llama-3.1-8b-instant",
+      process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b",
       researchAgent.persona,
       synthesisPrompt,
       { maxTokens: 200 }
@@ -457,6 +462,16 @@ async function executeItem(item: AIQueue): Promise<void> {
     return;
   }
 
+  // conductor: builds its own prompt inline (writeConductorQuestion) and posts
+  // directly — never had a buildPrompt() case, so it must short-circuit here
+  // rather than falling into the generic callAgent path below, which throws
+  // "No prompt template for action type: conductor" before ever reaching the
+  // case "conductor" branch in the writer switch further down.
+  if (item.actionType === "conductor") {
+    await writeConductorQuestion(agent.id, item);
+    return;
+  }
+
   // Research pre-call for participant and QC actions.
   // Participants: fetches + posts @research publicly, injects into prompt.
   // QC: fetches silently for fact-checking, does NOT post publicly.
@@ -533,8 +548,7 @@ async function executeItem(item: AIQueue): Promise<void> {
       break;
     case "quality_review":       await writeQualityReview(agent.id, item, response); break;
     case "lab_discussion":       await writeLabDiscussion(agent.id, item, response); break;
-    case "conductor":            await writeConductorQuestion(agent.id, item); return; // no usage upsert needed — uses own model, minimal tokens
-    // archive_day and quality_review_archive handled by self-contained early returns above
+    // conductor, archive_day, and quality_review_archive handled by self-contained early returns above
     default:
       throw new Error(`Unknown action type: ${item.actionType}`);
   }
@@ -551,6 +565,7 @@ async function executeItem(item: AIQueue): Promise<void> {
     })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: {
         requestCount:  sql`${aiUsage.requestCount} + 1`,
         lastRequestAt: new Date(),
@@ -1018,6 +1033,7 @@ Output ONLY the JSON object.`;
     })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: {
         requestCount:  sql`${aiUsage.requestCount} + 1`,
         lastRequestAt: new Date(),
@@ -1083,9 +1099,42 @@ async function executeQualityReviewArchive(
           .where(inArray(ideaComments.ideaId, labIdeas.map((i) => i.id)))
       : [];
 
+    // Summarize each idea before building the QC prompt — GitHub Models' 8k token
+    // per-request limit means dumping every idea's full content + every comment
+    // verbatim (as this used to do) reliably 413'd on busy days, leaving every
+    // archive stuck in 'draft' forever. Same Pass-1 pattern as executeArchiveDay.
+    // Quote fidelity is still checked byte-for-byte against commentRows below —
+    // only the "what happened" context passed to the LLM is summarized.
+    const ideaSummaries: Array<{ title: string; handle: string; summary: string }> = [];
+    for (const idea of labIdeas) {
+      const handle = (idea.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-");
+      const commentList = commentRows
+        .filter((r) => r.ideaId === idea.id)
+        .map((r) => ({
+          handle:     (r.userId ?? "unknown").replace(/^ai_/, "").replace(/_/g, "-"),
+          content:    r.content ?? "",
+          isResearch: r.userId === "ai_research",
+        }));
+
+      const summaryPrompt = buildIdeaSummaryPrompt(idea.title ?? "(untitled)", idea.content ?? idea.context ?? "", commentList);
+      try {
+        const raw = await callGitHub(
+          "openai/gpt-4o-mini",
+          "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
+          summaryPrompt,
+          { temperature: 0.3, maxTokens: 400 }
+        );
+        const p = parseJsonResponse(raw) as { summary: string };
+        ideaSummaries.push({ title: idea.title ?? "(untitled)", handle, summary: String(p.summary ?? "") });
+      } catch (e) {
+        console.warn(`[executor] QC archive-review Pass 1 failed for idea ${idea.id}:`, (e as Error).message);
+        ideaSummaries.push({ title: idea.title ?? "(untitled)", handle, summary: "(summary unavailable)" });
+      }
+    }
+
     prompt = buildQualityReviewArchivePrompt(
       { narrativeArc: archiveRow.narrativeArc, keyDisagreements: archiveRow.keyDisagreements, memorableQuotes: archiveRow.memorableQuotes },
-      labIdeas,
+      ideaSummaries,
       commentRows,
     );
 
@@ -1177,6 +1226,7 @@ async function executeQualityReviewArchive(
     .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
     });
 }
@@ -1296,6 +1346,7 @@ async function executeRollupWeek(
     .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
     });
 }
@@ -1440,6 +1491,7 @@ async function executeRollupMonth(
     .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
       set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
     });
 }

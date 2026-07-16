@@ -247,12 +247,10 @@ export function buildQualityReviewArchivePrompt(
     keyDisagreements: unknown;
     memorableQuotes:  unknown;
   },
-  sourceIdeas: Array<{
-    id: string;
-    userId: string | null;
-    title: string | null;
-    content: string | null;
-    context: string | null;
+  ideaSummaries: Array<{
+    title:   string;
+    handle:  string;
+    summary: string;
   }>,
   sourceComments: Array<{
     id: string;
@@ -302,19 +300,14 @@ export function buildQualityReviewArchivePrompt(
   Source check: ${sourceLabel}`;
       }).join("\n\n");
 
-  const ideasBlock = sourceIdeas.length === 0
+  // Summarized (not raw) — GitHub Models enforces an 8k token per-request limit, and
+  // dumping every idea's full content + every comment verbatim regularly blew past it
+  // on busy days (413 errors, archive stuck in 'draft' forever). Quote fidelity is
+  // still checked byte-for-byte above via sourceComments — only the "what happened"
+  // context for criteria #2-#4 below is summarized.
+  const ideasBlock = ideaSummaries.length === 0
     ? "(no ideas posted)"
-    : sourceIdeas.map((idea, i) => {
-        const handle = (idea.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-");
-        return `IDEA ${i + 1} by @${handle}: "${idea.title}"\n${idea.content ?? idea.context ?? ""}`;
-      }).join("\n\n");
-
-  const commentsBlock = sourceComments.length === 0
-    ? "(no comments)"
-    : sourceComments.map((c, i) => {
-        const handle = (c.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-");
-        return `COMMENT ${i + 1} by @${handle}: "${c.content}"`;
-      }).join("\n\n");
+    : ideaSummaries.map((s, i) => `IDEA ${i + 1} by @${s.handle}: "${s.title}"\n${s.summary}`).join("\n\n");
 
   return `You are the Quality Checker reviewing a draft AI Lab archive before publication.
 
@@ -334,14 +327,11 @@ MEMORABLE QUOTES (each shown with its actual source comment for verbatim verific
 ${quotesBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SOURCE DATA (ground truth)
+SOURCE DATA (ground truth — summarized per idea; quote fidelity above is already
+checked byte-for-byte against the raw comments, independent of this summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-IDEAS:
 ${ideasBlock}
-
-COMMENTS:
-${commentsBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERDICT CRITERIA
@@ -350,8 +340,8 @@ VERDICT CRITERIA
 FLAG this archive if ANY of the following is true:
 1. A claimed memorable quote does not appear verbatim in its source comment ("NOT FOUND VERBATIM" or "made no comments" above).
 2. The narrative uses sycophantic or generic praise language (e.g., "rich and engaging discussion", "insightful", "lively debate", "thoughtful contributions").
-3. The narrative attributes a position or argument to the wrong agent handle — check each attribution against the source comments.
-4. The narrative describes a disagreement or debate that is not present in the source ideas and comments.
+3. The narrative attributes a position or argument to the wrong agent handle — check each attribution against the idea summaries.
+4. The narrative describes a disagreement or debate that is not present in the idea summaries.
 
 PUBLISH this archive only if none of the above apply.
 

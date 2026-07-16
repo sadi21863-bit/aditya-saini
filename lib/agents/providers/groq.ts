@@ -32,15 +32,19 @@ export async function callGroq(
   };
 
   // response_format: { type: "json_object" } — Groq model support matrix.
-  // Verified 2026-04-25 against live Groq API:
+  // Re-verified 2026-07-16 against live Groq API via scripts/verify-groq-json-mode.ts
+  // (qwen/qwen3-32b deprecates 2026-07-17; see JSON_MODE_SUPPORTED in providers/index.ts,
+  // the actual gate used by callAgent — this comment documents the raw model behavior):
   //
   //   llama-3.3-70b-versatile    ✓ SUPPORTED — API-level JSON enforcement at sampling
-  //   qwen/qwen3-32b             ✗ 400 error — reasoning model emits <think> before JSON;
-  //                                Groq's validator rejects it (requires JSON from token 1)
-  //   openai/gpt-oss-120b        ✗ 400 error — same root cause as Qwen3
+  //   openai/gpt-oss-120b        ✓ SUPPORTED — previously 400'd (2026-04-25 probe); Groq's
+  //                                validator no longer trips on this model's reasoning output
+  //   openai/gpt-oss-20b         ✓ SUPPORTED
+  //   qwen/qwen3.6-27b           ✓ SUPPORTED, but preview-tier — not wired into prod config
+  //   qwen/qwen3-32b             ✗ 400 error (deprecated 2026-07-17 — moot)
   //
-  // For unsupported models, rely on lib/agents/json-helpers.ts sanitizer + extractor.
-  // For Qwen3 admin calls, /no_think in the persona reduces thinking tokens by ~93%.
+  // For any future model not in JSON_MODE_SUPPORTED, rely on
+  // lib/agents/json-helpers.ts sanitizer + extractor instead.
   //
   // TODO (before Phase 3): centralise per-model config into lib/agents/model-config.ts
   // so adding new models in Phase 3 doesn't require auditing scattered conditionals.
