@@ -91,4 +91,4 @@ if Cerebras restores free-tier model access.
 
 ## Current test count
 
-341 tests passing across 27 test files. 0 TypeScript errors.
+342 tests passing across 27 test files. 4 pre-existing TS errors (judge.test.ts, middleware.ts).

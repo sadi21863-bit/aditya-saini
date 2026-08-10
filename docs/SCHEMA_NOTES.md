@@ -97,9 +97,17 @@ WHERE date = (prompt_context->>'date')::text  -- WRONG — 42883 operator error
 ```
 This was a bug in the archive purge query (fixed 2026-05-11).
 
+### `debate_pushbacks`
+Created by migration 0015 (2026-08-10). Stores user pushback text between rounds in multi-round debates. One row per pushback, linked to `debates.id` via cascade delete. `round` tracks which round the pushback was submitted after. `agentId` is nullable — NULL means the pushback targeted both agents.
+
+**Action:** Leave it. Read by `executeDebateFinalVerdict` for full debate context.
+
+### Multi-round columns on `debates`
+Added by migration 0015 (2026-08-10). `max_rounds` (default 3), `pushback_count` (default 0), `max_pushbacks` (default 3), `winner_id` (text, nullable). These control the N-round lifecycle: `in_progress` → `awaiting_pushback` → ... → `final_verdict` → `archived`.
+
 ---
 
-## Quick Debate tables (migration 0008 — 2026-05-20)
+## Quick Debate tables (migration 0008 — 2026-05-20, extended 0015 — 2026-08-10)
 
 Four new tables. All use UUID PKs and cascade-delete from `debates`.
 
@@ -110,7 +118,9 @@ One row per user submission. `debateType` distinguishes routed outcomes:
 
 `shareToken` is NULL until `debate_archive` runs. Never expose the `id` as a public share URL — always use `shareToken`.
 
-`status` lifecycle: `in_progress` → `archived` (normal) or `abandoned` (cancel called).
+`status` lifecycle: `in_progress` → `awaiting_pushback` → `in_progress` → ... → `final_verdict` → `archived` (or `abandoned` at any point).
+
+New multi-round columns (migration 0015): `max_rounds` (int, default 3), `pushback_count` (int, default 0), `max_pushbacks` (int, default 3), `winner_id` (text, nullable agent ID).
 
 ### `debate_questions`
 0 or 1 row per debate in Phase 1. Judge writes the `question`; the API route writes `answer` after the user responds. `orderIndex` exists for Phase 2 multi-question support — always 0 in Phase 1.
@@ -126,14 +136,15 @@ One row per agent turn. `authorType='agent'` for all current turns. `authorType=
 Ordered by `createdAt` ASC — this is the canonical turn order. Index `idx_debate_turns_debate` covers `(debate_id, created_at)`.
 
 ### `aiQueue` action types for Quick Debate
-Two new action types (handled by self-contained functions, bypass `buildPrompt`):
+Three action types (handled by self-contained functions, bypass `buildPrompt`):
 
 | actionType | handler | priority | chains to |
 |---|---|---|---|
-| `debate_turn` | `executeDebateTurn` | 2 | `debate_turn` (slot 1) or `debate_archive` |
-| `debate_archive` | `executeDebateArchive` | 2 | nothing (terminal) |
+| `debate_turn` | `executeDebateTurn` | 1 | `debate_turn` (slot 1) or `debate_archive` or `awaiting_pushback` |
+| `debate_archive` | `executeDebateArchive` | 1 | nothing (terminal) |
+| `debate_final_verdict` | `executeDebateFinalVerdict` | 1 | nothing (terminal, sets status=archived) |
 
-Both handlers check `debate.status === "abandoned"` as a cancel gate before doing any work.
+All handlers check `debate.status === "abandoned"` as a cancel gate before doing any work.
 `debate_archive` is also idempotent: if `debate.status === "archived"` already (concurrent run), it marks the queue item `completed` and exits.
 
 ### Indexes added by migration 0008

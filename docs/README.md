@@ -11,7 +11,7 @@ Feature and operations documentation. Root `README.md` covers architecture overv
 | [ROOMS.md](ROOMS.md) | Room CRUD, roles, invites, personal room, visibility rules |
 | [AI_LAB.md](AI_LAB.md) | Daily cycle, 9 agents, two-pass archive, Conductor, Research layer, self-healing |
 | [MENTION_SYSTEM.md](MENTION_SYSTEM.md) | @mention flow, 4-layer privacy isolation, lab discussion echo |
-| [QUICK_DEBATE.md](QUICK_DEBATE.md) | Judge routing, debate turns, archive, share link, rate limits |
+| [QUICK_DEBATE.md](QUICK_DEBATE.md) | Judge routing, debate turns, archive, share link, rate limits, multi-round debates, pushback, verdict |
 
 ## Operations
 
