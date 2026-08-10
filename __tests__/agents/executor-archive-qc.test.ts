@@ -275,12 +275,13 @@ describe("processQueue — quality_review_archive: QC returns flag", () => {
   it("sets status=flagged, stores flaggedReason, and marks queue completed", async () => {
     // select call sequence:
     // 0 = full queue items, 1 = usage check (none = not rate-limited),
-    // 2 = archive row, 3 = ideas, 4 = comments (empty — no ideas so skipped)
+    // 2 = quota check, 3 = archive row, 4 = ideas, 5 = comments
     dbState.selectResponses = [
       [makeQCQueueItem()],   // 0: aiQueue full rows
       [],                    // 1: aiUsage — not rate-limited
-      [ARCHIVE_ROW],         // 2: aiLabArchives
-      [],                    // 3: ideas (empty → no comment query needed)
+      [],                    // 2: quota check
+      [ARCHIVE_ROW],         // 3: aiLabArchives
+      [],                    // 4: ideas (empty → no comment query needed)
     ];
 
     mockCallAgent.mockResolvedValueOnce(
@@ -309,7 +310,8 @@ describe("processQueue — quality_review_archive: QC returns publish", () => {
   it("sets status=published, sets publishedAt, and marks queue completed", async () => {
     dbState.selectResponses = [
       [makeQCQueueItem()],
-      [],
+      [],           // usage
+      [],           // quota
       [ARCHIVE_ROW],
       [],
     ];
@@ -385,7 +387,8 @@ describe("processQueue — quality_review_archive: rollup path publishes", () =>
   it("updates aiLabRollups (not aiLabArchives) when rollupId is present and verdict is publish", async () => {
     dbState.selectResponses = [
       [makeRollupQCItem()],
-      [],            // not rate-limited
+      [],            // usage
+      [],            // quota
       [ROLLUP_ROW],  // rollup row from aiLabRollups
       [],            // daily archives in period (empty is fine for QC)
     ];
@@ -406,7 +409,8 @@ describe("processQueue — quality_review_archive: rollup path publishes", () =>
   it("updates aiLabRollups with status=flagged when rollup QC returns flag", async () => {
     dbState.selectResponses = [
       [makeRollupQCItem()],
-      [],
+      [],            // usage
+      [],            // quota
       [ROLLUP_ROW],
       [],
     ];

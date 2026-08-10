@@ -36,28 +36,33 @@ const MODELS = {
 
   // Archivist: two-pass approach (2026-05-18). All free-tier providers enforce an 8k token
   // hard limit per request (Groq TPM cap, GitHub Models per-request — confirmed on gpt-4o,
-  // gpt-4o-mini, llama-3.3-70b-instruct, llama-4-maverick). Pass 1 = gpt-4o-mini per idea
+  // gpt-4o-mini, llama-3.3-70b-instruct, llama-4-maverick). Pass 1 = per-idea summarization
   // (~1.5k tokens each). This model is used for Pass 2 synthesis (~3k tokens).
-  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o",
+  // Migrated from GitHub Models gpt-4o → Groq openai/gpt-oss-120b 2026-08-07 (GitHub Models
+  // retirement brownout started 2026-07-31 — 410 errors on all GitHub-hosted agents).
+  archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
   // Llama migrated llama-3.3-70b-versatile → openai/gpt-oss-120b 2026-07-16
   // (part of the qwen/qwen3-32b deprecation cleanup; consolidates on gpt-oss-120b).
   llama: process.env.AGENT_MODEL_LLAMA ?? "openai/gpt-oss-120b",
   gptOss: process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b",
-  // Scout: Llama 4 Scout on GitHub Models (migrated from Cerebras 2026-05-04).
-  qwenFrontier: process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct",
-  // Maverick: Llama 4 MoE 400B/17B-active — 7.9s latency, lateral synthesis strength.
-  maverick: process.env.AGENT_MODEL_MAVERICK ?? "meta/llama-4-maverick-17b-128e-instruct-fp8",
+  // Scout: migrated from GitHub Models meta/llama-4-scout-17b-16e-instruct → Groq
+  // llama-3.3-70b-versatile 2026-08-07 (GitHub Models retirement brownout). JSON mode
+  // verified live (JSON_MODE_SUPPORTED in providers/index.ts).
+  scout: process.env.AGENT_MODEL_SCOUT ?? "llama-3.3-70b-versatile",
+  // Maverick: migrated from GitHub Models meta/llama-4-maverick-17b-128e-instruct-fp8 →
+  // Groq openai/gpt-oss-20b 2026-08-07 (GitHub Models retirement brownout). JSON mode
+  // verified live (JSON_MODE_SUPPORTED in providers/index.ts).
+  maverick: process.env.AGENT_MODEL_MAVERICK ?? "openai/gpt-oss-20b",
 
-  // Conductor: poses the sharpest unresolved question to restart stalled debates.
-  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "openai/gpt-4o-mini",
+  // Conductor: migrated from GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
+  // 2026-08-07 (GitHub Models retirement brownout).
+  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "llama-3.3-70b-versatile",
 
-  // @research: GitHub Models openai/gpt-4o-mini (2026-05-13).
-  // Cerebras llama3.1-8b was briefly used but deprecates 2026-05-27;
-  // gpt-oss-120b on Cerebras free tier returned 401. gpt-4o-mini is fast,
-  // format-compliant, and within the 150 RPD free budget.
-  research: process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-4o-mini",
+  // @research: migrated from GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
+  // 2026-08-07 (GitHub Models retirement brownout). Plain-text output — JSON mode not needed.
+  research: process.env.AGENT_MODEL_RESEARCH ?? "llama-3.3-70b-versatile",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
@@ -196,11 +201,12 @@ ${BRUTAL_HONESTY_RULE}`,
     // Renamed ai_qwen → ai_scout on 2026-05-11.
     // Model was already meta/llama-4-scout-17b-16e-instruct since 2026-05-04 Cerebras migration.
     // Name now matches the model. Run SQL migration before re-seeding (see CLEANUP notes).
+    // 2026-08-07: migrated GitHub Models → Groq llama-3.3-70b-versatile (GitHub Models retired).
     id: "ai_scout",
     name: "Scout",
     handle: "scout",
-    provider: "github",
-    model: MODELS.qwenFrontier, // meta/llama-4-scout-17b-16e-instruct
+    provider: "groq",
+    model: MODELS.scout, // llama-3.3-70b-versatile
     role: "participant",
     persona: `You are Scout, an AI participant in the IdeaConnect AI Lab. You are the Pattern Breaker — fast, direct, and structurally skeptical.
 
@@ -228,10 +234,11 @@ ${BRUTAL_HONESTY_RULE}`,
   },
   {
     // Added as 4th participant in Phase 3 (2026-05-13).
+    // 2026-08-07: migrated GitHub Models → Groq openai/gpt-oss-20b (GitHub Models retired).
     id: "ai_maverick",
     name: "Maverick",
     handle: "maverick",
-    provider: "github",
+    provider: "groq",
     model: MODELS.maverick,
     role: "participant",
     persona: `You are Maverick, a Llama 4 AI participant in the IdeaConnect AI Lab. You are the Lateral Thinker — you find the angle others missed.
@@ -262,11 +269,14 @@ const ARCHIVIST_AGENT: Agent = {
   id: "ai_archivist",
   name: "Archivist",
   handle: "archivist",
-  provider: "github",
+  // 2026-08-07: migrated GitHub Models openai/gpt-4o → Groq openai/gpt-oss-120b
+  // (GitHub Models retirement brownout). Groq has no per-request 8k cap, but the
+  // two-pass structure is kept — it keeps Pass 2 input small and TPM-friendly.
+  provider: "groq",
   model: MODELS.archivist,
   role: "archivist",
-  // Two-pass archive (2026-05-18): this agent is the Pass 2 synthesizer (openai/gpt-4o).
-  // Pass 1 uses gpt-4o-mini directly in executeArchiveDay — not this agent's model.
+  // Two-pass archive (2026-05-18): this agent is the Pass 2 synthesizer (openai/gpt-oss-120b).
+  // Pass 1 uses per-idea summarization directly in executeArchiveDay — not this agent's model.
   maxTokens: 4000,
   persona: `You are the Archivist for IdeaConnect's AI Lab. Your job is to write the day's intellectual record as readable narrative prose — like a thoughtful editor summarizing a roundtable discussion, not a secretary transcribing meeting minutes.
 
@@ -322,7 +332,9 @@ const CONDUCTOR_AGENT: Agent = {
   id: "ai_conductor",
   name: "Conductor",
   handle: "conductor",
-  provider: "github",
+  // 2026-08-07: migrated GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
+  // (GitHub Models retirement brownout).
+  provider: "groq",
   model: MODELS.conductor,
   role: "conductor",
   persona: `You are the Conductor for IdeaConnect's AI Lab. Your sole function is to restart stalled debates.
@@ -350,10 +362,12 @@ const RESEARCH_AGENT: Agent = {
   id: "ai_research",
   name: "Research",
   handle: "research",
-  provider: "github",
+  // 2026-08-07: migrated GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
+  // (GitHub Models retirement brownout).
+  provider: "groq",
   model: MODELS.research,
-  // Migrated: Groq → Cerebras llama3.1-8b (2026-05-13) → GitHub Models gpt-4o-mini (2026-05-13).
-  // Cerebras llama3.1-8b deprecates 2026-05-27; gpt-oss-120b returned 401 on free tier.
+  // Migrated: Groq → Cerebras llama3.1-8b (2026-05-13) → GitHub Models gpt-4o-mini (2026-05-13)
+  // → Groq llama-3.3-70b-versatile (2026-08-07, GitHub Models retired).
   role: "research",
   persona: `You are @research, the AI Lab's real-time fact-checker.
 

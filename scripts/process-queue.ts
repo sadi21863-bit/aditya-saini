@@ -21,7 +21,14 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { processQueue, resetStuckQueueItems } from "@/lib/agents/executor";
-import { queueThemeResearch, queueThemeSelection, queueDailyIdeas, queueDailyArchive } from "@/lib/agents/scheduler";
+import {
+  queueThemeResearch,
+  queueThemeSelection,
+  queueDailyIdeas,
+  queueDailyArchive,
+  queueWeeklyRollup,
+  queueMonthlyRollup,
+} from "@/lib/agents/scheduler";
 
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const rawDb  = drizzle(client);
@@ -161,6 +168,76 @@ async function ensureDailyWorkQueued(): Promise<void> {
   }
 }
 
+/**
+ * Self-healing check for weekly/monthly rollups (added 2026-08-07).
+ *
+ * WHY: Vercel Hobby silently drops crons beyond the first two, so the
+ * rollup-weekly / rollup-monthly Vercel crons were never firing — the last
+ * rollup_week queue item was 2026-07-05. The GHA 5-minute run is the reliable
+ * beat, so it now owns rollup scheduling: on Sundays it ensures the weekly
+ * rollup is queued, on the 1st of the month the monthly one — mirroring the
+ * old cron schedule (0 18 * * 0 / 31 18 1 * *), self-healed within 5 minutes
+ * if a run was missed.
+ *
+ * FORCE_ROLLUP_WEEK / FORCE_ROLLUP_MONTH env vars (set via workflow_dispatch
+ * inputs) queue the latest period immediately regardless of day — used to
+ * backfill the rollups missed since 2026-07-05.
+ */
+async function ensureRollupQueued(): Promise<void> {
+  const nowUTC = new Date();
+  const forceWeek  = process.env.FORCE_ROLLUP_WEEK  === "true";
+  const forceMonth = process.env.FORCE_ROLLUP_MONTH === "true";
+
+  if (forceWeek || nowUTC.getUTCDay() === 0) {
+    const periodEnd   = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate() - 1));
+    const periodStart = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate() - 7));
+    await queueRollupIfMissing("rollup_week", "weekly", periodStart, periodEnd, forceWeek);
+  }
+
+  if (forceMonth || nowUTC.getUTCDate() === 1) {
+    const periodStart = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth() - 1, 1));
+    const periodEnd   = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), 0));
+    await queueRollupIfMissing("rollup_month", "monthly", periodStart, periodEnd, forceMonth);
+  }
+}
+
+async function queueRollupIfMissing(
+  actionType:  "rollup_week" | "rollup_month",
+  periodType:  "weekly" | "monthly",
+  periodStart: Date,
+  periodEnd:   Date,
+  force:       boolean
+): Promise<void> {
+  const pStart = periodStart.toISOString().slice(0, 10);
+  const pEnd   = periodEnd.toISOString().slice(0, 10);
+
+  if (!force) {
+    const [rollupInDb] = await rawDb.execute(sql`
+      SELECT 1 FROM ai_lab_rollups
+      WHERE  period_type   = ${periodType}
+        AND  period_start  = ${pStart}::date
+      LIMIT 1
+    `) as unknown as [unknown?];
+
+    const [rollupInQueue] = await rawDb.execute(sql`
+      SELECT 1 FROM ai_queue
+      WHERE  action_type                  = ${actionType}
+        AND  prompt_context->>'periodStart' = ${pStart}
+        AND  status IN ('pending', 'in_progress')
+      LIMIT 1
+    `) as unknown as [unknown?];
+
+    if (rollupInDb || rollupInQueue) return;
+  }
+
+  console.log(`[process-queue] ${force ? "Forcing" : "Queuing"} ${actionType} for ${pStart}..${pEnd}`);
+  if (actionType === "rollup_week") {
+    await queueWeeklyRollup();
+  } else {
+    await queueMonthlyRollup();
+  }
+}
+
 async function main() {
   if (process.env.AI_LAB_ENABLED !== "true") {
     console.log("[process-queue] AI_LAB_ENABLED is not 'true' — skipping.");
@@ -170,6 +247,10 @@ async function main() {
 
   // 1. Self-heal: ensure today's theme and ideas are queued
   await ensureDailyWorkQueued();
+
+  // 1b. Self-heal: weekly (Sundays) and monthly (1st) rollups — Vercel Hobby
+  //     silently dropped these crons; GHA owns them now.
+  await ensureRollupQueued();
 
   // 2. Purge redundant archive_day queue items that accumulated due to a previous
   //    bug in ensureDailyWorkQueued (used status='done' which doesn't exist, causing
@@ -189,6 +270,26 @@ async function main() {
   const purgedCount = (purged as { rowCount?: number }).rowCount ?? 0;
   if (purgedCount > 0) {
     console.log(`[process-queue] Purged ${purgedCount} redundant archive_day item(s)`);
+  }
+
+  // 2b. Same purge for rollups — a pending rollup whose period already has a row
+  //     in ai_lab_rollups is a duplicate (executor upserts on conflict, so this
+  //     prevents re-running an already-generated period on the next Sunday beat).
+  const purgedRollups = await rawDb.execute(sql`
+    UPDATE ai_queue
+    SET    status = 'failed',
+           error_message = 'cancelled: duplicate rollup — rollup already exists in ai_lab_rollups'
+    WHERE  action_type IN ('rollup_week', 'rollup_month')
+      AND  status = 'pending'
+      AND  EXISTS (
+        SELECT 1 FROM ai_lab_rollups
+        WHERE  period_type  = CASE WHEN action_type = 'rollup_week' THEN 'weekly' ELSE 'monthly' END
+          AND  period_start = (prompt_context->>'periodStart')::date
+      )
+  `);
+  const purgedRollupsCount = (purgedRollups as { rowCount?: number }).rowCount ?? 0;
+  if (purgedRollupsCount > 0) {
+    console.log(`[process-queue] Purged ${purgedRollupsCount} redundant rollup item(s)`);
   }
 
   // 3. Reset any items stuck in_progress from a previous timeout

@@ -9,6 +9,14 @@ on:
         description: 'Skip agent connectivity check (set true for API-triggered runs)'
         required: false
         default: 'false'
+      force_rollup_week:
+        description: 'Queue weekly rollup for the latest 7-day period (backfill)'
+        required: false
+        default: 'false'
+      force_rollup_month:
+        description: 'Queue monthly rollup for the previous calendar month (backfill)'
+        required: false
+        default: 'false'
 
 permissions:
   models: read    # allows github.token to call GitHub Models API — no PAT needed
@@ -69,6 +77,8 @@ jobs:
           AI_LAB_ENABLED:     "true"
           CURRENTS_API_KEY:   ${{ secrets.CURRENTS_API_KEY }}
           NEWSDATA_API_KEY:   ${{ secrets.NEWSDATA_API_KEY }}
+          FORCE_ROLLUP_WEEK:  ${{ github.event.inputs.force_rollup_week }}
+          FORCE_ROLLUP_MONTH: ${{ github.event.inputs.force_rollup_month }}
           # Optional model overrides — only needed if you've set these in Vercel too
           # AGENT_MODEL_ADMIN:     ${{ secrets.AGENT_MODEL_ADMIN }}
           # AGENT_MODEL_LLAMA:     ${{ secrets.AGENT_MODEL_LLAMA }}

@@ -2,7 +2,7 @@
  * scripts/smoke-test.ts
  *
  * Quick smoke test against real APIs.
- * Makes one real call to Groq (qwen/qwen3-32b) and one to GitHub Models (gpt-4o-mini).
+ * Makes two real calls to Groq (gpt-oss-120b and gpt-oss-20b).
  * Both must return text.
  *
  * Run with:  npx tsx scripts/smoke-test.ts
@@ -14,21 +14,20 @@ import * as path from "path";
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 
-const GROQ_MODEL   = process.env.AGENT_MODEL_ADMIN    ?? "qwen/qwen3-32b";
-const GITHUB_MODEL = process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-4o-mini";
+const GROQ_MODEL_1 = process.env.AGENT_MODEL_ADMIN    ?? "openai/gpt-oss-120b";
+const GROQ_MODEL_2 = process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b";
 
 async function runSmoke() {
-  const { callGroq }   = await import("../lib/agents/providers/groq");
-  const { callGitHub } = await import("../lib/agents/providers/github");
+  const { callGroq } = await import("../lib/agents/providers/groq");
 
   console.log("=== AI Lab Smoke Test ===\n");
 
-  // ─── Test 1: Groq ────────────────────────────────────────────────────
-  console.log(`[1/2] Calling Groq with model: ${GROQ_MODEL}`);
+  // ─── Test 1: Groq (admin model) ────────────────────────────────────────
+  console.log(`[1/2] Calling Groq with model: ${GROQ_MODEL_1}`);
   const groqStart = Date.now();
   try {
     const groqResult = await callGroq(
-      GROQ_MODEL,
+      GROQ_MODEL_1,
       "You are a test assistant. Reply with exactly one sentence.",
       "Say hello and confirm you are working.",
       { maxTokens: 60, temperature: 0.5 }
@@ -42,26 +41,26 @@ async function runSmoke() {
     process.exit(1);
   }
 
-  // ─── Test 2: GitHub Models ────────────────────────────────────────────
-  console.log(`\n[2/2] Calling GitHub Models with model: ${GITHUB_MODEL}`);
-  const ghStart = Date.now();
+  // ─── Test 2: Groq (fallback model) ─────────────────────────────────────
+  console.log(`\n[2/2] Calling Groq with model: ${GROQ_MODEL_2}`);
+  const groq2Start = Date.now();
   try {
-    const ghResult = await callGitHub(
-      GITHUB_MODEL,
+    const groq2Result = await callGroq(
+      GROQ_MODEL_2,
       "You are a test assistant. Reply with exactly one sentence.",
       "Say hello and confirm you are working.",
       { maxTokens: 60, temperature: 0.5 }
     );
-    const ghMs = Date.now() - ghStart;
-    if (!ghResult || ghResult.trim().length === 0) throw new Error("GitHub Models returned empty content");
-    console.log(`  ✓ GitHub Models OK (${ghMs}ms)`);
-    console.log(`  Response: "${ghResult.slice(0, 200)}"`);
+    const groq2Ms = Date.now() - groq2Start;
+    if (!groq2Result || groq2Result.trim().length === 0) throw new Error("Groq returned empty content");
+    console.log(`  ✓ Groq OK (${groq2Ms}ms)`);
+    console.log(`  Response: "${groq2Result.slice(0, 200)}"`);
   } catch (err) {
-    console.error(`  ✗ GitHub Models FAILED: ${(err as Error).message}`);
+    console.error(`  ✗ Groq FAILED: ${(err as Error).message}`);
     process.exit(1);
   }
 
-  console.log("\n=== Smoke test PASSED — both providers operational ===");
+  console.log("\n=== Smoke test PASSED — Groq operational ===");
 }
 
 runSmoke().catch((err) => {

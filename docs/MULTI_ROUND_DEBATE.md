@@ -215,7 +215,7 @@ const round = Number((ctx.round as number | undefined) ?? 1);
 If `round === 2`:
 - Fetch all 4 turns (Round 1 × 2, Round 2 × 2), ordered by `createdAt`
 - Call `buildRound2ArchivePrompt`
-- Call `callGitHub("openai/gpt-4o-mini", systemPrompt, userPrompt, { temperature: 0.5, maxTokens: 400 })`
+- Call `callGroq("openai/gpt-oss-20b", systemPrompt, userPrompt, { temperature: 0.5, maxTokens: 400 })`
 - Call `parseJsonResponse` on the result (same utility used in judge route)
 - Write `parsed.verdict_reasoning` → `debates.verdictReasoning`
 - Write `parsed.verdict` → `debates.verdict`

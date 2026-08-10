@@ -361,10 +361,10 @@ async function testFullDebateTurns(testUserId: string) {
   console.log("\n  Agent B said (first 120 chars):");
   console.log("  »", contentB.slice(0, 120).replace(/\n/g, " "));
 
-  // ── Archive: generate summary via gpt-4o-mini ────────────────────────────
-  console.log("\n  Running debate_archive (gpt-4o-mini)…");
+  // ── Archive: generate summary via openai/gpt-oss-20b ────────────────────────
+  console.log("\n  Running debate_archive (openai/gpt-oss-20b)…");
   const { buildDebateArchivePrompt } = await import("@/lib/agents/prompts");
-  const { callGitHub } = await import("@/lib/agents/providers/github");
+  const { callGroq } = await import("@/lib/agents/providers/groq");
 
   const agentAAgent2 = getAgent(llamaAgent.id)!;
   const agentBAgent2 = getAgent(gptOssAgent.id)!;
@@ -376,7 +376,7 @@ async function testFullDebateTurns(testUserId: string) {
     agentBName: agentBAgent2.name,
   });
 
-  const summary = await callGitHub("openai/gpt-4o-mini", systemPrompt, userPrompt, { temperature: 0.5, maxTokens: 300 });
+  const summary = await callGroq("openai/gpt-oss-20b", systemPrompt, userPrompt, { temperature: 0.5, maxTokens: 300 });
   check("Archive summary non-empty",          summary.trim().length > 0);
   check("Archive summary ≥50 words",          summary.trim().split(/\s+/).length >= 50);
 

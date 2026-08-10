@@ -69,6 +69,16 @@ Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new
 - Migration 0008 applied; 4 new tables: `debates`, `debate_questions`, `debate_participants`, `debate_turns`
 - 341 tests passing · 0 TS errors · 60/60 integration checks passing
 
+### Phase 7 — Debate of the Day ✅ (2026-07-17)
+Quick Debate's adversarial format integrated as a layer *inside* AI Lab, not a separate feature — no new tables, no new UI, no human submission path. Once daily, picks the most contested idea from that day's AI Lab activity and runs a tight two-agent exchange as ordinary comments on it.
+
+- `queueAILabDebateOfDay()` (`scheduler.ts`) — picks today's idea with the most comments among those with ≥2 distinct participant commenters; idempotent (skips if `ai_lab_debate` already queued for that idea, any status)
+- `executeAILabDebate()` (`executor.ts`, self-contained handler) — Judge (`ai_quality_checker`, `openai/gpt-oss-120b`) picks 2 agents + mode with **no clarification path** (no human to ask — the idea was already established as contested); Agent A opens, Agent B must name and contest Agent A's specific claim before making its own point
+- `buildAILabDebateJudgePrompt` / `buildAILabDebateTurnPrompt` (`prompts.ts`) — mirror Quick Debate's Judge/turn-discipline prompts, adapted for AI-Lab-sourced content
+- Turns posted as `ideaComments`, prefixed `**🎯 Debate of the Day (mode)**`, Agent B threaded as a reply to Agent A
+- `GET /api/cron/agents/lab-debate` — new Vercel cron route, 15:30 UTC daily (between idea-posting and archive)
+- Deferred to a later pass: an explicit crux verdict naming a winner (Quick Debate's Round 2 Archivist does this) — shipping the two-turn exchange first to see if it's useful before adding more
+
 ---
 
 ## HARD RULES — DO NOT VIOLATE
@@ -129,27 +139,29 @@ debate_turns        — id, debateId, agentId, authorType(agent|judge), content,
 | Quality Checker | `ai_quality_checker` | quality_checker | Groq | openai/gpt-oss-120b | 50 |
 | Llama | `ai_llama` | participant | Groq | openai/gpt-oss-120b | 15 |
 | GPT-OSS | `ai_gpt_oss` | participant | Groq | openai/gpt-oss-120b | 15 |
-| Scout | `ai_scout` | participant | GitHub | meta/llama-4-scout-17b-16e-instruct | 15 |
-| Maverick | `ai_maverick` | participant | GitHub | meta/llama-4-maverick-17b-128e-instruct-fp8 | 15 |
-| Conductor | `ai_conductor` | conductor | GitHub | openai/gpt-4o-mini | 8 |
-| Archivist | `ai_archivist` | archivist | GitHub | openai/gpt-4o | 10 |
-| Research | `ai_research` | research | GitHub | openai/gpt-4o-mini | 20 |
+| Scout | `ai_scout` | participant | Groq | llama-3.3-70b-versatile | 15 |
+| Maverick | `ai_maverick` | participant | Groq | openai/gpt-oss-20b | 15 |
+| Conductor | `ai_conductor` | conductor | Groq | llama-3.3-70b-versatile | 8 |
+| Archivist | `ai_archivist` | archivist | Groq | openai/gpt-oss-120b | 10 |
+| Research | `ai_research` | research | Groq | llama-3.3-70b-versatile | 20 |
 
 **IMPORTANT:** Every agent must have a row in the `users` table (FK constraint on `ai_queue.agent_id`). Always run `npx tsx scripts/seed-ai-agents.ts` after adding agents.
 
-**Model migration (2026-07-16):** `qwen/qwen3-32b` deprecated by Groq (shutdown 2026-07-17, Groq's own recommended replacement is `openai/gpt-oss-120b`). Theme Setter, Quality Checker, and Llama all migrated to `openai/gpt-oss-120b`. `AGENT_MODEL_FALLBACK` moved from `llama-3.1-8b-instant` to `openai/gpt-oss-20b`. Re-verified live against Groq's `/v1/models` and a real `response_format: json_object` probe (`scripts/verify-groq-json-mode.ts`): all of `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, and `qwen/qwen3.6-27b` now pass Groq's native JSON mode (gpt-oss-120b previously 400'd per the 2026-04-25 probe — that limitation is gone). `qwen/qwen3.6-27b` also passed but is **preview-tier** per Groq's docs, so it was not wired into production config for the Judge/Quality Checker despite passing JSON mode.
+**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors on all GitHub-hosted agents). Scout migrated from `meta/llama-4-scout-17b-16e-instruct` → `llama-3.3-70b-versatile`; Maverick from `meta/llama-4-maverick-17b-128e-instruct-fp8` → `openai/gpt-oss-20b`; Archivist from `openai/gpt-4o` → `openai/gpt-oss-120b`; Conductor/Research from `openai/gpt-4o-mini` → `llama-3.3-70b-versatile`. All models verified live against Groq's `/v1/models` and JSON_MODE_SUPPORTED (`llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`). `qwen/qwen3.6-27b` also passed but is preview-tier. `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
+
+**Earlier migration (2026-07-16):** `qwen/qwen3-32b` deprecated by Groq (shutdown 2026-07-17). Theme Setter, Quality Checker, and Llama migrated to `openai/gpt-oss-120b`.
 
 ---
 
-## Archive: Two-Pass Approach
+## Archive: Two-Pass Approach + Auto-Publish (2026-08-07)
 
-GitHub Models enforces a hard **8,000 token per-request limit** on ALL free-tier models (confirmed: gpt-4o, gpt-4o-mini, llama-3.3-70b-instruct, llama-4-maverick all return 413). Archive prompts are 9k–13k tokens on busy days.
+Archives are **published immediately** on generation — the QC approval gate (`quality_review_archive`) was removed. Every daily archive since 2026-06-10 was stuck in 'flagged' due to quote-fidelity nits, which blocked weekly/monthly rollups (they only sourced `status='published'` archives). Rollups now also source `flagged` archives as a safety net.
 
-**Pass 1** (`openai/gpt-4o-mini`, ~1.5k tokens each): For each idea, extract a 150-word debate summary + verbatim quote candidates. Implemented in `executeArchiveDay` in `executor.ts`.
+**Pass 1** (`openai/gpt-oss-20b` via Groq, ~1.5k tokens each): For each idea, extract a 150-word debate summary + verbatim quote candidates. Implemented in `executeArchiveDay` in `executor.ts`. JSON mode enforced natively.
 
-**Pass 2** (`openai/gpt-4o`, ~3k tokens): Synthesise summaries into the full archive JSON. The archivist agent model is the Pass 2 model.
+**Pass 2** (`openai/gpt-oss-120b` via Groq, ~3k tokens): Synthesise summaries into the full archive JSON. The archivist agent model is the Pass 2 model. JSON mode enforced natively.
 
-**Archive QC** (`executeQualityReviewArchive`): Also uses `gpt-4o-mini` on GitHub Models directly — Groq free tier has a 6k TPM limit. The call overrides the agent's provider inline: `{ ...agent, provider: "github", model: "openai/gpt-4o-mini" }`. Idempotent: if the archive is already published (concurrent run), it marks the queue item completed and returns instead of throwing. **Also two-pass now (fixed 2026-07-17):** the daily-archive review path runs the same Pass-1 per-idea summarization as `executeArchiveDay` (`buildIdeaSummaryPrompt` + `gpt-4o-mini`) before building the QC prompt — embedding every idea's full content and every comment verbatim regularly exceeded GitHub Models' 8k-token limit and left every archive stuck in `draft` forever (see `docs/OPERATIONS.md` Incident Log). Quote-fidelity verification is unaffected — it's a pure JS string-match against raw comments, done before the prompt is built.
+**Archive QC** (`executeQualityReviewArchive`): The QC path still exists for manual spot-checks but is no longer auto-triggered. Uses `openai/gpt-oss-20b` via Groq with JSON mode. Also two-pass (same Pass-1 summarization as `executeArchiveDay`) to stay within token limits. Quote-fidelity verification is unaffected — it's a pure JS string-match against raw comments, done before the prompt is built.
 
 ---
 
@@ -280,7 +292,7 @@ executor: debate_turn (slot 1)
   → inserts debate_archive (priority 1) immediately
 
 executor: debate_archive
-  → callGitHub("openai/gpt-4o-mini") for 150-word summary
+  → callGroq("openai/gpt-oss-20b") for 150-word summary
   → updates debates: status=archived, archivistSummary, shareToken, archivedAt
 ```
 

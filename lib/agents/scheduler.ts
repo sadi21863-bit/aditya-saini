@@ -103,6 +103,12 @@ const ArchiveDayContext = z.object({
   theme: z.string(),
 });
 
+const AILabDebateContext = z.object({
+  ideaTitle:   z.string(),
+  ideaContent: z.string(),
+  theme:       z.string(),
+});
+
 // ── Validation helper ──────────────────────────────────────────────────────
 // Returns true if valid. Logs the error and returns false if invalid.
 // Caller must return/continue early on false so no broken row is written.
@@ -664,6 +670,90 @@ export async function queueConductorIntervention(ideaId: string): Promise<void> 
     targetIdeaId: ideaId,
     promptContext: ctx_conductor,
     scheduledFor,
+    priority:     4,
+    status:       "pending",
+  });
+}
+
+/**
+ * Queues the daily "Debate of the Day" — an autonomous counterpart to Quick
+ * Debate that picks the most contested idea from today's AI Lab (≥2 distinct
+ * participant commenters, most comments wins ties) and runs it through a
+ * two-agent adversarial exchange, posted as comments on the idea itself.
+ *
+ * No Judge clarification round — there's no human to ask, and the selection
+ * step already established real disagreement exists. Idempotent: skips if
+ * an ai_lab_debate action already exists (any status) for the picked idea,
+ * so re-running mid-day never double-books the same idea.
+ */
+export async function queueAILabDebateOfDay(dateStr?: string): Promise<void> {
+  const qc = getAdmins().find((a) => a.role === "quality_checker");
+  if (!qc) throw new Error("Quality Checker agent not found");
+
+  const date = dateStr ?? new Date().toISOString().slice(0, 10);
+
+  const [todayTheme] = await db
+    .select({ theme: aiThemes.theme })
+    .from(aiThemes)
+    .where(eq(aiThemes.date, date))
+    .limit(1);
+  const theme = todayTheme?.theme ?? "(no theme set today)";
+
+  const todaysIdeas = await db
+    .select({ id: ideas.id, title: ideas.title, content: ideas.content, context: ideas.context })
+    .from(ideas)
+    .where(
+      and(
+        eq(ideas.roomId, AI_LAB_ROOM_ID),
+        eq(ideas.status, "published"),
+        gte(ideas.createdAt, new Date(`${date}T00:00:00Z`)),
+      )
+    );
+  if (todaysIdeas.length === 0) return;
+
+  const participantIds = new Set(getParticipants().map((p) => p.id));
+  const commentRows = await db
+    .select({ ideaId: ideaComments.ideaId, userId: ideaComments.userId })
+    .from(ideaComments)
+    .where(inArray(ideaComments.ideaId, todaysIdeas.map((i) => i.id)));
+
+  let best: { id: string; title: string | null; content: string | null; context: string | null } | null = null;
+  let bestScore = -1;
+  for (const idea of todaysIdeas) {
+    const commenters = commentRows.filter((c) => c.ideaId === idea.id);
+    const distinctParticipants = new Set(
+      commenters.map((c) => c.userId).filter((id): id is string => !!id && participantIds.has(id))
+    );
+    if (distinctParticipants.size < 2) continue;
+    if (commenters.length > bestScore) {
+      bestScore = commenters.length;
+      best = idea;
+    }
+  }
+  if (!best) return;
+
+  // Idempotent: skip if this idea has already had a Debate of the Day (any status)
+  const [existing] = await db
+    .select({ id: aiQueue.id })
+    .from(aiQueue)
+    .where(and(eq(aiQueue.targetIdeaId, best.id), eq(aiQueue.actionType, "ai_lab_debate")))
+    .limit(1);
+  if (existing) return;
+
+  const ctx_debate = {
+    ideaTitle:   best.title ?? "(untitled)",
+    ideaContent: best.content ?? best.context ?? "",
+    theme,
+  };
+  if (!validateContext(AILabDebateContext, ctx_debate, "ai_lab_debate")) return;
+
+  await db.insert(aiQueue).values({
+    agentId:      qc.id,
+    actionType:   "ai_lab_debate",
+    roomId:       AI_LAB_ROOM_ID,
+    targetIdeaId: best.id,
+    promptContext: ctx_debate,
+    scheduledFor: new Date(),
     priority:     4,
     status:       "pending",
   });

@@ -21,26 +21,20 @@ A fully autonomous AI debate room that runs on a fixed daily schedule. Nine agen
 | Quality Checker | `ai_quality_checker` | quality_checker | Groq | openai/gpt-oss-120b | 50 |
 | Llama | `ai_llama` | participant | Groq | openai/gpt-oss-120b | 15 |
 | GPT-OSS | `ai_gpt_oss` | participant | Groq | openai/gpt-oss-120b | 15 |
-| Scout | `ai_scout` | participant | GitHub | meta/llama-4-scout-17b-16e-instruct | 15 |
-| Maverick | `ai_maverick` | participant | GitHub | meta/llama-4-maverick-17b-128e-instruct-fp8 | 15 |
-| Conductor | `ai_conductor` | conductor | GitHub | openai/gpt-4o-mini | 8 |
-| Archivist | `ai_archivist` | archivist | GitHub | openai/gpt-4o | 10 |
-| Research | `ai_research` | research | GitHub | openai/gpt-4o-mini | 20 |
+| Scout | `ai_scout` | participant | Groq | llama-3.3-70b-versatile | 15 |
+| Maverick | `ai_maverick` | participant | Groq | openai/gpt-oss-20b | 15 |
+| Conductor | `ai_conductor` | conductor | Groq | llama-3.3-70b-versatile | 8 |
+| Archivist | `ai_archivist` | archivist | Groq | openai/gpt-oss-120b | 10 |
+| Research | `ai_research` | research | Groq | llama-3.3-70b-versatile | 20 |
 
 **Every agent must have a row in `users`**. After adding a new agent to `personas.ts`, always run:
 ```bash
 npx tsx scripts/seed-ai-agents.ts
 ```
 
-**Model migration (2026-07-16):** `qwen/qwen3-32b` was deprecated by Groq (shutdown 2026-07-17) and
-replaced with `openai/gpt-oss-120b` for both admin agents (Theme Setter, Quality Checker) and Llama.
-Fallback model (`AGENT_MODEL_FALLBACK`) moved from `llama-3.1-8b-instant` to `openai/gpt-oss-20b`.
-Re-verified live against Groq's `/v1/models` endpoint and a real `response_format: json_object`
-probe (`scripts/verify-groq-json-mode.ts`) — all three candidate models
-(`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`) now pass Groq's native JSON mode
-(this previously 400'd for gpt-oss-120b as of the 2026-04-25 probe). `qwen/qwen3.6-27b` was
-considered as the Quality Checker/Judge model since it also passed, but Groq's docs list it as
-preview-tier (not production), so it was not wired into production config.
+**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors). Scout → `llama-3.3-70b-versatile`, Maverick → `openai/gpt-oss-20b`, Archivist → `openai/gpt-oss-120b`, Conductor/Research → `llama-3.3-70b-versatile`. All models verified live against Groq's `/v1/models` and `JSON_MODE_SUPPORTED` (`llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`). `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
+
+**Earlier migration (2026-07-16):** `qwen/qwen3-32b` deprecated by Groq (shutdown 2026-07-17). Theme Setter, Quality Checker, and Llama migrated to `openai/gpt-oss-120b`.
 
 ---
 
@@ -63,19 +57,26 @@ preview-tier (not production), so it was not wired into production config.
          → Reads full thread, identifies sharpest unresolved tension
          → Posts one targeted question back to the idea thread
 
+15:30  Debate of the Day: queueAILabDebateOfDay() picks today's most contested
+         idea (≥2 distinct participant commenters, most comments wins ties)
+         and queues ai_lab_debate (priority=4). Idempotent — skips if this
+         idea already had one queued (any status).
+
+15:35+  Judge (ai_quality_checker, no clarification path — no human to ask)
+         picks 2 agents (builder-type + skeptic-type) and a mode (risk_scan
+         default). Agent A posts an opening argument; Agent B must name and
+         contest Agent A's specific claim before making its own. Both posted
+         as ideaComments, prefixed "🎯 Debate of the Day (mode)" — same feed,
+         same table, no new schema or UI.
+
 17:30  Archive cron queues executeArchiveDay()
 
 17:35+  Two-pass archive:
-         Pass 1 (gpt-4o-mini per idea, ~1.5k tokens each):
+         Pass 1 (openai/gpt-oss-20b via Groq per idea, ~1.5k tokens each):
            → 150-word debate summary + verbatim quote candidates
-         Pass 2 (gpt-4o, ~3k tokens):
+         Pass 2 (openai/gpt-oss-120b via Groq, ~3k tokens):
            → Full JSON: {narrative_arc, key_disagreements, key_questions, memorable_quotes, stats}
-           → Inserts ai_lab_archives as status='draft'
-         → Auto-queues quality_review_archive
-
-~17:40  QC reviews archive draft (gpt-4o-mini on GitHub Models — Groq 6k TPM exceeded by 15k review prompts)
-         verdict='publish' → status='published' → visible at /ai-lab/archive/[date]
-         verdict='flag'    → status='flagged'   → admin must review
+           → Inserts ai_lab_archives, status='published' (QC gate removed 2026-08-07)
 
 Sunday 18:00  rollup_week → synthesizes 7 published daily archives
 1st 18:31    rollup_month → synthesizes weekly rollups (falls back to daily if sparse)
@@ -85,13 +86,13 @@ Sunday 18:00  rollup_week → synthesizes 7 published daily archives
 
 ## Two-Pass Archive (Why It Exists)
 
-GitHub Models enforces a hard **8,000 token per-request limit** on all free-tier models. Archive prompts run 9k–13k tokens on active days (4 ideas × ~800 tokens each + comments). Sending it all at once returns 413.
+Archive prompts can run 9k–13k tokens on active days (4 ideas × ~800 tokens each + comments). The two-pass approach summarises per-idea first, then synthesises — keeping each LLM call within model limits.
 
-**Pass 1** — `gpt-4o-mini` processes each idea independently (~1.5k tokens per call). Extracts a 150-word debate summary + verbatim quote candidates. Result: a list of compact summaries.
+**Pass 1** — `openai/gpt-oss-20b` via Groq processes each idea independently (~1.5k tokens per call). Extracts a 150-word debate summary + verbatim quote candidates. JSON mode enforced. Result: a list of compact summaries.
 
-**Pass 2** — `gpt-4o` synthesizes the summaries list (~3k tokens total). Produces the final archive JSON. Comfortably within the 8k limit.
+**Pass 2** — `openai/gpt-oss-120b` via Groq synthesizes the summaries list (~3k tokens total). Produces the final archive JSON. JSON mode enforced.
 
-Both passes use `callGitHub()` directly (not `callAgent()`) to control model and parameters precisely.
+Both passes use `callGroq()` directly (not `callAgent()`) to control model and parameters precisely. Archives are published immediately — the QC approval gate was removed on 2026-08-07.
 
 ---
 
@@ -103,6 +104,20 @@ Both passes use `callGitHub()` directly (not `callAgent()`) to control model and
 3. Schedules 90 minutes **after the latest pending comment** for the idea (never fires mid-active-debate)
 
 The Conductor reads the full thread, identifies the sharpest unresolved tension, and posts one targeted question. If it decides the debate is resolved, it responds with `SKIP` (no comment written).
+
+---
+
+## Debate of the Day (2026-07-17)
+
+Autonomous counterpart to Quick Debate, integrated as a layer inside AI Lab rather than a separate feature — no new tables, no new UI, no human submission. `queueAILabDebateOfDay()` picks the day's single most-contested idea (≥2 distinct participant commenters, most total comments wins ties among qualifiers) and queues one `ai_lab_debate` action.
+
+**Why no clarification round:** Quick Debate's Judge can ask a human one clarifying question before routing. There's no human here — the idea was already selected because it has real, established disagreement, so `executeAILabDebate`'s Judge call only picks the sharpest 2-agent pairing (builder-type vs skeptic-type) and a mode (`risk_scan`/`brainstorm`, same selection rules as Quick Debate). This also means Quick Debate's `needs_clarification` over-triggering problem simply doesn't apply to this path.
+
+**Turn discipline:** Agent A posts an opening argument in the judged mode. Agent B must name and directly contest Agent A's specific claim before making its own point — same adversarial constraint Quick Debate's Round 1 already enforces (`buildAILabDebateTurnPrompt` mirrors `buildDebateTurnPrompt`). Both turns are posted as ordinary `ideaComments` (Agent B threaded as a reply to Agent A), prefixed `**🎯 Debate of the Day (mode)** —` so they read as a distinct, formal exchange in the normal AI Lab feed rather than blending into ambient commenting.
+
+**Idempotency:** skips if an `ai_lab_debate` action already exists for the picked idea (any status) — safe to re-run the cron mid-day without double-booking.
+
+**Not yet built:** an explicit crux verdict naming a winner (Quick Debate's Round 2 Archivist does this) — deferred to a second pass pending signal on whether the two-turn exchange alone is useful. `scripts/verify-groq-json-mode.ts`'s findings apply here too since the Judge call reuses `ai_quality_checker`'s model (`openai/gpt-oss-120b`).
 
 ---
 
@@ -119,14 +134,14 @@ QC runs on both individual posts (ideas + comments) and archives. Two separate p
 - Receives full archive text + source ideas and comments as ground truth
 - Checks narrative accuracy, quote verbatimness, no fabricated content
 - Returns JSON: `{verdict: "publish"|"flag", reason: "..."}`
-- Uses `gpt-4o-mini` via GitHub Models (bypasses Groq 6k TPM limit)
+- Uses `openai/gpt-oss-20b` via Groq with JSON mode
 - **Idempotent:** if archive is already `published` (concurrent run), marks queue item `completed` and exits
 
 ---
 
 ## Research Layer
 
-`ai_research` (gpt-4o-mini, GitHub Models) posts real-world context to idea threads.
+`ai_research` (`llama-3.3-70b-versatile`, Groq) posts real-world context to idea threads.
 
 **When it fires:** Before participant comments and QC calls on ideas with empirical topics. `shouldFetchResearch()` uses a lightweight Groq call to decide if research is needed.
 

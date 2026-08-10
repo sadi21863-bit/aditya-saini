@@ -48,6 +48,8 @@ import {
   buildDebateArchivePrompt,
   buildRound2TurnPrompt,
   buildRound2ArchivePrompt,
+  buildAILabDebateJudgePrompt,
+  buildAILabDebateTurnPrompt,
 } from "./prompts";
 import { stripThinkingTags } from "./response-cleaner";
 import { parseJsonResponse } from "./json-helpers";
@@ -472,6 +474,11 @@ async function executeItem(item: AIQueue): Promise<void> {
     return;
   }
 
+  if (item.actionType === "ai_lab_debate") {
+    await executeAILabDebate(agent, item, today);
+    return;
+  }
+
   // Research pre-call for participant and QC actions.
   // Participants: fetches + posts @research publicly, injects into prompt.
   // QC: fetches silently for fact-checking, does NOT post publicly.
@@ -862,10 +869,11 @@ async function executeArchiveDay(
     ? formatResearchBlock(archiveResearchRow.results as SourceCitation[], "TODAY'S REAL-WORLD CONTEXT")
     : "";
 
-  // ── PASS 1: per-idea debate summaries (gpt-4o-mini, ~1,500–2,000 tokens each) ──
+  // ── PASS 1: per-idea debate summaries (gpt-oss-20b, ~1,500–2,000 tokens each) ──
   // GitHub Models enforces an 8,000 token hard per-request limit on all free-tier models.
   // The full prompt (9k–13k tokens on busy days) exceeds this. Summarising each idea
   // individually keeps every Pass 1 call well within budget.
+  // 2026-08-07: GitHub Models retired → openai/gpt-oss-20b on Groq (JSON mode verified live).
   const ideaSummaries: Array<{
     title:   string;
     summary: string;
@@ -888,11 +896,11 @@ async function executeArchiveDay(
     );
 
     try {
-      const raw     = await callGitHub(
-        "openai/gpt-4o-mini",
+      const raw     = await callGroq(
+        "openai/gpt-oss-20b",
         "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
         summaryPrompt,
-        { temperature: 0.3, maxTokens: 400 }
+        { temperature: 0.3, maxTokens: 400, jsonMode: true }
       );
       const p = parseJsonResponse(raw) as { summary: string; quotes: Array<{ agent: string; text: string; context: string }> };
       ideaSummaries.push({
@@ -906,9 +914,10 @@ async function executeArchiveDay(
     }
   }
 
-  // ── PASS 2: synthesis (openai/gpt-4o, ~3,000 tokens) ──────────────────────
+  // ── PASS 2: synthesis (openai/gpt-oss-120b, ~3,000 tokens) ──────────────────────
   // Structured summaries from Pass 1 replace the raw idea/comment dump.
-  // Input is ~3k tokens — comfortably within the 8k limit, so GPT-4o is viable here.
+  // Input is ~3k tokens. JSON mode enforced natively (gpt-oss-120b verified).
+  // 2026-08-07: GitHub Models retired → Groq openai/gpt-oss-120b.
   const summaryBlock = ideaSummaries
     .map((s, i) =>
       `IDEA ${i + 1}: "${s.title}"\n${s.summary}${
@@ -937,11 +946,11 @@ Use the quote candidates above for memorable_quotes — copy verbatim, do not pa
 Include a "strongest_voice_agent_handle" field — the handle of the single agent whose argument was most incisive, original, or well-supported today. Use the exact handle string as it appears in the agent identifiers above (e.g. "llama", "scout", "maverick"). If no agent clearly stood out, omit the field or set it to null.
 Output ONLY the JSON object.`;
 
-  const rawResponse = await callGitHub(
-    agent.model,   // openai/gpt-4o
+  const rawResponse = await callGroq(
+    agent.model,   // openai/gpt-oss-120b
     agent.persona,
     synthesisPrompt,
-    { temperature: 0.7, maxTokens: agent.maxTokens ?? 4000 }
+    { temperature: 0.7, maxTokens: agent.maxTokens ?? 4000, jsonMode: true }
   );
 
   if (!rawResponse.trim()) throw new Error("Empty response from archivist synthesis");
@@ -969,7 +978,11 @@ Output ONLY the JSON object.`;
     winnerAgentId = winnerRow?.id ?? null;
   }
 
-  // ── 5. Insert archive row as draft ──────────────────────────────────
+  // ── 5. Insert archive row as published ──────────────────────────────
+  // 2026-08-07: archives are published immediately — the QC approval gate
+  // (quality_review_archive) was removed. Every daily archive since 06-10
+  // was stuck in 'flagged' due to quote-fidelity nits, blocking rollups.
+  const now = new Date();
   const [newArchive] = await db
     .insert(aiLabArchives)
     .values({
@@ -981,8 +994,9 @@ Output ONLY the JSON object.`;
       keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
       memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
       stats:            (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
-      status:           "draft",
-      generatedAt:      new Date(),
+      status:           "published",
+      publishedAt:      now,
+      generatedAt:      now,
       winnerAgentId,
     })
     .onConflictDoUpdate({
@@ -994,32 +1008,16 @@ Output ONLY the JSON object.`;
         keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
         keyQuestions:    (parsed.key_questions     ?? []) as unknown as string[],
         memorableQuotes: (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-        stats:           (parsed.stats             ?? {}) as unknown as Record<string, unknown>,
-        status:          "draft",
-        generatedAt:     new Date(),
+        stats:           (parsed.stats             ?? {}) as unknown as Record<string, unknown>[],
+        status:          "published",
+        publishedAt:     now,
+        generatedAt:     now,
         winnerAgentId,
       },
     })
     .returning({ id: aiLabArchives.id });
 
-  console.log(`[ai-lab] Archive for ${date} saved as draft (id: ${newArchive?.id})`);
-
-  // ── 6. Auto-queue quality_review_archive (Step 4 will handle it) ────
-  const qcAgent = getAdmins().find((a) => a.role === "quality_checker");
-  if (qcAgent && newArchive) {
-    await db.insert(aiQueue).values({
-      agentId:      qcAgent.id,
-      actionType:   "quality_review_archive",
-      promptContext: {
-        archiveId:   newArchive.id,
-        archiveDate: date,
-      },
-      scheduledFor: new Date(),
-      priority:     2,
-      status:       "pending",
-    });
-    console.log(`[ai-lab] Queued quality_review_archive for archive ${newArchive.id}`);
-  }
+  console.log(`[ai-lab] Archive for ${date} published (id: ${newArchive?.id})`);
 
   // ── 7. Increment usage (self-contained handlers manage their own) ───
   await db
@@ -1099,12 +1097,13 @@ async function executeQualityReviewArchive(
           .where(inArray(ideaComments.ideaId, labIdeas.map((i) => i.id)))
       : [];
 
-    // Summarize each idea before building the QC prompt — GitHub Models' 8k token
-    // per-request limit means dumping every idea's full content + every comment
-    // verbatim (as this used to do) reliably 413'd on busy days, leaving every
-    // archive stuck in 'draft' forever. Same Pass-1 pattern as executeArchiveDay.
-    // Quote fidelity is still checked byte-for-byte against commentRows below —
-    // only the "what happened" context passed to the LLM is summarized.
+    // Summarize each idea before building the QC prompt — the old approach dumped
+    // every idea's full content + every comment verbatim, which reliably exceeded
+    // GitHub Models' 8k-token per-request limit, leaving every archive stuck in
+    // 'draft' forever. Same Pass-1 pattern as executeArchiveDay. Quote fidelity is
+    // still checked byte-for-byte against commentRows below — only the "what
+    // happened" context passed to the LLM is summarized.
+    // 2026-08-07: GitHub Models retired → openai/gpt-oss-20b on Groq.
     const ideaSummaries: Array<{ title: string; handle: string; summary: string }> = [];
     for (const idea of labIdeas) {
       const handle = (idea.userId ?? "").replace(/^ai_/, "").replace(/_/g, "-");
@@ -1118,11 +1117,11 @@ async function executeQualityReviewArchive(
 
       const summaryPrompt = buildIdeaSummaryPrompt(idea.title ?? "(untitled)", idea.content ?? idea.context ?? "", commentList);
       try {
-        const raw = await callGitHub(
-          "openai/gpt-4o-mini",
+        const raw = await callGroq(
+          "openai/gpt-oss-20b",
           "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
           summaryPrompt,
-          { temperature: 0.3, maxTokens: 400 }
+          { temperature: 0.3, maxTokens: 400, jsonMode: true }
         );
         const p = parseJsonResponse(raw) as { summary: string };
         ideaSummaries.push({ title: idea.title ?? "(untitled)", handle, summary: String(p.summary ?? "") });
@@ -1166,10 +1165,11 @@ async function executeQualityReviewArchive(
       throw new Error(`Rollup ${rollupId} is not reviewable (status: ${rollupRow.status})`);
     }
 
-    // Source ground truth = published daily archives in the rollup's period
+    // Source ground truth = published/flagged daily archives in the rollup's period
+    // (2026-08-07: flagged included — same rationale as executeRollupWeek).
     const sourceArchives = await db.select().from(aiLabArchives).where(
       and(
-        eq(aiLabArchives.status, "published"),
+        inArray(aiLabArchives.status, ["published", "flagged"]),
         gte(aiLabArchives.date, periodStart),
         lte(aiLabArchives.date, periodEnd)
       )
@@ -1198,11 +1198,12 @@ async function executeQualityReviewArchive(
     };
   }
 
-  // ── Call Quality Checker via GitHub Models (gpt-4o-mini) ────────────
-  // Groq free tier has a 6k TPM limit; archive review prompts exceed it.
-  // GitHub Models has no such per-request limit, so we always use it here.
+  // ── Call Quality Checker via Groq (gpt-oss-20b) ──────────────────────
+  // 2026-08-07: GitHub Models retired → migrated from openai/gpt-4o-mini.
+  // gpt-oss-20b is faster than the QC's default gpt-oss-120b and JSON mode is
+  // verified live; keeps load off the 120b TPM pool (participants + theme setter).
   const rawResponse = await callAgent(
-    { ...agent, provider: "github", model: "openai/gpt-4o-mini" } as Parameters<typeof callAgent>[0],
+    { ...agent, provider: "groq", model: "openai/gpt-oss-20b" } as Parameters<typeof callAgent>[0],
     prompt,
     { jsonMode: true, maxTokens: 400, temperature: 0.1 }
   );
@@ -1246,17 +1247,21 @@ async function executeRollupWeek(
   const periodEnd   = String(c.periodEnd   ?? (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })());
   const periodStart = String(c.periodStart ?? (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().slice(0, 10); })());
 
-  // ── 1. Fetch published daily archives in the period ─────────────────
+  // ── 1. Fetch published/flagged daily archives in the period ─────────
+  // 2026-08-07: include flagged archives too. The QC has flagged every daily
+  // archive since 2026-06-10 (quote-fidelity nits) — requiring 'published'
+  // made weekly rollups silently skip every week. Flagged archives are still
+  // valid content records; the rollup is a synthesis and has its own QC pass.
   const archives = await db.select().from(aiLabArchives).where(
     and(
-      eq(aiLabArchives.status, "published"),
+      inArray(aiLabArchives.status, ["published", "flagged"]),
       gte(aiLabArchives.date, periodStart),
       lte(aiLabArchives.date, periodEnd)
     )
   ).orderBy(asc(aiLabArchives.date));
 
   if (archives.length === 0) {
-    console.log(`[ai-lab] Weekly rollup ${periodStart}–${periodEnd}: no published archives, skipping`);
+    console.log(`[ai-lab] Weekly rollup ${periodStart}–${periodEnd}: no archives, skipping`);
     return;
   }
 
@@ -1271,8 +1276,11 @@ async function executeRollupWeek(
   );
 
   // ── 3. Call Archivist — token budget from agent.maxTokens (4000 for GPT-OSS) ──
+  // jsonMode: true (gpt-oss-120b verified) — the old GitHub gpt-4o path repeatedly
+  // produced invalid JSON for weekly rollups; native JSON enforcement removes that.
   const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], prompt, {
     temperature: 0.7,
+    jsonMode:    true,
   });
 
   if (!rawResponse.trim()) throw new Error("Empty response from Archivist for weekly rollup");
@@ -1287,8 +1295,10 @@ async function executeRollupWeek(
   const narrativeArc = stripThinkingTags(String(parsed.narrative_arc ?? "")).trim();
   if (!narrativeArc) throw new Error("Empty narrative_arc from Archivist for weekly rollup");
 
-  // ── 4. Insert rollup row as draft ─────────────────────────────────────
+  // ── 4. Insert rollup row as published ─────────────────────────────────
+  // 2026-08-07: rollups published directly — QC approval gate removed.
   const title = `Week of ${periodStart} – ${periodEnd}`;
+  const now = new Date();
 
   const [newRollup] = await db
     .insert(aiLabRollups)
@@ -1302,8 +1312,9 @@ async function executeRollupWeek(
       keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
       keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
       memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-      status:           "draft",
-      generatedAt:      new Date(),
+      status:           "published",
+      publishedAt:      now,
+      generatedAt:      now,
     })
     .onConflictDoUpdate({
       target: [aiLabRollups.periodType, aiLabRollups.periodStart],
@@ -1313,34 +1324,16 @@ async function executeRollupWeek(
         keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
         keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
         memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-        status:           "draft",
-        generatedAt:      new Date(),
+        status:           "published",
+        publishedAt:      now,
+        generatedAt:      now,
       },
     })
     .returning({ id: aiLabRollups.id });
 
-  console.log(`[ai-lab] Weekly rollup ${periodStart}–${periodEnd} saved as draft (id: ${newRollup?.id})`);
+  console.log(`[ai-lab] Weekly rollup ${periodStart}–${periodEnd} published (id: ${newRollup?.id})`);
 
-  // ── 5. Auto-queue quality_review_archive for the rollup ──────────────
-  const qcAgent = getAdmins().find((a) => a.role === "quality_checker");
-  if (qcAgent && newRollup) {
-    await db.insert(aiQueue).values({
-      agentId:      qcAgent.id,
-      actionType:   "quality_review_archive",
-      promptContext: {
-        rollupId:    newRollup.id,
-        rollupType:  "weekly",
-        periodStart,
-        periodEnd,
-      },
-      scheduledFor: new Date(),
-      priority:     2,
-      status:       "pending",
-    });
-  }
-
-  // ── 6. Increment usage ───────────────────────────────────────────────
-  const now = new Date();
+  // ── 5. Increment usage ───────────────────────────────────────────────
   await db
     .insert(aiUsage)
     .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
@@ -1370,10 +1363,12 @@ async function executeRollupMonth(
   }
 
   // ── 1. Try weekly rollups in the period ──────────────────────────────
+  // 2026-08-07: include flagged rollups (same rationale as executeRollupWeek —
+  // QC flags everything; monthly must not starve).
   const weeklyRollups = await db.select().from(aiLabRollups).where(
     and(
       eq(aiLabRollups.periodType, "weekly"),
-      eq(aiLabRollups.status, "published"),
+      inArray(aiLabRollups.status, ["published", "flagged"]),
       gte(aiLabRollups.periodStart, periodStart),
       lte(aiLabRollups.periodEnd, periodEnd)
     )
@@ -1387,7 +1382,7 @@ async function executeRollupMonth(
     // ── 2. Fall back to daily archives ───────────────────────────────
     const dailyArchives = await db.select().from(aiLabArchives).where(
       and(
-        eq(aiLabArchives.status, "published"),
+        inArray(aiLabArchives.status, ["published", "flagged"]),
         gte(aiLabArchives.date, periodStart),
         lte(aiLabArchives.date, periodEnd)
       )
@@ -1416,8 +1411,10 @@ async function executeRollupMonth(
   const prompt = buildRollupMonthPrompt(sourceItems, periodStart, periodEnd, usingDailyFallback);
 
   // ── 4. Call Archivist — token budget from agent.maxTokens (4000 for GPT-OSS) ──
+  // jsonMode: true (gpt-oss-120b verified) — native JSON enforcement.
   const rawResponse = await callAgent(agent as Parameters<typeof callAgent>[0], prompt, {
     temperature: 0.7,
+    jsonMode:    true,
   });
 
   if (!rawResponse.trim()) throw new Error("Empty response from Archivist for monthly rollup");
@@ -1432,8 +1429,10 @@ async function executeRollupMonth(
   const narrativeArc = stripThinkingTags(String(parsed.narrative_arc ?? "")).trim();
   if (!narrativeArc) throw new Error("Empty narrative_arc from Archivist for monthly rollup");
 
-  // ── 5. Insert rollup row as draft ─────────────────────────────────────
+  // ── 5. Insert rollup row as published ─────────────────────────────────
+  // 2026-08-07: rollups published directly — QC approval gate removed.
   const title = `Month of ${periodStart.slice(0, 7)}`;
+  const now = new Date();
 
   const [newRollup] = await db
     .insert(aiLabRollups)
@@ -1447,8 +1446,9 @@ async function executeRollupMonth(
       keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
       keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
       memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-      status:           "draft",
-      generatedAt:      new Date(),
+      status:           "published",
+      publishedAt:      now,
+      generatedAt:      now,
     })
     .onConflictDoUpdate({
       target: [aiLabRollups.periodType, aiLabRollups.periodStart],
@@ -1458,34 +1458,16 @@ async function executeRollupMonth(
         keyDisagreements: (parsed.key_disagreements ?? []) as unknown as Record<string, unknown>[],
         keyQuestions:     (parsed.key_questions     ?? []) as unknown as string[],
         memorableQuotes:  (parsed.memorable_quotes  ?? []) as unknown as Record<string, unknown>[],
-        status:           "draft",
-        generatedAt:      new Date(),
+        status:           "published",
+        publishedAt:      now,
+        generatedAt:      now,
       },
     })
     .returning({ id: aiLabRollups.id });
 
-  console.log(`[ai-lab] Monthly rollup ${periodStart.slice(0, 7)} saved as draft (id: ${newRollup?.id})`);
+  console.log(`[ai-lab] Monthly rollup ${periodStart.slice(0, 7)} published (id: ${newRollup?.id})`);
 
-  // ── 6. Auto-queue quality_review_archive for the rollup ──────────────
-  const qcAgent = getAdmins().find((a) => a.role === "quality_checker");
-  if (qcAgent && newRollup) {
-    await db.insert(aiQueue).values({
-      agentId:      qcAgent.id,
-      actionType:   "quality_review_archive",
-      promptContext: {
-        rollupId:    newRollup.id,
-        rollupType:  "monthly",
-        periodStart,
-        periodEnd,
-      },
-      scheduledFor: new Date(),
-      priority:     2,
-      status:       "pending",
-    });
-  }
-
-  // ── 7. Increment usage ───────────────────────────────────────────────
-  const now = new Date();
+  // ── 6. Increment usage ───────────────────────────────────────────────
   await db
     .insert(aiUsage)
     .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
@@ -1558,6 +1540,95 @@ Identify the sharpest unresolved tension and pose it as one direct question. Fol
   }
 
   console.log(`[ai-lab] Conductor posted question for idea ${item.targetIdeaId}`);
+}
+
+// ─── AI Lab "Debate of the Day" ───────────────────────────────────────
+//
+// Autonomous counterpart to Quick Debate: queued once daily by
+// queueAILabDebateOfDay() for the day's most contested idea. No human
+// submitted this, so there's no needs_clarification path — the Judge only
+// picks the sharpest pairing and mode, then both agents post a tight,
+// adversarial two-turn exchange as comments on the idea itself.
+
+async function executeAILabDebate(
+  agent: ReturnType<typeof getAgent> & object,
+  item:  AIQueue,
+  today: string
+): Promise<void> {
+  if (!item.targetIdeaId) throw new Error("ai_lab_debate action missing targetIdeaId");
+  const c = (item.promptContext as { ideaTitle: string; ideaContent: string; theme: string }) ?? {};
+
+  // ── Judge: pick agents + mode ────────────────────────────────────────
+  const judgePrompt = buildAILabDebateJudgePrompt(c.ideaTitle, c.ideaContent, c.theme);
+  const judgeRaw = await callGroq(agent.model, "You are a debate routing judge. Respond in valid JSON only. No markdown.", judgePrompt, {
+    maxTokens: 300,
+    jsonMode:  true,
+  });
+  const judgment = parseJsonResponse(judgeRaw) as {
+    recommended_agents: string[];
+    recommended_mode:   string;
+    reasoning:           string;
+  };
+
+  const agentIds = Array.isArray(judgment.recommended_agents) ? judgment.recommended_agents : [];
+  if (agentIds.length < 2) throw new Error("ai_lab_debate Judge did not return 2 agents");
+
+  const agentA = getAgent(agentIds[0]);
+  const agentB = getAgent(agentIds[1]);
+  if (!agentA || !agentB) throw new Error(`ai_lab_debate Judge picked unknown agent(s): ${agentIds.join(", ")}`);
+
+  const mode = judgment.recommended_mode ?? "brainstorm";
+
+  // ── Turn A ────────────────────────────────────────────────────────────
+  const promptA = buildAILabDebateTurnPrompt({
+    ideaTitle: c.ideaTitle, ideaContent: c.ideaContent, theme: c.theme,
+    mode, reasoning: judgment.reasoning ?? "",
+    agent: agentA, agentATurn: null, agentAName: null,
+  });
+  const responseA = stripThinkingTags(await callAgent(agentA, promptA, { temperature: 0.8 }));
+  const label = `**🎯 Debate of the Day** (${mode.replace("_", " ")}) — `;
+
+  const [commentA] = await db
+    .insert(ideaComments)
+    .values({ ideaId: item.targetIdeaId, userId: agentA.id, content: label + responseA.trim(), parentId: null })
+    .returning({ id: ideaComments.id });
+
+  // ── Turn B — must name and contest Agent A's specific claim ──────────
+  const promptB = buildAILabDebateTurnPrompt({
+    ideaTitle: c.ideaTitle, ideaContent: c.ideaContent, theme: c.theme,
+    mode, reasoning: judgment.reasoning ?? "",
+    agent: agentB, agentATurn: { content: responseA.trim() }, agentAName: agentA.name,
+  });
+  const responseB = stripThinkingTags(await callAgent(agentB, promptB, { temperature: 0.8 }));
+
+  const [commentB] = await db
+    .insert(ideaComments)
+    .values({
+      ideaId: item.targetIdeaId, userId: agentB.id,
+      content: label + responseB.trim(),
+      parentId: commentA?.id ?? null,
+    })
+    .returning({ id: ideaComments.id });
+
+  await db
+    .update(ideas)
+    .set({ totalComments: sql`${ideas.totalComments} + ${commentB ? 2 : 1}` })
+    .where(eq(ideas.id, item.targetIdeaId));
+
+  if (commentA) await db.update(aiQueue).set({ resultCommentId: commentA.id }).where(eq(aiQueue.id, item.id));
+
+  console.log(`[ai-lab] Debate of the Day posted for idea ${item.targetIdeaId} (${agentA.handle} vs ${agentB.handle}, ${mode})`);
+
+  // ── Increment usage (self-contained handler manages its own) ─────────
+  const now = new Date();
+  await db
+    .insert(aiUsage)
+    .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
+    .onConflictDoUpdate({
+      target: [aiUsage.agentId, aiUsage.date],
+      targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
+      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
+    });
 }
 
 // ─── Week 3 writers ───────────────────────────────────────────────────
@@ -2148,11 +2219,11 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
       agentBName,
     });
 
-    const raw = await callGitHub(
-      "openai/gpt-4o-mini",
+    const raw = await callGroq(
+      "openai/gpt-oss-20b",
       systemPrompt,
       userPrompt,
-      { temperature: 0.5, maxTokens: 400 },
+      { temperature: 0.5, maxTokens: 400, jsonMode: true },
     );
 
     let parsed: { verdict_reasoning: string; verdict: string };
@@ -2175,7 +2246,7 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
       })
       .where(eq(debates.id, debateId));
 
-    await upsertUsage("ai_archivist", today, "github");
+    await upsertUsage("ai_archivist", today, "groq");
     await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
     return;
   }
@@ -2199,14 +2270,14 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
     agentBName,
   });
 
-  const summary = await callGitHub(
-    "openai/gpt-4o-mini",
+  const summary = await callGroq(
+    "openai/gpt-oss-20b",
     systemPrompt,
     userPrompt,
     { temperature: 0.5, maxTokens: 300 },
   );
 
-  if (!summary.trim()) throw new Error("debate_archive: empty summary from gpt-4o-mini");
+  if (!summary.trim()) throw new Error("debate_archive: empty summary from gpt-oss-20b");
 
   await db.update(debates)
     .set({

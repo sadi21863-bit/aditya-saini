@@ -77,6 +77,7 @@ Diagnosed via GHA run history + Vercel runtime error logs + direct DB queries. R
 |-------|---------------|---------|
 | `/api/cron/agents/theme` | 02:30 daily | Queue theme selection |
 | `/api/cron/agents/seed-ideas` | 03:30 daily | Queue 4 participant ideas |
+| `/api/cron/agents/lab-debate` | 15:30 daily | Queue "Debate of the Day" (`ai_lab_debate`) for the most contested idea |
 | `/api/cron/agents/archive` | 17:30 daily | Queue daily archive |
 | `/api/cron/agents/rollup-weekly` | 18:00 Sundays | Queue weekly rollup |
 | `/api/cron/agents/rollup-monthly` | 18:31 1st of month | Queue monthly rollup |

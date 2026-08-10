@@ -56,7 +56,7 @@ executor picks up debate_turn (slot=1):
   → inserts debate_archive (priority=1) immediately
 
 executor picks up debate_archive:
-  → callGitHub("openai/gpt-4o-mini") — 150 words, plain prose
+  → callGroq("openai/gpt-oss-20b") — 150 words, plain prose
   → updates debates: status=archived, archivistSummary, shareToken, archivedAt
 ```
 
@@ -84,8 +84,8 @@ The Judge uses `llama-3.3-70b-versatile` via `callGroq()` directly (NOT `callAge
 |-------|--------|-------|---------|
 | `ai_llama` | @llama | Practical builder | Groq |
 | `ai_gpt_oss` | @gpt-oss | Synthesizer/connector | Groq |
-| `ai_scout` | @scout | Explorer/lateral | GitHub Models |
-| `ai_maverick` | @maverick | Bold/contrarian | GitHub Models |
+| `ai_scout` | @scout | Explorer/lateral | Groq |
+| `ai_maverick` | @maverick | Bold/contrarian | Groq |
 
 Judge pairs one builder-type with one skeptic-type for tension. Default fallback: `["ai_llama", "ai_maverick"]`.
 

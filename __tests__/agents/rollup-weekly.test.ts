@@ -181,15 +181,16 @@ function resetState() {
 }
 
 // select call order for rollup_week:
-// 0 = aiQueue full rows, 1 = aiUsage check, 2 = aiLabArchives (published in period)
+// 0 = aiQueue full rows, 1 = aiUsage check, 2 = quota check, 3 = aiLabArchives (published/flagged in period)
 
-describe("processQueue — rollup_week: inserts weekly rollup as draft", () => {
+describe("processQueue — rollup_week: inserts weekly rollup as published", () => {
   beforeEach(resetState);
 
-  it("inserts ai_lab_rollups with periodType='weekly' and status='draft'", async () => {
+  it("inserts ai_lab_rollups with periodType='weekly' and status='published'", async () => {
     dbState.selectResponses = [
       [makeWeekQueueItem()],
       [],   // not rate-limited
+      [],   // quota check — not exceeded
       [makePublishedArchive("2026-04-21"), makePublishedArchive("2026-04-22"), makePublishedArchive("2026-04-23")],
     ];
     mockCallAgent.mockResolvedValueOnce(ARCHIVIST_RESPONSE);
@@ -200,7 +201,7 @@ describe("processQueue — rollup_week: inserts weekly rollup as draft", () => {
       (i) => (i.data as { periodType?: string }).periodType === "weekly"
     );
     expect(rollupInsert).toBeDefined();
-    expect((rollupInsert!.data as Record<string, unknown>).status).toBe("draft");
+    expect((rollupInsert!.data as Record<string, unknown>).status).toBe("published");
     expect((rollupInsert!.data as Record<string, unknown>).periodStart).toBe("2026-04-19");
     expect((rollupInsert!.data as Record<string, unknown>).periodEnd).toBe("2026-04-25");
   });
@@ -213,6 +214,7 @@ describe("processQueue — rollup_week: fewer than 3 archives", () => {
     dbState.selectResponses = [
       [makeWeekQueueItem()],
       [],
+      [],   // quota check
       [makePublishedArchive("2026-04-23")],  // only 1 archive — below the 3-archive threshold
     ];
     mockCallAgent.mockResolvedValueOnce(ARCHIVIST_RESPONSE);
@@ -241,7 +243,8 @@ describe("processQueue — rollup_week: empty period", () => {
     dbState.selectResponses = [
       [makeWeekQueueItem()],
       [],
-      [],  // no published archives
+      [],   // quota check
+      [],   // no published/flagged archives
     ];
 
     await processQueue(1);
@@ -261,13 +264,14 @@ describe("processQueue — rollup_week: empty period", () => {
   });
 });
 
-describe("processQueue — rollup_week: auto-queues QC review", () => {
+describe("processQueue — rollup_week: does NOT auto-queue QC review (removed 2026-08-07)", () => {
   beforeEach(resetState);
 
-  it("inserts a quality_review_archive queue row with rollupId after generating the rollup", async () => {
+  it("does not insert a quality_review_archive queue row after generating the rollup", async () => {
     dbState.selectResponses = [
       [makeWeekQueueItem()],
       [],
+      [],   // quota check
       [makePublishedArchive("2026-04-21"), makePublishedArchive("2026-04-22"), makePublishedArchive("2026-04-23")],
     ];
     mockCallAgent.mockResolvedValueOnce(ARCHIVIST_RESPONSE);
@@ -277,9 +281,6 @@ describe("processQueue — rollup_week: auto-queues QC review", () => {
     const qcInsert = dbState.capturedInserts.find(
       (i) => (i.data as { actionType?: string }).actionType === "quality_review_archive"
     );
-    expect(qcInsert).toBeDefined();
-    const ctx = (qcInsert!.data as { promptContext: Record<string, unknown> }).promptContext;
-    expect(ctx.rollupId).toBe("new-rollup-id");
-    expect(ctx.rollupType).toBe("weekly");
+    expect(qcInsert).toBeUndefined();
   });
 });

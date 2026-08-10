@@ -417,12 +417,14 @@ describe("processQueue — FOR UPDATE SKIP LOCKED pattern", () => {
       return {
         from: (_t: unknown) => ({
           where: (_c: unknown) => {
-            // Calls 0..5 belong to first processQueue: 0=item fetch, 1..5=usage checks
-            // Calls 6..11 belong to second processQueue: 6=item fetch, 7..11=usage checks
-            if (idx === 0)  return Promise.resolve(firstItems);
-            if (idx < 6)    return Promise.resolve([]);  // usage rows for first batch
-            if (idx === 6)  return Promise.resolve(secondItems);
-            return Promise.resolve([]);                  // usage rows for second batch
+            // Calls 0..10 belong to first processQueue:
+            //   0=item fetch, 1..10=usage+quota checks (2 per item)
+            // Calls 11..21 belong to second processQueue:
+            //   11=item fetch, 12..21=usage+quota checks
+            if (idx === 0)   return Promise.resolve(firstItems);
+            if (idx < 11)    return Promise.resolve([]);  // usage+quota for first batch
+            if (idx === 11)  return Promise.resolve(secondItems);
+            return Promise.resolve([]);                  // usage+quota for second batch
           },
           limit: () => Promise.resolve([]),
         }),

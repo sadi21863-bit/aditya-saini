@@ -76,7 +76,7 @@ describe("personas — participant tier", () => {
     expect(getParticipants()).toHaveLength(4);
   });
 
-  it("participants are Llama (groq), GPT-OSS (groq), Scout (github), Maverick (github)", () => {
+  it("participants are Llama (groq), GPT-OSS (groq), Scout (groq), Maverick (groq)", () => {
     const participants  = getParticipants();
     const llamaAgent    = participants.find((a) => a.handle === "llama");
     const gptOssAgent   = participants.find((a) => a.handle === "gpt-oss");
@@ -90,8 +90,8 @@ describe("personas — participant tier", () => {
 
     expect(llamaAgent!.provider).toBe("groq");
     expect(gptOssAgent!.provider).toBe("groq");
-    expect(scoutAgent!.provider).toBe("github");
-    expect(maverickAgent!.provider).toBe("github");
+    expect(scoutAgent!.provider).toBe("groq");
+    expect(maverickAgent!.provider).toBe("groq");
   });
 
   it("every participant persona contains the BRUTAL_HONESTY_RULE markers", () => {
@@ -117,15 +117,15 @@ describe("personas — participant tier", () => {
     expect(gptOss.model).toBe(expected);
   });
 
-  it("Scout uses meta/llama-4-scout-17b-16e-instruct model (GitHub Models, renamed from Qwen 2026-05-11)", () => {
+  it("Scout uses llama-3.3-70b-versatile model (migrated from GitHub Models 2026-08-07)", () => {
     const scout = getParticipants().find((a) => a.handle === "scout")!;
-    const expected = process.env.AGENT_MODEL_QWEN ?? "meta/llama-4-scout-17b-16e-instruct";
+    const expected = process.env.AGENT_MODEL_SCOUT ?? "llama-3.3-70b-versatile";
     expect(scout.model).toBe(expected);
   });
 
-  it("Maverick uses meta/llama-4-maverick-17b-128e-instruct-fp8 (GitHub Models, added Phase 3)", () => {
+  it("Maverick uses openai/gpt-oss-20b model (migrated from GitHub Models 2026-08-07)", () => {
     const maverick = getParticipants().find((a) => a.handle === "maverick")!;
-    const expected = process.env.AGENT_MODEL_MAVERICK ?? "meta/llama-4-maverick-17b-128e-instruct-fp8";
+    const expected = process.env.AGENT_MODEL_MAVERICK ?? "openai/gpt-oss-20b";
     expect(maverick.model).toBe(expected);
   });
 });
@@ -136,14 +136,14 @@ describe("personas — archivist tier", () => {
     expect(archivists).toHaveLength(1);
   });
 
-  it("Archivist uses GitHub Models as provider (two-pass: gpt-4o is Pass 2 synthesizer)", () => {
+  it("Archivist uses Groq as provider (migrated from GitHub Models 2026-08-07)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    expect(archivist.provider).toBe("github");
+    expect(archivist.provider).toBe("groq");
   });
 
-  it("Archivist uses openai/gpt-4o model (Pass 2 synthesis in two-pass approach)", () => {
+  it("Archivist uses openai/gpt-oss-120b model (migrated from openai/gpt-4o 2026-08-07)", () => {
     const archivist = ALL_AGENTS.find((a) => a.role === "archivist")!;
-    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-4o";
+    const expected = process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b";
     expect(archivist.model).toBe(expected);
   });
 
@@ -159,10 +159,10 @@ describe("personas — archivist tier", () => {
 });
 
 describe("personas — Phase 3 agents", () => {
-  it("Conductor agent exists with role=conductor and provider=github", () => {
+  it("Conductor agent exists with role=conductor and provider=groq (migrated from GitHub Models 2026-08-07)", () => {
     const conductor = ALL_AGENTS.find((a) => a.role === "conductor");
     expect(conductor).toBeDefined();
-    expect(conductor!.provider).toBe("github");
+    expect(conductor!.provider).toBe("groq");
     expect(conductor!.id).toBe("ai_conductor");
   });
 

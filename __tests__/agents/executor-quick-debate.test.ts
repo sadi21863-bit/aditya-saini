@@ -232,7 +232,8 @@ function resetState() {
 // Select call order:
 //   0 = aiQueue full rows (processQueue fetches the seed item after claiming it)
 //   1 = aiUsage check    (executeItem rate-limit check for ai_llama)
-//   2 = ideas row        (handler fetches the idea to build the prompt)
+//   2 = quota check      (executeItem daily token budget check)
+//   3 = ideas row        (handler fetches the idea to build the prompt)
 
 describe("processQueue — quick_debate_seed: happy path", () => {
   beforeEach(resetState);
@@ -241,7 +242,8 @@ describe("processQueue — quick_debate_seed: happy path", () => {
     dbState.selectResponses = [
       [makeDebateSeedItem()],  // 0: full queue rows
       [],                      // 1: usage check — Llama not rate-limited
-      [IDEA_ROW],              // 2: idea row
+      [],                      // 2: quota check
+      [IDEA_ROW],              // 3: idea row
     ];
 
     mockCallAgent.mockResolvedValueOnce(LLAMA_COMMENT.content);
@@ -293,7 +295,8 @@ describe("processQueue — quick_debate_seed: callAgent throws", () => {
     dbState.selectResponses = [
       [makeDebateSeedItem()],  // 0: full queue rows
       [],                      // 1: usage check
-      [IDEA_ROW],              // 2: idea row
+      [],                      // 2: quota check
+      [IDEA_ROW],              // 3: idea row
     ];
 
     mockCallAgent.mockRejectedValueOnce(new Error("Groq connection refused"));

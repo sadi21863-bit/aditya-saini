@@ -202,16 +202,17 @@ function resetState() {
 }
 
 // select call order for rollup_month:
-// 0 = aiQueue full rows, 1 = aiUsage, 2 = weekly rollups query
-// 3 = daily archives fallback (only reached when weekly rollups < 2)
+// 0 = aiQueue full rows, 1 = aiUsage, 2 = quota check,
+// 3 = weekly rollups query, 4 = daily archives fallback (only reached when weekly rollups < 2)
 
 describe("processQueue — rollup_month: uses weekly rollups when available", () => {
   beforeEach(resetState);
 
-  it("inserts monthly rollup with periodType='monthly' when weekly rollups are sufficient", async () => {
+  it("inserts monthly rollup with periodType='monthly' and status='published' when weekly rollups are sufficient", async () => {
     dbState.selectResponses = [
       [makeMonthQueueItem()],
-      [],
+      [],       // usage check
+      [],       // quota check
       [makeWeeklyRollup("2026-04-01"), makeWeeklyRollup("2026-04-08"), makeWeeklyRollup("2026-04-15")],
       // No fallback needed — 3 weekly rollups is not sparse
     ];
@@ -223,7 +224,7 @@ describe("processQueue — rollup_month: uses weekly rollups when available", ()
       (i) => (i.data as { periodType?: string }).periodType === "monthly"
     );
     expect(rollupInsert).toBeDefined();
-    expect((rollupInsert!.data as Record<string, unknown>).status).toBe("draft");
+    expect((rollupInsert!.data as Record<string, unknown>).status).toBe("published");
   });
 });
 
@@ -233,7 +234,8 @@ describe("processQueue — rollup_month: falls back to daily archives when weekl
   it("uses daily archives when only 1 weekly rollup exists for the month", async () => {
     dbState.selectResponses = [
       [makeMonthQueueItem()],
-      [],
+      [],       // usage check
+      [],       // quota check
       [makeWeeklyRollup("2026-04-01")],  // only 1 weekly — sparse, triggers fallback
       [makePublishedArchive("2026-04-05"), makePublishedArchive("2026-04-06")],
     ];
@@ -254,8 +256,9 @@ describe("processQueue — rollup_month: falls back to daily archives when weekl
   it("falls back to daily archives when no weekly rollups exist at all", async () => {
     dbState.selectResponses = [
       [makeMonthQueueItem()],
-      [],
-      [],   // zero weekly rollups — sparse
+      [],       // usage check
+      [],       // quota check
+      [],       // zero weekly rollups — sparse
       [makePublishedArchive("2026-04-10"), makePublishedArchive("2026-04-11"), makePublishedArchive("2026-04-12")],
     ];
     mockCallAgent.mockResolvedValueOnce(ARCHIVIST_RESPONSE);
@@ -276,7 +279,8 @@ describe("processQueue — rollup_month: empty period", () => {
   it("skips silently with no insert when neither weekly rollups nor daily archives exist", async () => {
     dbState.selectResponses = [
       [makeMonthQueueItem()],
-      [],
+      [],       // usage check
+      [],       // quota check
       [],  // no weekly rollups
       [],  // no daily archives either
     ];

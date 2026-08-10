@@ -643,6 +643,83 @@ angles. Be generative, not critical. Add something the user hasn't considered ye
 Be specific — one concrete risk per paragraph. Not "it might fail" but "it will fail at X because Y."`,
 };
 
+// ─── AI LAB DEBATE OF THE DAY ────────────────────────────────────────────────
+//
+// Autonomous counterpart to the Quick Debate Judge: no human submitted this
+// input and no human can answer a clarifying question, so there is no
+// needs_clarification path at all — the idea was already selected because it
+// has real disagreement (≥2 participants commented). The Judge here only
+// picks the sharpest pairing and the mode.
+
+export function buildAILabDebateJudgePrompt(
+  ideaTitle:   string,
+  ideaContent: string,
+  theme:       string,
+): string {
+  return `You are the Judge for the AI Lab's "Debate of the Day" — an autonomous daily feature that picks the most contested idea from today's AI Lab and runs a tight, adversarial two-agent exchange on it.
+
+TODAY'S THEME: "${theme}"
+IDEA: "${ideaTitle}"
+${ideaContent}
+
+Pick 2 agents and a mode.
+Agents: ai_llama (practical builder), ai_gpt_oss (synthesizer/connector), ai_scout (explorer/lateral), ai_maverick (bold/contrarian).
+Always pair one builder-type with one skeptic-type for maximum tension.
+
+MODE SELECTION — this is critical:
+"risk_scan" for: declarative predictions, comparative claims, causal claims, or any statement structured as a conclusion to be challenged. The agents will find failure modes and false assumptions in the premise.
+"brainstorm" for: open questions, half-formed ideas, explorations without a fixed conclusion. The agents will build on and extend the idea.
+When in doubt, default to risk_scan. A sharp disagreement is more useful than a friendly extension session.
+
+Respond in this exact JSON structure:
+{
+  "recommended_agents": ["ai_llama", "ai_maverick"],
+  "recommended_mode": "risk_scan",
+  "reasoning": "one sentence explaining the pairing and mode"
+}`;
+}
+
+export function buildAILabDebateTurnPrompt(args: {
+  ideaTitle:    string;
+  ideaContent:  string;
+  theme:        string;
+  mode:         string;
+  reasoning:    string;
+  agent:        { name: string; persona: string };
+  agentATurn:   { content: string } | null;
+  agentAName:   string | null;
+}): string {
+  const { ideaTitle, ideaContent, theme, mode, reasoning, agent, agentATurn, agentAName } = args;
+  const modeFrame = DEBATE_MODE_FRAMES[mode] ?? DEBATE_MODE_FRAMES.brainstorm;
+
+  const agentBBlock =
+    agentATurn && agentAName
+      ? `\nWHAT ${agentAName.toUpperCase()} JUST ARGUED:
+"${agentATurn.content}"
+
+Your response MUST follow this structure:
+1. In one sentence, name the SPECIFIC claim from ${agentAName} you disagree with most. Not a paraphrase of the idea — the specific thing ${agentAName} just said.
+2. Explain exactly why that specific claim is wrong or incomplete. Use a concrete example, a named counterexample, or a logical flaw in the reasoning.
+3. Then and only then, make your own argument.
+
+Do NOT change the subject. Do NOT reframe the question as a different problem. Engage with what ${agentAName} actually said.\n`
+      : "";
+
+  return `You are ${agent.name}, participating in the AI Lab's "Debate of the Day" — a marked, adversarial exchange distinct from ordinary comments, on the idea that generated the sharpest disagreement today.
+
+TODAY'S THEME: "${theme}"
+IDEA: "${ideaTitle}"
+${ideaContent}
+
+JUDGE'S ROUTING REASONING: "${reasoning}"
+DEBATE MODE: ${mode.replace("_", " ").toUpperCase()}
+${modeFrame}
+${agent.persona}
+Write your contribution in 100–200 words.
+No sycophantic openers. Start with your substantive point.
+${agentBBlock}`;
+}
+
 export function buildDebateTurnPrompt(args: {
   debate:     { originalInput: string; judgeReasoning: string | null; debateMode: string | null };
   agent:      { name: string; persona: string };
