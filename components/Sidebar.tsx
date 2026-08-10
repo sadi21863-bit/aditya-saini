@@ -129,7 +129,7 @@ export default function Sidebar({
                     ideaconnect<span className="text-ic-accent-bright">.</span>
                   </span>
                 </Link>
-                <button className="text-ic-muted hover:text-ic-ink transition" onClick={() => setMobileOpen(false)}>
+                <button aria-label="Close navigation" className="text-ic-muted hover:text-ic-ink transition" onClick={() => setMobileOpen(false)}>
                   <X className="w-5 h-5" />
                 </button>
               </div>

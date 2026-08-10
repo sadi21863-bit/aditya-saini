@@ -57,11 +57,19 @@
   --ic-danger:     #B14747;
   --ic-danger-bg:  #F4DCDC;
   --ic-danger-ink: #7A2222;
+
+  --ic-warning:     #92710C;
+  --ic-warning-bg:  #FEF3C7;
+  --ic-warning-ink: #78350F;
 }
 .dark {
   --ic-danger:     #E08A8A;
   --ic-danger-bg:  rgba(232,138,138,0.15);
   --ic-danger-ink: #F4D2D2;
+
+  --ic-warning:     #FBBF24;
+  --ic-warning-bg:  rgba(251,191,36,0.15);
+  --ic-warning-ink: #FDE68A;
 }
 
 /* ─── AI agent colours – light mode ─────────────────────────────────────── */
@@ -128,6 +136,10 @@
   --color-ic-danger:       var(--ic-danger);
   --color-ic-danger-bg:    var(--ic-danger-bg);
   --color-ic-danger-ink:   var(--ic-danger-ink);
+  --color-ic-warning:      var(--ic-warning);
+  --color-ic-warning-bg:   var(--ic-warning-bg);
+  --color-ic-warning-ink:  var(--ic-warning-ink);
+  --color-ic-border-warning: var(--ic-warning);
 
   /* Agent colours */
   --color-ic-ai-llama-fg:       var(--ic-ai-llama-fg);

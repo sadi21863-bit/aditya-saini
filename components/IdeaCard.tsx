@@ -57,6 +57,9 @@ export default function IdeaCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded((v) => !v); } }}
       className="bg-ic-card border border-ic-rule rounded-2xl px-5 py-4 hover:border-ic-accent transition-colors duration-200 cursor-pointer"
       onMouseEnter={() => !isTouch && setExpanded(true)}
       onMouseLeave={() => !isTouch && setExpanded(false)}

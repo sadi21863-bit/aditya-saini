@@ -119,7 +119,7 @@ export default function NewDebatePage() {
                      placeholder:text-ic-muted resize-none focus:outline-none focus:ring-2
                      focus:ring-ic-accent font-display text-base mb-4"
         />
-        {error && <p className="text-red-500 text-sm font-mono mb-3">{error}</p>}
+        {error && <p className="text-ic-danger text-sm font-mono mb-3">{error}</p>}
         <button
           onClick={handleAnswerSubmit}
           disabled={loading || !answer.trim()}
@@ -161,7 +161,7 @@ export default function NewDebatePage() {
           <p className="text-ic-danger text-sm font-mono">{error}</p>
         )}
         {rateLimit && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="rounded-lg border border-ic-warning bg-ic-warning-bg px-4 py-3 text-sm text-ic-warning-ink">
             <p className="font-medium">{rateLimit.message}</p>
             {rateLimit.resetAt && (
               <p className="mt-1 text-xs opacity-75">

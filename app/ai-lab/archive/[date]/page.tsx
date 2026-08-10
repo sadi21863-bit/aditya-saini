@@ -101,7 +101,7 @@ export default async function DailyArchivePage(
     <div className="max-w-3xl mx-auto px-6 py-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
 
       {/* Back link + share */}

@@ -173,7 +173,12 @@ async function handleJudgeVerdict(
   }
 
   if (judgment.verdict === "full_debate") {
-    const agents = judgment.recommended_agents ?? ["ai_llama", "ai_maverick"];
+    const VALID_IDS = ["ai_llama","ai_gpt_oss","ai_scout","ai_maverick"];
+    const raw = judgment.recommended_agents ?? ["ai_llama", "ai_maverick"];
+    const agents = [
+      VALID_IDS.includes(raw[0]) ? raw[0] : "ai_llama",
+      VALID_IDS.includes(raw[1]) ? raw[1] : "ai_maverick",
+    ];
     await db.update(debates)
       .set({
         judgeVerdict:   "full_debate",

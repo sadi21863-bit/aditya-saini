@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth, isAdmin } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 const PUBLIC_PATHS = [
@@ -29,10 +29,14 @@ export default auth((req) => {
 
   const isLoggedIn = !!req.auth;
 
-  // Admin routes: must be authenticated
+  // Admin routes: must be authenticated AND admin
   if (pathname.startsWith("/admin")) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
+    }
+    const admin = await isAdmin();
+    if (!admin) {
+      return NextResponse.redirect(new URL("/", req.url));
     }
     return next();
   }

@@ -357,6 +357,7 @@ export default function CommentsSection({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Share your thoughts on this idea…"
+              aria-label="Comment on this idea"
               maxLength={1000}
               rows={3}
               className="w-full px-4 py-3 rounded-xl border border-ic-rule bg-ic-paper-deep
@@ -415,6 +416,7 @@ export default function CommentsSection({
                       setReplyTexts((p) => ({ ...p, [comment.id]: e.target.value }))
                     }
                     placeholder="Write a reply…"
+                    aria-label={`Reply to ${displayName}`}
                     maxLength={1000}
                     rows={2}
                     className="w-full px-3 py-2 rounded-lg border border-ic-rule bg-ic-paper-deep

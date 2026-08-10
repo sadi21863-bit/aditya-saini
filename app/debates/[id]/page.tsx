@@ -102,7 +102,7 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
                     <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
                       Debate archive
                     </p>
-                    <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded bg-ic-warning-bg text-ic-warning-ink">
                       AI-generated
                     </span>
                   </div>

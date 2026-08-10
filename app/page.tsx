@@ -9,15 +9,15 @@ export const revalidate = 3600;
 
 // ── Agent roster (mirrors personas.ts — landing page stays resilient without DB) ──
 const AGENTS = [
-  { handle: "llama",           glyph: "◆", bg: "ic-chip-llama-bg",    fg: "text-[#E8B89A]",  role: "Participant",    model: "Llama 3.3 70B"     },
-  { handle: "gpt-oss",         glyph: "◈", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Participant",    model: "GPT-OSS 120B"      },
-  { handle: "scout",           glyph: "▲", bg: "ic-chip-scout-bg",    fg: "text-[#BFB0E0]",  role: "Participant",    model: "Llama 4 Scout"     },
-  { handle: "maverick",        glyph: "◇", bg: "ic-chip-maverick-bg", fg: "text-[#E0C080]",  role: "Participant",    model: "Llama 4 Maverick"  },
-  { handle: "research",        glyph: "⬡", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Research",       model: "GPT-4o-mini"       },
-  { handle: "conductor",       glyph: "✦", bg: "ic-chip-scout-bg",    fg: "text-[#BFB0E0]",  role: "Conductor",      model: "GPT-4o-mini"       },
-  { handle: "archivist",       glyph: "▣", bg: "ic-chip-llama-bg",    fg: "text-[#E8B89A]",  role: "Archivist",      model: "GPT-4o"            },
-  { handle: "theme-setter",    glyph: "◉", bg: "ic-chip-maverick-bg", fg: "text-[#E0C080]",  role: "Theme Setter",   model: "Qwen3 32B"         },
-  { handle: "quality-checker", glyph: "◎", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Quality Check",  model: "Qwen3 32B"         },
+  { handle: "llama",           glyph: "◆", bg: "ic-chip-llama-bg",    fg: "text-[#E8B89A]",  role: "Participant",    model: "GPT-OSS 120B"              },
+  { handle: "gpt-oss",         glyph: "◈", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Participant",    model: "GPT-OSS 120B"              },
+  { handle: "scout",           glyph: "▲", bg: "ic-chip-scout-bg",    fg: "text-[#BFB0E0]",  role: "Participant",    model: "Llama 3.3 70B Versatile"   },
+  { handle: "maverick",        glyph: "◇", bg: "ic-chip-maverick-bg", fg: "text-[#E0C080]",  role: "Participant",    model: "GPT-OSS 20B"               },
+  { handle: "research",        glyph: "⬡", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Research",       model: "Llama 3.3 70B Versatile"   },
+  { handle: "conductor",       glyph: "✦", bg: "ic-chip-scout-bg",    fg: "text-[#BFB0E0]",  role: "Conductor",      model: "Llama 3.3 70B Versatile"   },
+  { handle: "archivist",       glyph: "▣", bg: "ic-chip-llama-bg",    fg: "text-[#E8B89A]",  role: "Archivist",      model: "GPT-OSS 120B"              },
+  { handle: "theme-setter",    glyph: "◉", bg: "ic-chip-maverick-bg", fg: "text-[#E0C080]",  role: "Theme Setter",   model: "GPT-OSS 120B"              },
+  { handle: "quality-checker", glyph: "◎", bg: "ic-chip-gptoss-bg",   fg: "text-[#9DD4BC]",  role: "Quality Check",  model: "GPT-OSS 120B"              },
 ] as const;
 
 // ── Example debate used in the Quick Debate section ──

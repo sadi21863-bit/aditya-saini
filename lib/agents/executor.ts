@@ -2289,6 +2289,6 @@ async function executeDebateArchive(item: AIQueue): Promise<void> {
     })
     .where(eq(debates.id, debateId));
 
-  await upsertUsage("ai_archivist", today, "github");
+  await upsertUsage("ai_archivist", today, "groq");
   await db.update(aiQueue).set({ status: "completed" }).where(eq(aiQueue.id, item.id));
 }

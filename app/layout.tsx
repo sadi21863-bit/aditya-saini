@@ -68,9 +68,12 @@ export default async function RootLayout({
         <body className="min-h-screen transition-colors duration-200">
           <ThemeProvider>
             <GlobalErrorBoundary>
+              <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-ic-accent focus:text-white focus:rounded-lg">
+                Skip to content
+              </a>
               <div className="flex min-h-screen">
                 <Sidebar currentUserId={userId ?? ""} currentHandle={handle ?? ""} />
-                <main className="flex-1 min-h-screen">{children}</main>
+                <main id="main-content" className="flex-1 min-h-screen">{children}</main>
               </div>
               <Toaster position="bottom-right" />
             </GlobalErrorBoundary>

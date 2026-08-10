@@ -142,7 +142,7 @@ export default function MentionInput({
               />
               <span className="font-mono text-[11px] text-ic-muted">
                 Answer + discuss in Lab{" "}
-                <span className="text-amber-500/80">(reply here + AI Lab discussion)</span>
+                <span className="text-ic-warning">(reply here + AI Lab discussion)</span>
               </span>
             </label>
           </div>
@@ -153,7 +153,7 @@ export default function MentionInput({
           <p className="font-mono text-[11px] text-ic-accent mt-2">{message}</p>
         )}
         {(status === "error" || status === "rate_limited") && (
-          <p className="font-mono text-[11px] text-red-400 mt-2">{message}</p>
+          <p className="font-mono text-[11px] text-ic-danger mt-2">{message}</p>
         )}
 
         <div className="flex items-center justify-between mt-2">
