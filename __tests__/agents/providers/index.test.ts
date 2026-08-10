@@ -1,14 +1,9 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
-const mockCallGroq   = vi.hoisted(() => vi.fn());
-const mockCallGitHub = vi.hoisted(() => vi.fn());
+const mockCallGroq = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/agents/providers/groq", () => ({
   callGroq: mockCallGroq,
-}));
-
-vi.mock("@/lib/agents/providers/github", () => ({
-  callGitHub: mockCallGitHub,
 }));
 
 import { callAgent } from "@/lib/agents/providers/index";
@@ -28,62 +23,17 @@ const groqAgent: Agent = {
   avatar:     "/agents/llama.png",
 };
 
-const githubAgent: Agent = {
-  id:         "ai_scout",
-  name:       "Scout",
-  handle:     "scout",
-  provider:   "github",
-  model:      "meta/llama-4-scout-17b-16e-instruct",
+const gptOssAgent: Agent = {
+  id:         "ai_gpt_oss",
+  name:       "GPT-OSS",
+  handle:     "gpt-oss",
+  provider:   "groq",
+  model:      "openai/gpt-oss-120b",
   role:       "participant",
-  persona:    "You are Scout.",
+  persona:    "You are GPT-OSS.",
   dailyLimit: 15,
-  avatar:     "/agents/scout.png",
+  avatar:     "/agents/gpt-oss.png",
 };
-
-// ─── GitHub routing ───────────────────────────────────────────────────
-
-describe("callAgent — GitHub Models provider routing", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("calls GitHub directly with agent.model, never touches Groq", async () => {
-    mockCallGitHub.mockResolvedValueOnce("scout says hi");
-
-    const result = await callAgent(githubAgent, "What is your take?");
-
-    expect(mockCallGitHub).toHaveBeenCalledOnce();
-    expect(mockCallGitHub).toHaveBeenCalledWith(
-      githubAgent.model,
-      githubAgent.persona,
-      "What is your take?",
-      undefined
-    );
-    expect(mockCallGroq).not.toHaveBeenCalled();
-    expect(result).toBe("scout says hi");
-  });
-
-  it("strips thinking tags from GitHub response", async () => {
-    mockCallGitHub.mockResolvedValueOnce("<think>reasoning</think>The real take.");
-
-    const result = await callAgent(githubAgent, "prompt");
-    expect(result).toBe("The real take.");
-  });
-
-  it("falls back to Groq openai/gpt-oss-20b when GitHub Models returns 429", async () => {
-    const rateLimitErr = Object.assign(new Error("rate limit exceeded"), { status: 429 });
-    mockCallGitHub.mockRejectedValueOnce(rateLimitErr);
-    mockCallGroq.mockResolvedValueOnce("fallback response");
-
-    const result = await callAgent(githubAgent, "test prompt");
-
-    expect(mockCallGroq).toHaveBeenCalledWith(
-      "openai/gpt-oss-20b",
-      githubAgent.persona,
-      "test prompt",
-      expect.objectContaining({ maxTokens: 600 }),
-    );
-    expect(result).toBe("fallback response");
-  });
-});
 
 // ─── Groq primary ─────────────────────────────────────────────────────
 
@@ -103,6 +53,39 @@ describe("callAgent — Groq primary agents (success path)", () => {
       expect.anything()
     );
     expect(result).toBe("groq response");
+  });
+
+  it("passes jsonMode when model supports it", async () => {
+    mockCallGroq.mockResolvedValueOnce('{"key":"value"}');
+
+    await callAgent(groqAgent, "prompt", { jsonMode: true });
+
+    expect(mockCallGroq).toHaveBeenCalledWith(
+      groqAgent.model,
+      groqAgent.persona,
+      "prompt",
+      expect.objectContaining({ jsonMode: true })
+    );
+  });
+
+  it("strips thinking tags from response", async () => {
+    mockCallGroq.mockResolvedValueOnce("<think>reasoning</think>The real answer.");
+
+    const result = await callAgent(groqAgent, "prompt");
+    expect(result).toBe("The real answer.");
+  });
+
+  it("uses GPTOSS_MIN_TOKENS floor for GPT-OSS models", async () => {
+    mockCallGroq.mockResolvedValueOnce("response");
+
+    await callAgent(gptOssAgent, "prompt");
+
+    expect(mockCallGroq).toHaveBeenCalledWith(
+      gptOssAgent.model,
+      gptOssAgent.persona,
+      "prompt",
+      expect.objectContaining({ maxTokens: 2500 })
+    );
   });
 });
 

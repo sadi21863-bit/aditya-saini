@@ -905,3 +905,125 @@ Respond with this JSON only. No prose outside the JSON. No markdown fences.
 
   return { systemPrompt, userPrompt };
 }
+
+// ─── Multi-round debate turn prompt (Round 3+) ───────────────────────────────
+// Used when a user pushes back and agents must respond in subsequent rounds.
+// Includes full conversation history and pushback context.
+
+export function buildMultiRoundDebateTurnPrompt(args: {
+  debate:            { originalInput: string; debateMode: string | null };
+  agent:             { name: string; handle: string };
+  allTurns:          Array<{ agentId: string; content: string; round: number; slotIndex: number }>;
+  round:             number;
+  pushbackText?:     string;
+  pushbackTarget?:   string;
+}): { systemPrompt: string; userPrompt: string } {
+  const { debate, agent, allTurns, round, pushbackText, pushbackTarget } = args;
+
+  // Group turns by round
+  const turnsByRound = new Map<number, typeof allTurns>();
+  for (const turn of allTurns) {
+    const existing = turnsByRound.get(turn.round) || [];
+    existing.push(turn);
+    turnsByRound.set(turn.round, existing);
+  }
+
+  let conversationContext = "";
+  for (const [r, turns] of Array.from(turnsByRound.entries()).sort((a, b) => a[0] - b[0])) {
+    conversationContext += `\n--- Round ${r} ---\n`;
+    for (const t of turns) {
+      const name = t.agentId === agent.handle ? "You" : "Opponent";
+      conversationContext += `${name}: ${t.content}\n`;
+    }
+  }
+
+  let pushbackSection = "";
+  if (pushbackText) {
+    const target = pushbackTarget === agent.handle
+      ? "specifically you"
+      : pushbackTarget
+        ? "the other agent"
+        : "both of you";
+    pushbackSection = `
+The user has pushed back on Round ${round - 1}, directing their challenge at ${target}:
+
+"${pushbackText}"
+
+Address this pushback directly. Acknowledge what the user is challenging, and either:
+1. Strengthen your argument with new evidence or reasoning
+2. Concede specific points while maintaining your core position
+3. Reframe the issue in light of the user's critique
+
+Do NOT simply repeat your earlier points. The pushback demands a substantive response.`;
+  }
+
+  const systemPrompt = `You are ${agent.name}, participating in a structured debate.
+
+DEBATE TOPIC: ${debate.originalInput}
+DEBATE MODE: ${debate.debateMode ?? "brainstorm"}
+CURRENT ROUND: ${round}
+
+${conversationContext}
+${pushbackSection}
+
+RULES:
+- Stay in character as ${agent.name}
+- Be direct and substantive
+- If the user has pushed back, address their specific concern
+- 150-300 words max
+- No meta-commentary about the debate format`;
+
+  const userPrompt = `Continue the debate. This is Round ${round}.`;
+
+  return { systemPrompt, userPrompt };
+}
+
+// ─── Final verdict prompt ────────────────────────────────────────────────────
+// Used by the debate_final_verdict handler to generate a structured verdict
+// after all rounds are complete or when the user requests early verdict.
+
+export function buildDebateVerdictPrompt(args: {
+  debate:     { originalInput: string; debateMode: string | null };
+  allTurns:   Array<{ agentId: string; content: string; round: number; slotIndex: number }>;
+  pushbacks:  Array<{ text: string; round: number; agentId: string | null }>;
+}): { systemPrompt: string; userPrompt: string } {
+  const { debate, allTurns, pushbacks } = args;
+
+  let transcript = "";
+  for (const turn of allTurns) {
+    transcript += `\n[Round ${turn.round}, Slot ${turn.slotIndex}] ${turn.agentId}:\n${turn.content}\n`;
+  }
+
+  let pushbackContext = "";
+  if (pushbacks.length > 0) {
+    pushbackContext = "\n\nUSER PUSHBACKS:\n";
+    for (const p of pushbacks) {
+      pushbackContext += `[Round ${p.round}] ${p.text}\n`;
+    }
+  }
+
+  const systemPrompt = `You are an impartial debate judge. Analyze the full debate transcript and render a final verdict.
+
+TOPIC: ${debate.originalInput}
+MODE: ${debate.debateMode ?? "brainstorm"}
+${transcript}
+${pushbackContext}
+
+Provide:
+1. A clear verdict explaining which position was stronger and why
+2. A confidence score (0.0 to 1.0)
+3. Identify the winning agent (by their ID)
+4. A 100-200 word summary of the debate
+
+Respond with this JSON only. No prose outside the JSON. No markdown fences.
+{
+  "verdict": "string — clear explanation of who won and why",
+  "score": 0.0-1.0,
+  "winner_id": "agent_id of the winner",
+  "summary": "100-200 word summary of the debate"
+}`;
+
+  const userPrompt = "Render your final verdict.";
+
+  return { systemPrompt, userPrompt };
+}

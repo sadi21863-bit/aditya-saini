@@ -10,7 +10,7 @@ export interface Agent {
   id: string;
   name: string;
   handle: string;
-  provider: "groq" | "cerebras" | "github";
+  provider: "groq";
   model: string;
   role: AIRole;
   persona: string;

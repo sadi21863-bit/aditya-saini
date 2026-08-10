@@ -437,6 +437,10 @@ export const debates = pgTable("debates", {
   debateMode:       text("debate_mode"),               // 'brainstorm' | 'risk_scan'
   archivistSummary: text("archivist_summary"),  // Round 1 crux — never overwritten
   roundCount:       integer("round_count").notNull().default(1),
+  maxRounds:        integer("max_rounds").notNull().default(3),
+  pushbackCount:    integer("pushback_count").notNull().default(0),
+  maxPushbacks:     integer("max_pushbacks").notNull().default(3),
+  winnerId:         text("winner_id"),                         // agent ID of "winner"
   verdict:          text("verdict"),             // one-line winner + observable fact (Round 2)
   verdictReasoning: text("verdict_reasoning"),   // two-section Round 2 Archivist prose
   status:           text("status").notNull().default("in_progress"),
@@ -488,6 +492,21 @@ export const debateTurns = pgTable("debate_turns", {
   uniqueTurn: uniqueIndex("unique_debate_turn_agent_round")
     .on(table.debateId, table.agentId, table.round)
     .where(sql`${table.agentId} IS NOT NULL`),
+}));
+
+// ─── DEBATE PUSHBACKS (multi-round user feedback) ───────────────────
+export const debatePushbacks = pgTable("debate_pushbacks", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  debateId:  uuid("debate_id").notNull()
+               .references(() => debates.id, { onDelete: "cascade" }),
+  round:     integer("round").notNull(),
+  userId:    text("user_id").notNull()
+               .references(() => users.id, { onDelete: "cascade" }),
+  text:      text("text").notNull(),
+  agentId:   text("agent_id"),    // which agent was pushed back on (null = both)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxPushbacksDebate: index("idx_debate_pushbacks_debate").on(table.debateId, table.createdAt),
 }));
 
 // ─── AI LAB PREDICTIONS (Phase 5) ───────────────────────────────────
@@ -553,3 +572,5 @@ export type NewDebate         = typeof debates.$inferInsert;
 export type DebateQuestion    = typeof debateQuestions.$inferSelect;
 export type DebateParticipant = typeof debateParticipants.$inferSelect;
 export type DebateTurn        = typeof debateTurns.$inferSelect;
+export type DebatePushback    = typeof debatePushbacks.$inferSelect;
+export type NewDebatePushback = typeof debatePushbacks.$inferInsert;

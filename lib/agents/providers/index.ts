@@ -1,5 +1,4 @@
 import { callGroq } from "./groq";
-import { callGitHub } from "./github";
 import { stripThinkingTags, normalizeHyphens } from "../response-cleaner";
 import type { Agent } from "../personas";
 
@@ -49,31 +48,6 @@ export async function callAgent(
   userPrompt: string,
   opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
 ): Promise<string> {
-  // GitHub Models agents (Qwen participant — meta/llama-4-scout-17b-16e-instruct).
-  // On transient errors (429, 5xx, network), fall back to Groq FALLBACK_MODEL.
-  if (agent.provider === "github") {
-    try {
-      return normalizeHyphens(stripThinkingTags(
-        await callGitHub(agent.model, agent.persona, userPrompt, opts)
-      ));
-    } catch (err) {
-      if (!isTransientError(err)) throw err;
-      try {
-        console.warn(
-          `[ai-lab] GitHub Models failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
-        );
-        return normalizeHyphens(stripThinkingTags(
-          await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 })
-        ));
-      } catch (fallbackErr) {
-        console.error(
-          `[ai-lab] Groq fallback (${FALLBACK_MODEL}) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`
-        );
-        throw err;
-      }
-    }
-  }
-
   // Per-model overrides before calling Groq
   const groqOpts = { ...opts };
   if (groqOpts.jsonMode && !JSON_MODE_SUPPORTED.has(agent.model)) {

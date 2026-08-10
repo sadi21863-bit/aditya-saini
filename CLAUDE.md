@@ -1,4 +1,4 @@
-# CLAUDE.md — IdeaConnect Current State (2026-05-20)
+# CLAUDE.md — IdeaConnect Current State (2026-08-10)
 
 ## What This Project Is
 
@@ -44,14 +44,26 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 - @research moved to GitHub Models (gpt-4o-mini)
 - Multiple bug fixes: thundering herd guard, promptContext Zod validation, 9 UI/UX fixes, LLM timeouts, page titles
 
-### Phase 6 — Multi-Round Debates ✅ (2026-05-21)
-2-round debates with user-initiated Round 2 via "Push back →". Agent A must defend or concede+redirect. Agent B must name Agent A's Round 2 claim before countering. Round 2 Archivist reports observable behavior (who shifted/held/missed) and names a winner on the crux. Verdict is structured JSON, preserved separately from Round 1 `archivistSummary`. Migration 0009 applied.
+### Phase 6 — Multi-Round Debates ✅ (2026-05-21, extended 2026-08-10)
+2-round debates with user-initiated Round 2 via "Push back →". Agent A must defend or concede+redirect. Agent B must name Agent A's Round 2 claim before countering. Round 2 Archivist reports observable behavior (who shifted/held/missed) and names a winner on the crux. Verdict is structured JSON, preserved separately from Round 1 `archivistSummary`. Migration 0009 applied. **Extended to N rounds** (max 3 rounds, max 3 pushbacks) with structured final verdict.
 
+**Original Round 2 flow (unchanged):**
 - `POST /api/debates/[id]/continue` — triggers Round 2, dispatches GHA workflow
 - `debate_turns.round`, `debates.round_count`, `debates.verdict`, `debates.verdict_reasoning`
 - `buildRound2TurnPrompt` (slot 0|1), `buildRound2ArchivePrompt` (JSON output)
-- "Push back →" button on debate page; verdict block on debate + share pages
-- Hard cap: `round_count >= 2` → 429. Phase 3 adds round 3+ with context summaries.
+
+**Multi-round extension (2026-08-10):**
+- `POST /api/debates/pushback` — user submits pushback text, queues next round (replaces `/continue` for round 3+)
+- `POST /api/debates/[id]/verdict` — user requests early final verdict when max rounds/pushbacks reached
+- `debates.max_rounds`, `debates.pushback_count`, `debates.max_pushbacks`, `debates.winner_id` — new columns
+- `debate_pushbacks` table — tracks user pushback text per round (migration 0015)
+- `buildMultiRoundDebateTurnPrompt` — round 3+ prompt with pushback context and full debate history
+- `buildDebateVerdictPrompt` — structured JSON verdict (winner, score, summary, reasoning)
+- `executeDebateFinalVerdict` handler — generates verdict via `ai_archivist`
+- `canPushback()`, `canTriggerVerdict()`, `loadDebateState()` — debate state validators (`lib/agents/validators.ts`)
+- Frontend: `DebateRound`, `PushbackInput`, `VerdictCard`, `RequestVerdictButton` components
+- `awaiting_pushback` status — debate pauses after each round, waiting for user input or verdict
+- Lifecycle: Round N completes → `awaiting_pushback` → user pushes back or requests verdict → next round or `archived`
 
 ### Phase 5 — Quick Debate ✅ (2026-05-20)
 Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new routes, shared executor and queue.
@@ -122,11 +134,12 @@ aiLabRollups   — id, periodType, periodStart, periodEnd(unique), title, summar
 aiLabOptouts   — id, userId, targetType, targetId (not yet enforced in executor)
 quickDebates   — id, ideaText, submittedBy, roomId, shareToken, status, narrativeArc, errorMessage, createdAt, completedAt  (old MVP — /debate/*)
 
-Quick Debate tables (Phase 5 — migration 0008):
-debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, roundCount(int, completed rounds), verdict(Judge's final verdict), verdictReasoning(Judge's reasoning prose), status, shareToken, archivedAt, timestamps
+Quick Debate tables (Phase 5 — migration 0008, extended migration 0015):
+debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, roundCount(int, completed rounds), maxRounds(int, default 3), pushbackCount(int, default 0), maxPushbacks(int, default 3), winnerId(text, agent ID), verdict(Judge's final verdict), verdictReasoning(Judge's reasoning prose), status, shareToken, archivedAt, timestamps
 debate_questions    — id, debateId, question, answer, orderIndex
 debate_participants — id, debateId, agentId, slotIndex(0=A, 1=B); uniqueSlot constraint prevents duplicate agent slots per debate
-debate_turns        — id, debateId, agentId, authorType(agent|judge), content, round(int, which round 1|2), createdAt; uniqueTurn constraint prevents duplicate turn slots per debate per round
+debate_turns        — id, debateId, agentId, authorType(agent|judge), content, round(int, which round), createdAt; uniqueTurn constraint prevents duplicate turn slots per debate per round
+debate_pushbacks    — id, debateId, round, userId, text, agentId, createdAt; idx_debate_pushbacks_debate index
 ```
 
 ---
@@ -183,17 +196,28 @@ Archives are **published immediately** on generation — the QC approval gate (`
 | `db/schema.ts` | All table definitions — START HERE |
 | `lib/agents/personas.ts` | 9 agent definitions, daily limits, model IDs |
 | `lib/agents/executor.ts` | Queue executor — processes all AI actions including `debate_turn`/`debate_archive` |
-| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work |
-| `lib/agents/prompts.ts` | All prompt templates: AI Lab + Judge/Turn/Archive (Quick Debate) |
+| `lib/agents/handlers/shared.ts` | Shared executor utilities — `upsertUsage`, `shouldFetchResearch`, constants |
+| `lib/agents/handlers/archive.ts` | `executeArchiveDay`, `executeQualityReviewArchive` handlers |
+| `lib/agents/handlers/rollup.ts` | `executeRollupWeek`, `executeRollupMonth` handlers |
+| `lib/agents/handlers/quick-debate.ts` | `executeQuickDebateSeed`, `executeQuickDebateReply`, `executeQuickDebateArchive` handlers |
+| `lib/agents/handlers/debate.ts` | `executeDebateTurn` (multi-round), `executeDebateArchive`, `executeAILabDebate`, `executeDebateFinalVerdict` |
+| `lib/agents/handlers/writers.ts` | All writer functions (ideas, comments, moderation, research, conductor) |
+| `lib/agents/validators.ts` | Debate state validators: `loadDebateState`, `canPushback`, `canTriggerVerdict` |
+| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work; includes `queueDebateRound`, `queueDebateFinalVerdict` |
+| `lib/agents/prompts.ts` | All prompt templates: AI Lab + Judge/Turn/Archive (Quick Debate) + multi-round + verdict |
 | `lib/agents/debate-helpers.ts` | DB query helpers for Quick Debate (`getDebateById`, `getDebateParticipants`, `getDebateTurns`, `getDebateByShareToken`) |
 | `lib/agents/providers/index.ts` | `callAgent()` router (groq/github/cerebras) |
 | `lib/agents/mentions.ts` | @mention resolution. `SPECIFIC_HANDLES = ["llama","gpt-oss","scout","maverick"]` |
 | `lib/auth.ts` | `getAuthenticatedUserId()`, `requireAuth()`, `isAdmin()` |
 | `lib/time.ts` | `relativeTime()` + `startOfToday()` (used in Quick Debate rate limits) |
 | `lib/ratelimit.ts` | In-memory rate limiters (`writeLimiter`, `lightLimiter`) |
-| `app/api/debates/` | Quick Debate API: `judge`, `start`, `[id]/cancel`, `[id]/status`, `share/[token]`, `history` |
+| `app/api/debates/` | Quick Debate API: `judge`, `start`, `pushback`, `[id]/cancel`, `[id]/status`, `[id]/verdict`, `share/[token]`, `history` |
 | `app/debates/` | Quick Debate pages: `new`, `[id]`, `share/[token]`, `history` |
 | `components/debates/DebatePoller.tsx` | 10s polling component for in-progress debates |
+| `components/debates/DebateRound.tsx` | Displays a single round's turns with agent names |
+| `components/debates/PushbackInput.tsx` | Text input for submitting user pushbacks between rounds |
+| `components/debates/VerdictCard.tsx` | Displays the final verdict (winner, summary, reasoning) |
+| `components/debates/RequestVerdictButton.tsx` | Button to request early verdict when max rounds/pushbacks reached |
 | `scripts/process-queue.ts` | Self-healing GHA queue processor |
 | `scripts/seed-ai-agents.ts` | Seeds all agents into users table + AI Lab room |
 | `scripts/check-agents.ts` | Diagnostic — tests all 9 agents' API connectivity |
@@ -230,20 +254,17 @@ npm run dev                   # http://localhost:3099
 
 ---
 
-## Multi-Round Debate: Round 2 Queue Flow
+## Multi-Round Debate: Queue Flow (extended 2026-08-10)
 
+### Original Round 2 flow (still works for `/continue`)
 ```
 POST /api/debates/[id]/continue
   → auth + 409 if not archived + 429 if round_count >= 2
   → set debates.status = 'in_progress', round_count = 2
   → insert debate_turn { slot: 0, round: 2, priority: 1 }
-  → after(): processQueue(1) loop x4
-      Pass 1: R2 Agent A (builds buildRound2TurnPrompt slot=0)
-      Pass 2: R2 Agent B (builds buildRound2TurnPrompt slot=1)
-      Pass 3: R2 Archive (buildRound2ArchivePrompt → JSON verdict)
+  → after(): dispatchQueueProcessor()
 
 executor: debate_turn (round=2, slot=0)
-  → round = Number((ctx.round as number | undefined) ?? 1)  ← typed default
   → fetches all R1 turns, builds Round 2 Agent A prompt
   → writes turn with round=2, chains debate_turn {slot:1, round:2}
 
@@ -253,13 +274,48 @@ executor: debate_turn (round=2, slot=1)
   → chains debate_archive {round:2}
 
 executor: debate_archive (round=2)
-  → buildRound2ArchivePrompt → callGitHub → parseJsonResponse
+  → buildRound2ArchivePrompt → callGroq → parseJsonResponse
   → writes verdict_reasoning + verdict
   → does NOT overwrite archivistSummary (R1 crux preserved)
   → sets status='archived'
 ```
 
-**Round 2 prompt rules:** Agent A must choose DEFEND or CONCEDE+REDIRECT — not both. Agent B must name Agent A's Round 2 claim before responding. Verdict reports observable facts only (who shifted, who held ground, who failed to address what); names a winner on the crux.
+### Multi-round flow (round 3+ via pushback)
+```
+POST /api/debates/pushback
+  → auth + validate status=awaiting_pushback
+  → insert debate_pushbacks { round, text, agentId }
+  → set debates: status=in_progress, roundCount=nextRound, pushbackCount++
+  → insert debate_turn { slot: 0, round: nextRound, pushbackText, pushbackTarget }
+  → after(): dispatchQueueProcessor()
+
+executor: debate_turn (round=N, slot=0)  — uses buildMultiRoundDebateTurnPrompt
+  → loads all previous turns + pushbacks for context
+  → Agent A responds to pushback and continues debate
+  → chains debate_turn {slot:1, round:N}
+
+executor: debate_turn (round=N, slot=1)
+  → Agent B responds to Agent A + pushback context
+  → if roundCount < maxRounds && pushbackCount < maxPushbacks:
+      → set debates.status = 'awaiting_pushback'  (pause for user)
+    else:
+      → queue debate_final_verdict
+      → set debates.status = 'final_verdict'
+
+POST /api/debates/[id]/verdict
+  → auth + validate status=awaiting_pushback
+  → queue debate_final_verdict (priority 1)
+  → after(): dispatchQueueProcessor()
+
+executor: debate_final_verdict
+  → buildDebateVerdictPrompt with all turns + pushbacks
+  → callGroq("openai/gpt-oss-20b") for JSON verdict
+  → writes verdict, verdictReasoning, winnerId
+  → sets status='archived'
+```
+
+**State machine:** `in_progress` → `awaiting_pushback` → `in_progress` → ... → `final_verdict` → `archived`
+**Hard caps:** maxRounds=3, maxPushbacks=3. When either is reached, verdict is queued automatically.
 
 ---
 
@@ -306,8 +362,8 @@ executor: debate_archive
 ## Testing
 
 ```bash
-npm test                              # 341 tests (Vitest)
-npx tsc --noEmit                      # 0 TS errors
+npm test                              # 342 tests (Vitest)
+npx tsc --noEmit                      # 4 pre-existing TS errors (judge.test.ts, middleware.ts)
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
 npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
 ```
