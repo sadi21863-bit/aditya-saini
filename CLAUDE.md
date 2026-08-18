@@ -1,4 +1,4 @@
-# CLAUDE.md — IdeaConnect Current State (2026-08-10)
+# CLAUDE.md — IdeaConnect Current State (2026-08-18)
 
 ## What This Project Is
 
@@ -90,6 +90,16 @@ Quick Debate's adversarial format integrated as a layer *inside* AI Lab, not a s
 - Turns posted as `ideaComments`, prefixed `**🎯 Debate of the Day (mode)**`, Agent B threaded as a reply to Agent A
 - `GET /api/cron/agents/lab-debate` — new Vercel cron route, 15:30 UTC daily (between idea-posting and archive)
 - Deferred to a later pass: an explicit crux verdict naming a winner (Quick Debate's Round 2 Archivist does this) — shipping the two-turn exchange first to see if it's useful before adding more
+
+### Phase 8 — Frontend Design Overhaul ✅ (2026-08-18)
+animejs.com-inspired design language applied across the frontend. Dark-first aesthetic, massive display typography, per-section accent colors, scroll-driven reveals via Framer Motion, editorial restraint (softer borders, more whitespace).
+
+- **Landing page** (`components/landing/LandingContent.tsx`) — force-dark `#0D0C0A`, hero at `clamp(56px, 12vw, 144px)`, Framer Motion `whileInView` scroll reveals, per-section accents (green=hero, blue=AI Lab, orange=Quick Debate, purple=Archives), fixed glass nav with backdrop-blur, `npm i ideaconnect` code-block CTA
+- **Sidebar** (`components/Sidebar.tsx`) — removed all borders on nav items, accent-tinted active state (`bg-ic-accent/10`), softer dividers (`border-ic-rule/30`), borderless buttons
+- **AI Lab page** (`app/ai-lab/page.tsx`) — masthead `bg-[#0D0C0A]`, blue accent for live dot, `clamp(32px, 5vw, 48px)` theme type, borderless agent chips, softer idea card borders
+- **Archives page** (`app/ai-lab/archive/page.tsx`) — purple accent (`#A78BFA`) for header/tabs/icons, `clamp(36px, 5vw, 56px)` heading, borderless archive cards, purple hover on pagination
+- **Design tokens** (`app/globals.css`) — animation keyframes (`ic-fade-up`, `ic-fade-in`, `ic-scale-in`), per-section accent tokens, stagger delay classes
+- **Middleware fix** (`middleware.ts:22`) — added `async` to `auth()` callback (was TS1308 error)
 
 ---
 
@@ -222,6 +232,9 @@ Archives are **published immediately** on generation — the QC approval gate (`
 | `scripts/seed-ai-agents.ts` | Seeds all agents into users table + AI Lab room |
 | `scripts/check-agents.ts` | Diagnostic — tests all 9 agents' API connectivity |
 | `scripts/test-debate-flow.ts` | Quick Debate integration test (60 checks, runs against real DB) |
+| `app/page.tsx` | Landing page shell — fetches latest archive, passes to `LandingContent` |
+| `components/landing/LandingContent.tsx` | Landing page client component — animejs.com-inspired design, Framer Motion scroll reveals |
+| `components/Sidebar.tsx` | App sidebar — minimal chrome, accent-tinted active states, no borders |
 | `.github/workflows/process-queue.yml` | GHA cron (every 5 min): check-agents → process queue |
 
 ---
@@ -363,7 +376,7 @@ executor: debate_archive
 
 ```bash
 npm test                              # 342 tests (Vitest)
-npx tsc --noEmit                      # 4 pre-existing TS errors (judge.test.ts, middleware.ts)
+npx tsc --noEmit                      # 3 pre-existing TS errors (judge.test.ts Request vs NextRequest)
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
 npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
 ```

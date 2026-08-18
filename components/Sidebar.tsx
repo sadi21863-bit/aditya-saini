@@ -52,17 +52,17 @@ export default function Sidebar({
   }
 
   const navItemCls = (href: string) =>
-    `flex items-center gap-3 px-[10px] min-h-9 rounded-lg transition ${
+    `flex items-center gap-3 px-3 min-h-9 rounded-lg transition ${
       isActive(href)
-        ? "bg-ic-paper border border-ic-rule text-ic-ink font-semibold"
-        : "text-ic-ink-soft hover:bg-ic-paper hover:text-ic-ink border border-transparent"
+        ? "bg-ic-accent/10 text-ic-ink font-semibold"
+        : "text-ic-muted hover:bg-ic-paper hover:text-ic-ink"
     }`;
 
   const collapsedNavItemCls = (href: string) =>
-    `w-10 h-10 rounded-lg flex items-center justify-center transition border ${
+    `w-10 h-10 rounded-lg flex items-center justify-center transition ${
       isActive(href)
-        ? "bg-ic-paper border-ic-rule text-ic-ink"
-        : "text-ic-muted hover:text-ic-ink border-transparent"
+        ? "bg-ic-accent/10 text-ic-ink"
+        : "text-ic-muted hover:text-ic-ink hover:bg-ic-paper"
     }`;
 
   const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
@@ -100,7 +100,7 @@ export default function Sidebar({
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
       {!mobileOpen && (
         <button
-          className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-ic-card border border-ic-rule text-ic-ink shadow-card"
+          className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-ic-card text-ic-ink shadow-card"
           onClick={() => setMobileOpen(true)}
           aria-label="Open navigation"
         >
@@ -119,11 +119,11 @@ export default function Sidebar({
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              className="md:hidden fixed top-0 left-0 h-full w-64 bg-ic-card border-r border-ic-rule z-50 flex flex-col"
+              className="md:hidden fixed top-0 left-0 h-full w-64 bg-ic-card border-r border-ic-rule/50 z-50 flex flex-col"
               initial={{ x: reduce ? 0 : -256 }} animate={{ x: 0 }} exit={{ x: reduce ? 0 : -256 }}
               transition={{ duration: reduce ? 0 : 0.25, ease: "easeOut" }}
             >
-              <div className="flex items-center justify-between px-[18px] py-4 border-b border-ic-rule-soft">
+              <div className="flex items-center justify-between px-[18px] py-4 border-b border-ic-rule/30">
                 <Link href="/" onClick={() => setMobileOpen(false)}>
                   <span className="font-display text-[17px] font-medium text-ic-ink tracking-tight leading-none">
                     ideaconnect<span className="text-ic-accent-bright">.</span>
@@ -134,7 +134,7 @@ export default function Sidebar({
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 px-[18px] py-3 border-b border-ic-rule-soft">
+              <div className="flex items-center gap-2 px-[18px] py-3 border-b border-ic-rule/30">
                 <div className="w-7 h-7 rounded shrink-0 flex items-center justify-center text-xs font-bold font-mono text-white uppercase bg-ic-accent">
                   {currentHandle ? currentHandle.charAt(0) : "?"}
                 </div>
@@ -148,7 +148,7 @@ export default function Sidebar({
                 {currentUserId && <div className="mt-2"><NotificationCenter userId={currentUserId} /></div>}
               </div>
 
-              <div className="border-t border-ic-rule px-[14px] py-3 flex flex-col gap-3">
+              <div className="border-t border-ic-rule/30 px-[14px] py-3 flex flex-col gap-3">
                 <ThemeToggle collapsed={false} />
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
@@ -164,7 +164,7 @@ export default function Sidebar({
 
       {/* ── Desktop sidebar ──────────────────────────────────────────── */}
       <aside
-        className={`hidden md:flex fixed left-0 top-0 h-screen bg-ic-paper-deep border-r border-ic-rule
+        className={`hidden md:flex fixed left-0 top-0 h-screen bg-ic-paper-deep border-r border-ic-rule/30
           flex-col z-50 transition-all duration-300
           ${collapsed ? "w-14 items-center py-3 gap-2" : "w-64"}`}
       >
@@ -180,11 +180,11 @@ export default function Sidebar({
             <button
               onClick={() => setCollapsed(false)}
               title="Expand sidebar"
-              className="w-7 h-7 border border-ic-rule rounded flex items-center justify-center text-ic-muted hover:text-ic-ink transition"
+              className="w-7 h-7 rounded flex items-center justify-center text-ic-muted hover:text-ic-ink transition"
             >
               <ChevronRight size={13} />
             </button>
-            <div className="w-7 h-px bg-ic-rule" />
+            <div className="w-7 h-px bg-ic-rule/30" />
             <div className="flex flex-col gap-1">
               {NAV_ITEMS.map((item) => (
                 <Link key={item.href} href={item.href} title={item.label} className={`${collapsedNavItemCls(item.href)} relative`}>
@@ -197,7 +197,7 @@ export default function Sidebar({
               </Link>
             </div>
             <div className="flex-1" />
-            <div className="w-7 h-px bg-ic-rule" />
+            <div className="w-7 h-px bg-ic-rule/30" />
             <ThemeToggle collapsed={true} />
             <div className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold font-mono text-white uppercase bg-ic-accent">
               {currentHandle ? currentHandle.charAt(0) : "?"}
@@ -212,7 +212,7 @@ export default function Sidebar({
               <button
                 onClick={() => setCollapsed(true)}
                 title="Collapse sidebar"
-                className="border border-ic-rule rounded flex items-center justify-center text-ic-muted hover:text-ic-ink transition w-[26px] h-[26px]"
+                className="rounded flex items-center justify-center text-ic-muted hover:text-ic-ink transition w-[26px] h-[26px]"
               >
                 <ChevronLeft size={13} />
               </button>
@@ -225,7 +225,7 @@ export default function Sidebar({
               {currentUserId && <div className="mt-2"><NotificationCenter userId={currentUserId} /></div>}
             </div>
 
-            <div className="border-t border-ic-rule px-[14px] py-3 flex items-center gap-2">
+            <div className="border-t border-ic-rule/30 px-[14px] py-3 flex items-center gap-2">
               <div className="w-7 h-7 rounded shrink-0 flex items-center justify-center text-xs font-bold font-mono text-white uppercase bg-ic-accent">
                 {currentHandle ? currentHandle.charAt(0) : "?"}
               </div>

@@ -253,6 +253,51 @@ h1, h2, h3, h4, .font-display {
 .dark .ic-issue-style   { background-color: rgba(224,226,232,0.15); color: #B5BFD4; border-color: rgba(224,226,232,0.2); }
 .dark .ic-issue-punct   { background-color: rgba(224,220,234,0.15); color: #BFB0E0; border-color: rgba(224,220,234,0.2); }
 
+/* ─── Scroll reveal animations ─────────────────────────────────────────────── */
+@keyframes ic-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ic-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ic-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ic-animate-fade-up {
+  animation: ic-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ic-animate-fade-in {
+  animation: ic-fade-in 0.6s ease both;
+}
+
+.ic-animate-scale-in {
+  animation: ic-scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered delays */
+.ic-delay-1 { animation-delay: 0.1s; }
+.ic-delay-2 { animation-delay: 0.2s; }
+.ic-delay-3 { animation-delay: 0.3s; }
+.ic-delay-4 { animation-delay: 0.4s; }
+.ic-delay-5 { animation-delay: 0.5s; }
+.ic-delay-6 { animation-delay: 0.6s; }
+
+/* ─── Per-section accent colours (animejs.com-style) ─────────────────────── */
+:root {
+  --ic-section-hero:     #3DBE72;
+  --ic-section-lab:      #60A5FA;
+  --ic-section-debate:   #F97316;
+  --ic-section-archive:  #A78BFA;
+  --ic-section-footer:   #6B665B;
+}
+
 /* ─── Scrollbar hide ─────────────────────────────────────────────────────── */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }

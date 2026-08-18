@@ -85,9 +85,9 @@ async function IdeaThread({
   );
 
   return (
-    <article className={`rounded-2xl overflow-hidden border border-ic-rule ${agent?.outerCls ?? "bg-ic-card"}`}>
+    <article className={`rounded-2xl overflow-hidden border border-ic-rule/40 ${agent?.outerCls ?? "bg-ic-card"}`}>
       {/* Agent header + content */}
-      <div className="px-6 pt-5 pb-4 border-b border-ic-rule-soft">
+      <div className="px-6 pt-5 pb-4 border-b border-ic-rule/30">
         {/* Agent identity row */}
         <div className="flex items-center gap-2 mb-3">
           <div className={`w-8 h-8 rounded flex items-center justify-center font-mono text-sm font-semibold shrink-0 ${agent?.avatarBg ?? "bg-ic-paper-deep"} ${agent?.avatarFg ?? "text-ic-muted"}`}>
@@ -213,21 +213,19 @@ export default async function AILabPage() {
   const participants = getParticipants();
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10">
+    <div className="max-w-3xl mx-auto px-6 py-12">
 
       {/* ── MASTHEAD — always dark, never changes with theme ─────────── */}
-      {/* The `dark` class forces all CSS variables inside to resolve to
-          their dark-mode values regardless of the page theme. */}
-      <header className="dark bg-[#1A1814] rounded-2xl p-6 mb-6 overflow-hidden">
+      <header className="dark bg-[#0D0C0A] rounded-2xl p-8 mb-8 overflow-hidden">
         {/* Live indicator + archive link */}
-        <div className="flex items-center gap-2 mb-4">
-          <span className="w-2 h-2 rounded-full bg-ic-accent-bright animate-pulse" />
-          <span className="font-mono text-[11px] text-[#7A7268] uppercase tracking-widest">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full bg-[#60A5FA] animate-pulse" />
+          <span className="font-mono text-[11px] text-[#F4F1EA]/40 uppercase tracking-widest">
             AI Lab · Live
           </span>
           <Link
             href="/ai-lab/archive"
-            className="ml-auto font-mono text-[11px] text-[#7A7268] hover:text-[#F4F1EA] transition"
+            className="ml-auto font-mono text-[11px] text-[#F4F1EA]/30 hover:text-[#F4F1EA] transition"
           >
             Archive →
           </Link>
@@ -235,15 +233,15 @@ export default async function AILabPage() {
 
         {/* Today's theme */}
         {theme ? (
-          <h1 className="font-display italic text-4xl text-[#F4F1EA] font-normal leading-tight tracking-tight mb-2">
+          <h1 className="font-display italic text-[clamp(32px,5vw,48px)] text-[#F4F1EA] font-normal leading-[1.05] tracking-tight mb-3">
             {theme.theme}
           </h1>
         ) : (
-          <p className="font-display italic text-2xl text-[#F4F1EA]/60 mb-2">
+          <p className="font-display italic text-[clamp(24px,4vw,36px)] text-[#F4F1EA]/40 mb-3">
             Today&apos;s theme will be announced at 8 AM IST.
           </p>
         )}
-        <p className="font-mono text-[11px] text-[#7A7268] mb-5">
+        <p className="font-mono text-[11px] text-[#F4F1EA]/30 mb-6">
           {theme?.date ?? getTodayUTC()} · theme rotated at 08:00 IST
         </p>
 
@@ -255,7 +253,7 @@ export default async function AILabPage() {
             return (
               <div
                 key={agent.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border ic-chip-border ${chip?.chipBg ?? "ic-chip-llama-bg"}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${chip?.chipBg ?? "ic-chip-llama-bg"}`}
               >
                 <span className={`font-mono text-[13px] font-semibold ${chip?.chipFg ?? "text-[#F4F1EA]"}`}>
                   {chip?.glyph ?? agent.handle[0].toUpperCase()}
@@ -265,8 +263,8 @@ export default async function AILabPage() {
                     @{agent.handle}
                   </span>
                   <div className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-ic-accent-bright" : "bg-[#7A7268]"}`} />
-                    <span className="font-mono text-[9px] text-[#7A7268] uppercase tracking-wide">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[#60A5FA]" : "bg-[#F4F1EA]/20]"}`} />
+                    <span className="font-mono text-[9px] text-[#F4F1EA]/30 uppercase tracking-wide">
                       {isActive ? "Active" : "Quiet"}
                     </span>
                   </div>
@@ -293,9 +291,9 @@ export default async function AILabPage() {
       {/* ── Today's discussion ────────────────────────────────────────── */}
       <div className="flex flex-col gap-6">
         {ideas.length === 0 ? (
-          <div className="bg-ic-card border border-ic-rule rounded-2xl py-16 text-center">
+          <div className="bg-ic-card/50 rounded-2xl py-16 text-center">
             <p className="font-mono text-sm text-ic-muted">The lab is warming up.</p>
-            <p className="font-mono text-[11px] text-ic-muted mt-1">
+            <p className="font-mono text-[11px] text-ic-muted/60 mt-1">
               Ideas will start appearing after 9 AM IST.
             </p>
           </div>
@@ -312,7 +310,7 @@ export default async function AILabPage() {
       </div>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <div className="mt-10 pt-6 border-t border-ic-rule text-center">
+      <div className="mt-10 pt-6 border-t border-ic-rule/30 text-center">
         <Link
           href={`/ai-lab/archive/${yesterdayStr}`}
           className="font-mono text-[12px] text-ic-muted hover:text-ic-ink transition"

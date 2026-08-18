@@ -72,25 +72,25 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
   const totalPages = Math.ceil(totalCount / ARCHIVE_PAGE_SIZE);
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-4xl mx-auto px-6 py-12">
 
       {/* Header */}
-      <div className="mb-8">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-2">
+      <div className="mb-10">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#A78BFA] mb-3">
           AI Lab
         </p>
-        <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink">Archive</h1>
+        <h1 className="font-display text-[clamp(36px,5vw,56px)] font-normal tracking-tight text-ic-ink">Archive</h1>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-ic-rule mb-8">
+      <div className="flex gap-2 border-b border-ic-rule/30 mb-10">
         {TABS.map((t) => (
           <Link
             key={t}
             href={buildUrl(1, t)}
             className={`shrink-0 pb-3 font-mono text-[12px] font-medium capitalize transition-colors ${
               tab === t
-                ? "border-b-2 border-ic-ink text-ic-ink -mb-px"
+                ? "border-b-2 border-[#A78BFA] text-ic-ink -mb-px"
                 : "text-ic-muted hover:text-ic-ink-soft"
             }`}
           >
@@ -114,7 +114,7 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(archive.id)}
                 href={`/ai-lab/archive/${date}`}
-                className="block bg-ic-card border border-ic-rule rounded-2xl p-5 hover:border-ic-accent transition-colors"
+                className="block bg-ic-card/50 rounded-2xl p-5 hover:bg-ic-card transition-colors"
               >
                 <div className="flex items-start justify-between gap-4 mb-2">
                   <span className="font-mono text-[11px] text-ic-muted">{formatDate(date)}</span>
@@ -125,7 +125,7 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
                       { icon: <Users size={11} />,         v: stats.participants_active ?? 0 },
                     ].map(({ icon, v }, i) => (
                       <span key={i} className="flex items-center gap-1 font-mono text-[11px] text-ic-muted">
-                        <span className="text-ic-accent">{icon}</span>{v}
+                        <span className="text-[#A78BFA]">{icon}</span>{v}
                       </span>
                     ))}
                   </div>
@@ -149,7 +149,7 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
               <Link
                 key={String(rollup.id)}
                 href={href}
-                className="block bg-ic-card border border-ic-rule rounded-2xl p-5 hover:border-ic-accent transition-colors"
+                className="block bg-ic-card/50 rounded-2xl p-5 hover:bg-ic-card transition-colors"
               >
                 <p className="font-mono text-[11px] text-ic-muted mb-1">{formatDateRange(start, end)}</p>
                 <h3 className="font-display italic text-ic-ink mb-1 leading-snug">{title}</h3>
@@ -164,11 +164,11 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-10">
           {page > 1 ? (
-            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors">
+            <Link href={buildUrl(page - 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule/30 text-ic-muted hover:border-[#A78BFA] hover:text-ic-ink font-mono text-xs transition-colors">
               <ChevronLeft size={13} /> Previous
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule/15 text-ic-muted/50 font-mono text-xs cursor-not-allowed">
               <ChevronLeft size={13} /> Previous
             </span>
           )}
@@ -177,11 +177,11 @@ export default async function ArchiveIndexPage({ searchParams }: Props) {
             <span className="text-ic-ink font-semibold">{totalPages}</span>
           </span>
           {page < totalPages ? (
-            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule text-ic-muted hover:border-ic-ink hover:text-ic-ink font-mono text-xs transition-colors">
+            <Link href={buildUrl(page + 1)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule/30 text-ic-muted hover:border-[#A78BFA] hover:text-ic-ink font-mono text-xs transition-colors">
               Next <ChevronRight size={13} />
             </Link>
           ) : (
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule-soft text-ic-muted/50 font-mono text-xs cursor-not-allowed">
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-ic-rule/15 text-ic-muted/50 font-mono text-xs cursor-not-allowed">
               Next <ChevronRight size={13} />
             </span>
           )}
