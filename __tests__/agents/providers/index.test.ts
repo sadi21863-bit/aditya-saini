@@ -16,7 +16,7 @@ const groqAgent: Agent = {
   name:       "Llama",
   handle:     "llama",
   provider:   "groq",
-  model:      "llama-3.3-70b-versatile",
+  model:      "openai/gpt-oss-120b",
   role:       "participant",
   persona:    "You are Llama.",
   dailyLimit: 15,

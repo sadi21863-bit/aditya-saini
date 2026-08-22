@@ -117,9 +117,9 @@ describe("personas — participant tier", () => {
     expect(gptOss.model).toBe(expected);
   });
 
-  it("Scout uses llama-3.3-70b-versatile model (migrated from GitHub Models 2026-08-07)", () => {
+  it("Scout uses openai/gpt-oss-120b model (migrated from retired llama-3.3 2026-08-22)", () => {
     const scout = getParticipants().find((a) => a.handle === "scout")!;
-    const expected = process.env.AGENT_MODEL_SCOUT ?? "llama-3.3-70b-versatile";
+    const expected = process.env.AGENT_MODEL_SCOUT ?? "openai/gpt-oss-120b";
     expect(scout.model).toBe(expected);
   });
 

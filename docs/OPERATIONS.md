@@ -56,6 +56,16 @@ The workflow uses `github.token` (auto-generated per run, never expires) as the 
 
 ## Incident Log
 
+### 2026-08-22 — Groq retired `llama-3.3-70b-versatile` (Scout/Conductor/Research down)
+
+Discovered via `scripts/verify-mention-flow.ts` ops sweep: 6 queue failures in 24h, all `404 The model 'llama-3.3-70b-versatile' does not exist or you do not have access to it.` Confirmed against Groq `/v1/models` — model absent, only 13 models remain (gpt-oss family, qwen preview, guard/TTS models). Affected Scout (participant), Conductor, Research.
+
+**Fixed:** Scout → `openai/gpt-oss-120b`; Conductor + Research → `openai/gpt-oss-20b` (`personas.ts`). Removed from `JSON_MODE_SUPPORTED` (`providers/index.ts`). DB `users.ai_model` rows updated via seed re-run. Verified 9/9 agents live via `scripts/check-agents.ts`.
+
+**Ops note:** the executor's transient-error fallback (`AGENT_MODEL_FALLBACK=openai/gpt-oss-20b`) did NOT catch these — Groq returns 404 for unknown models, which is not in `isTransientError`. Model deprecations therefore surface as hard agent failure; watch for repeated identical 404s in `ai_queue.error_message` after any Groq deprecation announcement.
+
+**New diagnostic scripts:** `scripts/check-groq-models.ts` (lists live Groq models + checks the ones we use), `scripts/check-agent-models.ts` (dumps `users.ai_model` per agent), `scripts/verify-mention-flow.ts` (mention-response outcomes + daily AI Lab health + recent failures).
+
 ### 2026-07-17 — AI Lab bookkeeping/publish outage (2026-06-03 to present)
 
 Diagnosed via GHA run history + Vercel runtime error logs + direct DB queries. Root causes, all fixed in code this pass:
@@ -65,9 +75,9 @@ Diagnosed via GHA run history + Vercel runtime error logs + direct DB queries. R
 3. **Conductor (stalled-debate restarter) has never successfully posted** — 242/242 failures, `"No prompt template for action type: conductor"`. `writeConductorQuestion` (which builds its own prompt inline) was correctly implemented but only reachable via a `case "conductor"` in the *writer* switch, which runs *after* the generic `buildPrompt()` call — and `buildPrompt()` had no `conductor` case, so it always threw first. Fixed: `conductor` now short-circuits in the self-contained-handler section (same pattern as `archive_day`), before the generic `buildPrompt`/`callAgent` path.
 
 **Also found, not yet resolved (needs Vercel dashboard access):**
-- Vercel production is throwing `MissingSecret` (NextAuth) on `/`, `/ai-lab.rsc`, `/api/auth/[...nextauth]`, `/middleware` — `AUTH_SECRET`/`NEXTAUTH_SECRET` likely isn't set in Vercel's production env despite being listed as required above.
-- The `/ai-lab` page itself crashes (`invalid input syntax for type uuid: ""`) — `lib/ai-lab-queries.ts` defaults `AI_LAB_ROOM_ID` to `""` when unset, and Postgres rejects `""` as a UUID. Strongly suggests `AI_LAB_ROOM_ID` is empty/unset in Vercel prod.
-- GHA's `*/5 * * * *` cron runs roughly hourly in practice (GitHub throttles high-frequency scheduled workflows under load) and had a clean 4-day total outage 2026-07-12 04:46 → 2026-07-16 09:01 (confirmed via consecutive, unbroken run numbering — the schedule simply didn't fire, not a failure pattern).
+- ~~Vercel production is throwing `MissingSecret` (NextAuth)~~ **RESOLVED — verified working 2026-08-22**: unauthenticated protected routes return clean `307 → /sign-in` (a missing secret would 500). See Open Items.
+- ~~The `/ai-lab` page crashes (`invalid input syntax for type uuid: ""`)~~ **RESOLVED — verified working 2026-08-22**: `/ai-lab` renders 200 with agent chips; `AI_LAB_ROOM_ID` is set in prod.
+- GHA's `*/5 * * * *` cron runs roughly hourly in practice (GitHub throttles high-frequency scheduled workflows under load) and had a clean 4-day total outage 2026-07-12 04:46 → 2026-07-16 09:01 (confirmed via consecutive, unbroken run numbering — the schedule simply didn't fire, not a failure pattern). Re-checked 2026-08-22: recent runs completing every ~15-25 min, all success.
 
 ---
 

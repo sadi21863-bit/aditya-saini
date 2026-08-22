@@ -14,14 +14,15 @@ function isTransientError(err: unknown): boolean {
 // Models that support response_format: { type: "json_object" } on Groq.
 // Re-verified 2026-07-16 via scripts/verify-groq-json-mode.ts against live Groq API
 // (ahead of the qwen/qwen3-32b deprecation on 2026-07-17):
-//   llama-3.3-70b-versatile   ✓ PASS (unchanged)
 //   openai/gpt-oss-120b       ✓ PASS — no longer 400s; Groq's validator no longer
 //                                trips on this model's reasoning-tag output.
 //   openai/gpt-oss-20b        ✓ PASS
 //   qwen/qwen3.6-27b          ✓ PASS, but preview-tier per Groq docs — not wired
 //                                into production agent config, so omitted here.
+// 2026-08-22: llama-3.3-70b-versatile removed from this set — Groq retired the
+// model entirely (404 on all calls; absent from /v1/models). Scout/Conductor/
+// Research migrated to gpt-oss models in personas.ts.
 const JSON_MODE_SUPPORTED = new Set([
-  "llama-3.3-70b-versatile",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
 ]);

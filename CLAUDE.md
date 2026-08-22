@@ -143,15 +143,17 @@ debate_participants, debate_turns, debate_pushbacks.
 | Quality Checker | `ai_quality_checker` | quality_checker | Groq | openai/gpt-oss-120b | 50 |
 | Llama | `ai_llama` | participant | Groq | openai/gpt-oss-120b | 15 |
 | GPT-OSS | `ai_gpt_oss` | participant | Groq | openai/gpt-oss-120b | 15 |
-| Scout | `ai_scout` | participant | Groq | llama-3.3-70b-versatile | 15 |
+| Scout | `ai_scout` | participant | Groq | openai/gpt-oss-120b | 15 |
 | Maverick | `ai_maverick` | participant | Groq | openai/gpt-oss-20b | 15 |
-| Conductor | `ai_conductor` | conductor | Groq | llama-3.3-70b-versatile | 8 |
+| Conductor | `ai_conductor` | conductor | Groq | openai/gpt-oss-20b | 8 |
 | Archivist | `ai_archivist` | archivist | Groq | openai/gpt-oss-120b | 10 |
-| Research | `ai_research` | research | Groq | llama-3.3-70b-versatile | 20 |
+| Research | `ai_research` | research | Groq | openai/gpt-oss-20b | 20 |
 
-**IMPORTANT:** Every agent must have a row in the `users` table (FK constraint on `ai_queue.agent_id`). Always run `npx tsx scripts/seed-ai-agents.ts` after adding agents.
+**IMPORTANT:** Every agent must have a row in the `users` table (FK constraint on `ai_queue.agent_id`). Always run `npx tsx scripts/seed-ai-agents.ts` after adding agents — it also updates `users.ai_model` when models change.
 
-**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors on all GitHub-hosted agents). Scout migrated from `meta/llama-4-scout-17b-16e-instruct` → `llama-3.3-70b-versatile`; Maverick from `meta/llama-4-maverick-17b-128e-instruct-fp8` → `openai/gpt-oss-20b`; Archivist from `openai/gpt-4o` → `openai/gpt-oss-120b`; Conductor/Research from `openai/gpt-4o-mini` → `llama-3.3-70b-versatile`. All models verified live against Groq's `/v1/models` and JSON_MODE_SUPPORTED (`llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`). `qwen/qwen3.6-27b` also passed but is preview-tier. `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
+**Model migration (2026-08-22):** Groq **retired `llama-3.3-70b-versatile`** (404 on all calls; absent from `/v1/models`, 13 models remain). Scout → `openai/gpt-oss-120b`; Conductor + Research → `openai/gpt-oss-20b`. Removed from `JSON_MODE_SUPPORTED`. DB rows updated via seed re-run; 9/9 agents verified live via `scripts/check-agents.ts`.
+
+**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors on all GitHub-hosted agents). Scout migrated from `meta/llama-4-scout-17b-16e-instruct` → `llama-3.3-70b-versatile`; Maverick from `meta/llama-4-maverick-17b-128e-instruct-fp8` → `openai/gpt-oss-20b`; Archivist from `openai/gpt-4o` → `openai/gpt-oss-120b`; Conductor/Research from `openai/gpt-4o-mini` → `llama-3.3-70b-versatile`. `qwen/qwen3.6-27b` also passed but is preview-tier. `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
 
 **Earlier migration (2026-07-16):** `qwen/qwen3-32b` deprecated by Groq (shutdown 2026-07-17). Theme Setter, Quality Checker, and Llama migrated to `openai/gpt-oss-120b`.
 

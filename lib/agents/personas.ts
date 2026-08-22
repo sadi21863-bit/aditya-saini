@@ -47,22 +47,23 @@ const MODELS = {
   // (part of the qwen/qwen3-32b deprecation cleanup; consolidates on gpt-oss-120b).
   llama: process.env.AGENT_MODEL_LLAMA ?? "openai/gpt-oss-120b",
   gptOss: process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b",
-  // Scout: migrated from GitHub Models meta/llama-4-scout-17b-16e-instruct → Groq
-  // llama-3.3-70b-versatile 2026-08-07 (GitHub Models retirement brownout). JSON mode
-  // verified live (JSON_MODE_SUPPORTED in providers/index.ts).
-  scout: process.env.AGENT_MODEL_SCOUT ?? "llama-3.3-70b-versatile",
+  // Scout: GitHub Models meta/llama-4-scout → Groq llama-3.3-70b-versatile (2026-08-07)
+  // → openai/gpt-oss-120b (2026-08-22: Groq retired llama-3.3 — 404 on all calls,
+  // model absent from /v1/models). JSON mode verified live.
+  scout: process.env.AGENT_MODEL_SCOUT ?? "openai/gpt-oss-120b",
   // Maverick: migrated from GitHub Models meta/llama-4-maverick-17b-128e-instruct-fp8 →
   // Groq openai/gpt-oss-20b 2026-08-07 (GitHub Models retirement brownout). JSON mode
   // verified live (JSON_MODE_SUPPORTED in providers/index.ts).
   maverick: process.env.AGENT_MODEL_MAVERICK ?? "openai/gpt-oss-20b",
 
-  // Conductor: migrated from GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
-  // 2026-08-07 (GitHub Models retirement brownout).
-  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "llama-3.3-70b-versatile",
+  // Conductor: GitHub Models gpt-4o-mini → Groq llama-3.3-70b-versatile (2026-08-07)
+  // → openai/gpt-oss-20b (2026-08-22: llama-3.3 retired by Groq). Small precise task
+  // (read thread summaries, pose one question) — 20b sufficient.
+  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "openai/gpt-oss-20b",
 
-  // @research: migrated from GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
-  // 2026-08-07 (GitHub Models retirement brownout). Plain-text output — JSON mode not needed.
-  research: process.env.AGENT_MODEL_RESEARCH ?? "llama-3.3-70b-versatile",
+  // @research: GitHub Models gpt-4o-mini → Groq llama-3.3-70b-versatile (2026-08-07)
+  // → openai/gpt-oss-20b (2026-08-22: llama-3.3 retired by Groq). Plain-text output.
+  research: process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-oss-20b",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
