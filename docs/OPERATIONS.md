@@ -37,12 +37,10 @@ The workflow uses `github.token` (auto-generated per run, never expires) as the 
 - `GH_MODELS_TOKEN` secret = PAT set to **no expiration** (regenerated 2026-05-21) — emergency fallback only
 - Vercel uses `GITHUB_TOKEN` PAT — used for two purposes:
   1. **GitHub Models API** (`models:read`) — same no-expiration token as above
-  2. **Quick Debate queue dispatch** (`workflow` scope on classic PATs, or `actions: write` on fine-grained PATs) — triggers `workflow_dispatch` on `process-queue.yml` so Round 1/2 complete in ~30-60s instead of waiting for the 5-minute cron
+  2. **Queue dispatch** (`workflow` scope on classic PATs, or `actions: write` on fine-grained PATs) — triggers `workflow_dispatch` on `process-queue.yml`
 
 **If `GITHUB_TOKEN` is missing or expired in Vercel:**
-- Quick Debate still works — debates complete via the 5-minute GHA cron fallback
-- Users wait up to 5 minutes instead of ~60 seconds
-- `dispatchQueueProcessor()` returns silently — no error surfaced to the user
+- AI Lab still works — queue items process via the 5-minute GHA cron fallback
 - To diagnose: check Vercel function logs for missing GITHUB_TOKEN, or check GHA → Actions tab to see if workflow_dispatch runs are appearing
 
 **PAT scope required for dispatch:**
@@ -51,6 +49,8 @@ The workflow uses `github.token` (auto-generated per run, never expires) as the 
 - The same PAT handles both GitHub Models and dispatch — no second token needed
 
 **Rotation:** Set the PAT to no-expiration. If it must expire, set a calendar reminder 2 weeks before and update in Vercel env vars. The 5-minute cron remains functional without it — only the fast-path dispatch degrades.
+
+> **Quick Debate removed 2026-08-22:** migration 0016 dropped all 6 debate tables and all `/debates/*` routes/components were deleted. The "Quick Debate queue dispatch" fast path is now used only by AI Lab self-healing. Debate of the Day (`ai_lab_debate`) is unaffected.
 
 ---
 
@@ -98,12 +98,12 @@ GitHub Actions also runs `scripts/process-queue.ts` every 5 minutes independentl
 | Llama | 15 | Groq | Missing from AI Lab debates |
 | GPT-OSS | 15 | Groq | Missing from AI Lab debates |
 | Scout | 15 | GitHub | Missing from AI Lab debates |
-| Maverick | 15 | GitHub | Missing from AI Lab + Quick Debate |
+| Maverick | 15 | GitHub | Missing from AI Lab debates |
 | Conductor | 8 | GitHub | No stalled-debate restarts |
-| Archivist | 10 | GitHub | **CRITICAL** — archive + Quick Debate both consume this |
+| Archivist | 10 | GitHub | **CRITICAL** — daily archive + Debate of the Day consume this |
 | Research | 20 | GitHub | No @research context in debates |
 
-**Archivist budget warning:** Each Quick Debate consumes 1 Archivist call. The daily AI Lab archive also consumes 1. With 5 debates/day cap, maximum daily Archivist usage = 6 (5 debates + 1 archive). Daily limit is 10 — leaves 4 slots of headroom.
+**Archivist budget:** The daily archive consumes 1 call; Debate of the Day is self-contained (own usage upsert). Daily limit is 10 — ample headroom.
 
 ---
 
@@ -134,16 +134,6 @@ WHERE status = 'in_progress'
 -- Can also trigger manually: POST /api/cron/agents/catchup
 ```
 
-### Check Quick Debate failures
-```sql
-SELECT action_type, error_message, created_at
-FROM ai_queue
-WHERE action_type IN ('debate_turn', 'debate_archive')
-  AND status = 'failed'
-  AND created_at > NOW() - INTERVAL '24 hours'
-ORDER BY created_at DESC;
-```
-
 ### Check today's agent usage
 ```sql
 SELECT u.handle, au.request_count, au.fallback_count, au.last_request_at
@@ -163,7 +153,7 @@ ORDER BY au.request_count DESC;
 4. Update `CLAUDE.md` agent table
 5. Update `README.md` agent table
 6. Update this file's agent limits table
-7. If the agent can be Judge-assigned for Quick Debate: update `buildJudgeEvaluationPrompt` in `lib/agents/prompts.ts` to include it in the agent pool description
+7. If the agent can be Judge-assigned for Debate of the Day: update `buildAILabDebateJudgePrompt` in `lib/agents/prompts.ts` to include it in the agent pool description
 
 ---
 
@@ -198,7 +188,8 @@ Which file to update:
 | New API route | `README.md` (routes table), feature doc if applicable |
 | Bug fix affecting ops behavior | `OPERATIONS.md` |
 | Test count change | `CLAUDE.md`, `README.md`, `BEFORE_LAUNCH.md` |
-| New Quick Debate feature | `QUICK_DEBATE.md`, `CLAUDE.md`, `SCHEMA_NOTES.md` if tables changed |
+
+> `QUICK_DEBATE.md` deleted 2026-08-22 with the feature. Do not recreate it — see HARD RULES in `CLAUDE.md`.
 
 ---
 
@@ -211,6 +202,7 @@ Which file to update:
 - [x] Daily archives running since 2026-05-04
 - [x] 4-layer private room isolation verified
 - [x] Quick Debate Phase 1 deployed and verified 2026-05-20
+- [x] **Quick Debate + multi-round debates removed 2026-08-22** — migration 0016 dropped all 6 debate tables (applied to Neon); all `/debates/*` routes, pages, components, handlers, prompts deleted. Debate of the Day (`ai_lab_debate`) retained.
 
 ## Open Items
 
@@ -218,4 +210,4 @@ Which file to update:
 - [ ] **Verify/set `AI_LAB_ROOM_ID` in Vercel production env** — `/ai-lab` page is crashing with `invalid input syntax for type uuid: ""`, consistent with this var being empty/unset in prod. See Incident Log above.
 - [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel when ready to allow search indexing of archives
 - [ ] Test full @mention flow with a real user account on production
-- [ ] Verify `GITHUB_TOKEN` in Vercel has `workflow` scope (classic PAT) or `Actions: write` (fine-grained) — required for Quick Debate queue dispatch. Confirm by checking GHA → Actions tab for `workflow_dispatch` trigger entries after a debate is started.
+- [ ] Verify `GITHUB_TOKEN` in Vercel has `workflow` scope (classic PAT) or `Actions: write` (fine-grained) — required for queue dispatch. Confirm by checking GHA → Actions tab for `workflow_dispatch` trigger entries.

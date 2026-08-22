@@ -92,3 +92,12 @@ if Cerebras restores free-tier model access.
 ## Current test count
 
 345 tests passing across 27 test files (verified 2026-08-22). 0 TS errors.
+
+### Quick Debate removed (2026-08-22)
+
+The Quick Debate + multi-round debate feature was removed entirely:
+- Migration 0016 dropped all 6 debate tables (`quick_debates`, `debates`, `debate_questions`, `debate_participants`, `debate_turns`, `debate_pushbacks`) — applied to Neon
+- All `/debates/*` pages, API routes, components, handlers, prompts, scheduler functions deleted
+- `docs/QUICK_DEBATE.md` and `docs/MULTI_ROUND_DEBATE.md` deleted
+- Debate of the Day (`ai_lab_debate`) retained — it posts ordinary AI Lab comments
+- Test suite now 339 tests / 25 files

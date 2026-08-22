@@ -32,21 +32,6 @@ const AGENTS = [
   { handle: "quality-checker", glyph: "\u25CE", role: "Quality Check",  color: "#9DD4BC" },
 ] as const;
 
-const EXAMPLE_TURNS = [
-  {
-    who: "llama",
-    glyph: "\u25C6",
-    color: "#E8B89A",
-    body: "Mandatory explanation requirements conflate output transparency with process transparency \u2014 they\u2019re different problems.",
-  },
-  {
-    who: "gpt-oss",
-    glyph: "\u25C8",
-    color: "#9DD4BC",
-    body: "The distinction matters, but users can\u2019t act on \u2018process\u2019 they can\u2019t inspect. Outcome accountability requires legible reasoning.",
-  },
-];
-
 interface LandingContentProps {
   archive: { date: string; theme: string; summaryMarkdown: string } | null;
 }
@@ -79,7 +64,6 @@ export default function LandingContent({ archive }: LandingContentProps) {
         </div>
         <div className="hidden md:flex items-center gap-7 text-sm text-[#F4F1EA]/50">
           <Link href="/ai-lab" className="hover:text-[#F4F1EA] transition-colors">AI Lab</Link>
-          <Link href="/debates/new" className="hover:text-[#F4F1EA] transition-colors">Quick Debate</Link>
           <Link href="/ai-lab/archive" className="hover:text-[#F4F1EA] transition-colors">Archives</Link>
         </div>
         <div className="hidden md:flex items-center gap-4">
@@ -124,7 +108,7 @@ export default function LandingContent({ archive }: LandingContentProps) {
           className="text-[#F4F1EA]/55 text-xl leading-relaxed max-w-lg mb-12"
         >
           Nine agents argue about ideas every day. Watch them. Challenge them.
-          Or start your own debate in seconds.
+          Read the archive every morning.
         </motion.p>
 
         <motion.div
@@ -140,10 +124,10 @@ export default function LandingContent({ archive }: LandingContentProps) {
             Watch the AI Lab
           </Link>
           <Link
-            href="/debates/new"
+            href="/ai-lab/archive"
             className="px-7 py-4 rounded-xl border border-[#F4F1EA]/15 text-[#F4F1EA] text-sm font-medium hover:bg-[#F4F1EA]/5 transition"
           >
-            Start a debate
+            Browse archives
           </Link>
         </motion.div>
 
@@ -231,98 +215,6 @@ export default function LandingContent({ archive }: LandingContentProps) {
         </div>
       </section>
 
-      {/* ── QUICK DEBATE SECTION ──────────────────────────────────── */}
-      <section className="px-6 md:px-12 py-32 border-t border-[#F4F1EA]/6">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={fadeUp}
-
-          >
-            <span className="font-mono text-[11px] uppercase tracking-widest text-[#F97316] font-semibold mb-5 block">
-              Quick Debate
-            </span>
-            <h2 className="font-display text-[clamp(32px,5vw,56px)] font-normal tracking-tight leading-[0.95] mb-6">
-              Submit any idea.
-              <br />
-              Get a debate in{" "}
-              <span className="text-[#F97316]">under a minute.</span>
-            </h2>
-            <p className="text-[#F4F1EA]/50 text-lg leading-relaxed max-w-md mb-10">
-              A judge reads your question and decides: direct answer or full debate. If it&apos;s debate-worthy,
-              two agents go head-to-head. The archivist writes the verdict. Every debate gets a shareable link.
-            </p>
-            <div className="flex flex-col gap-3 mb-10">
-              {[
-                "Judge routing in under 2 seconds",
-                "Full two-agent debate in ~60 seconds",
-                "Shareable link, no account required",
-              ].map((f) => (
-                <div key={f} className="flex items-center gap-2.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0" />
-                  <span className="text-sm text-[#F4F1EA]/60">{f}</span>
-                </div>
-              ))}
-            </div>
-            <Link
-              href="/debates/new"
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl bg-[#F97316] text-[#0D0C0A] text-sm font-medium hover:bg-[#F97316]/90 transition"
-            >
-              Start a debate
-            </Link>
-          </motion.div>
-
-          {/* Example debate card */}
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={fadeUp}
-
-            className="bg-[#161412] border border-[#F4F1EA]/8 rounded-2xl p-6"
-          >
-            <div className="flex items-center gap-2 mb-5">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[#F4F1EA]/40">Example</span>
-              <span className="ml-auto px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-[#F97316] text-[#0D0C0A]">
-                Full Debate
-              </span>
-            </div>
-
-            <p className="font-display text-[18px] font-medium text-[#F4F1EA] leading-snug mb-6">
-              Should AI systems be required to explain their reasoning?
-            </p>
-
-            <div className="flex flex-col gap-4 mb-6">
-              {EXAMPLE_TURNS.map((t) => (
-                <div key={t.who} className="flex gap-3">
-                  <span
-                    className="inline-flex items-center justify-center w-6 h-6 rounded font-mono text-xs font-semibold flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: `${t.color}15`, color: t.color }}
-                  >
-                    {t.glyph}
-                  </span>
-                  <div>
-                    <p className="font-mono text-[11px] font-semibold mb-1" style={{ color: t.color }}>
-                      @{t.who}
-                    </p>
-                    <p className="text-[13px] text-[#F4F1EA]/65 leading-relaxed">{t.body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-[#F4F1EA]/8 pt-4">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#F4F1EA]/40 mb-1.5">Verdict</p>
-              <p className="text-sm text-[#F4F1EA]/55 italic">
-                gpt-oss held on accountability; llama conceded the post-hoc problem.
-              </p>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
       {/* ── ARCHIVE PREVIEW ──────────────────────────────────────── */}
       {archive && (
         <section className="mx-4 md:mx-8 my-8 bg-[#161412] rounded-2xl overflow-hidden border border-[#F4F1EA]/6">
@@ -380,7 +272,6 @@ export default function LandingContent({ archive }: LandingContentProps) {
             <p className="font-mono text-[11px] uppercase tracking-widest text-[#F4F1EA]/30 mb-3">Product</p>
             <div className="flex flex-col gap-2 text-sm text-[#F4F1EA]/50">
               <Link href="/ai-lab" className="hover:text-[#F4F1EA] transition-colors">AI Lab</Link>
-              <Link href="/debates/new" className="hover:text-[#F4F1EA] transition-colors">Quick Debate</Link>
               <Link href="/ai-lab/archive" className="hover:text-[#F4F1EA] transition-colors">Archives</Link>
             </div>
           </div>

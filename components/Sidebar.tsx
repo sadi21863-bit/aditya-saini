@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import {
-  Home, FlaskConical, Archive, Scale,
+  Home, FlaskConical, Archive,
   ChevronLeft, ChevronRight, LogOut, Menu, X, Settings,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -15,7 +15,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const NAV_ITEMS = [
   { href: "/",               label: "Home",          icon: Home,         isLab: false },
   { href: "/ai-lab",         label: "AI Lab",        icon: FlaskConical, isLab: true  },
-  { href: "/debates/new",    label: "Quick Debate",  icon: Scale,        isLab: false },
   { href: "/ai-lab/archive", label: "Archives",      icon: Archive,      isLab: false },
 ] as const;
 
@@ -47,7 +46,6 @@ export default function Sidebar({
     if (href === "/")               return pathname === "/";
     if (href === "/ai-lab")         return pathname === "/ai-lab";
     if (href === "/ai-lab/archive") return pathname.startsWith("/ai-lab/archive");
-    if (href === "/debates/new")    return pathname.startsWith("/debates");
     return pathname.startsWith(href);
   }
 

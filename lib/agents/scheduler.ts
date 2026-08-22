@@ -9,7 +9,7 @@
  */
 
 import { db } from "@/db";
-import { aiQueue, aiThemes, ideas, ideaComments, searchCache, debateParticipants } from "@/db/schema";
+import { aiQueue, aiThemes, ideas, ideaComments, searchCache } from "@/db/schema";
 import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { ALL_AGENTS, getAdmins, getConductor, getParticipants } from "./personas";
@@ -787,70 +787,4 @@ export async function queueDailyArchive(dateStr?: string): Promise<void> {
     priority:     1,
     status:       "pending",
   });
-}
-
-// ─── Multi-round debate queue functions ──────────────────────────────────────
-
-export async function queueDebateRound(opts: {
-  debateId: string;
-  round: number;
-  slotIndex: number;
-  maxRounds: number;
-  maxPushbacks: number;
-  pushbacksUsed: number;
-  pushbackText?: string;
-  pushbackTarget?: string;
-}): Promise<string> {
-  const participants = await db
-    .select()
-    .from(debateParticipants)
-    .where(eq(debateParticipants.debateId, opts.debateId))
-    .orderBy(asc(debateParticipants.slotIndex));
-
-  if (participants.length < 2) {
-    throw new Error("Debate has fewer than 2 participants");
-  }
-
-  const agentId = opts.slotIndex === 0
-    ? participants[0].agentId
-    : participants[1].agentId;
-
-  const result = await db
-    .insert(aiQueue)
-    .values({
-      agentId,
-      actionType: "debate_turn",
-      promptContext: {
-        debateId: opts.debateId,
-        slot: opts.slotIndex,
-        round: opts.round,
-        maxRounds: opts.maxRounds,
-        maxPushbacks: opts.maxPushbacks,
-        pushbacksUsed: opts.pushbacksUsed,
-        pushbackText: opts.pushbackText,
-        pushbackTarget: opts.pushbackTarget,
-      },
-      scheduledFor: new Date(),
-      status: "pending",
-      priority: 1,
-    })
-    .returning({ id: aiQueue.id });
-
-  return result[0].id;
-}
-
-export async function queueDebateFinalVerdict(debateId: string): Promise<string> {
-  const result = await db
-    .insert(aiQueue)
-    .values({
-      agentId: "ai_archivist",
-      actionType: "debate_final_verdict",
-      promptContext: { debateId },
-      scheduledFor: new Date(),
-      status: "pending",
-      priority: 1,
-    })
-    .returning({ id: aiQueue.id });
-
-  return result[0].id;
 }

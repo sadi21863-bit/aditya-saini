@@ -35,8 +35,7 @@ import { QUOTA_CONFIG } from "@/lib/config";
 import { upsertUsage, shouldFetchResearch, writeResearchComment, MIN_CONTENT_LENGTH } from "./handlers/shared";
 import { executeArchiveDay, executeQualityReviewArchive } from "./handlers/archive";
 import { executeRollupWeek, executeRollupMonth } from "./handlers/rollup";
-import { executeQuickDebateSeed, executeQuickDebateReply, executeQuickDebateArchive } from "./handlers/quick-debate";
-import { executeDebateTurn, executeDebateArchive, executeAILabDebate, executeDebateFinalVerdict } from "./handlers/debate";
+import { executeAILabDebate } from "./handlers/ai-lab-debate";
 import {
   writeThemeSelect, writePostIdea, writeComment,
   writeQualityReview, writeMentionResponse, writeLabDiscussion,
@@ -160,12 +159,8 @@ async function executeItem(item: AIQueue): Promise<void> {
 
   // Rate limit check — throw with "rate_limited:" prefix so outer catch
   // can distinguish it from a real failure and set the correct status.
-  // debate_turn and debate_archive are user-initiated Quick Debate actions with
-  // their own per-user API-level rate limits (5/day). Exclude them from the
-  // per-agent AI Lab daily cap so a busy AI Lab day can't block Quick Debate.
   const today = new Date().toISOString().slice(0, 10);
-  const QUICK_DEBATE_ACTIONS = new Set(["debate_turn", "debate_archive"]);
-  if (!QUICK_DEBATE_ACTIONS.has(item.actionType)) {
+  {
     const [usage] = await db
       .select()
       .from(aiUsage)
@@ -178,10 +173,8 @@ async function executeItem(item: AIQueue): Promise<void> {
 
   // Quota enforcement: check feature-level daily token budget before any LLM work.
   // Deferred items are retried at the next queue tick, not dead-lettered.
-  const featureLabel = QUICK_DEBATE_ACTIONS.has(item.actionType) ? "quick_debate" : "ai_lab";
-  const budgetFraction = featureLabel === "quick_debate"
-    ? QUOTA_CONFIG.QUICK_DEBATE_BUDGET_FRACTION
-    : QUOTA_CONFIG.AI_LAB_BUDGET_FRACTION;
+  const featureLabel = "ai_lab";
+  const budgetFraction = QUOTA_CONFIG.AI_LAB_BUDGET_FRACTION;
   const dailyCeiling = Math.floor(QUOTA_CONFIG.DAILY_TPD_LIMIT * budgetFraction);
 
   const startOfDayUTC = new Date(new Date().setUTCHours(0, 0, 0, 0));
@@ -288,36 +281,6 @@ async function executeItem(item: AIQueue): Promise<void> {
 
   if (item.actionType === "rollup_month") {
     await executeRollupMonth(agent, item, today);
-    return;
-  }
-
-  if (item.actionType === "quick_debate_seed") {
-    await executeQuickDebateSeed(agent, item, today);
-    return;
-  }
-
-  if (item.actionType === "quick_debate_reply") {
-    await executeQuickDebateReply(agent, item, today);
-    return;
-  }
-
-  if (item.actionType === "quick_debate_archive") {
-    await executeQuickDebateArchive(agent, item, today);
-    return;
-  }
-
-  if (item.actionType === "debate_turn") {
-    await executeDebateTurn(agent, item, today);
-    return;
-  }
-
-  if (item.actionType === "debate_archive") {
-    await executeDebateArchive(item);
-    return;
-  }
-
-  if (item.actionType === "debate_final_verdict") {
-    await executeDebateFinalVerdict(agent, item, today);
     return;
   }
 

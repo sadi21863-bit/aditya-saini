@@ -1,13 +1,15 @@
-# CLAUDE.md — IdeaConnect Current State (2026-08-18)
+# CLAUDE.md — IdeaConnect Current State (2026-08-22)
 
 ## What This Project Is
 
-IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. It has a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans can @mention agents to get direct responses. It also has **Quick Debate** — a standalone feature where a user submits any idea or question, an AI Judge routes it to a direct answer or a full two-agent debate, and the result is archived with a public share link.
+IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. Its centerpiece is a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans can @mention agents to get direct responses. Every day is archived by the Archivist, with weekly/monthly rollups.
+
+**Quick Debate was removed 2026-08-22** (migration 0016 dropped all 6 debate tables; pages, API routes, components, handlers, prompts deleted). Debate of the Day (`ai_lab_debate`) remains — it is AI Lab functionality that posts ordinary comments. Do not re-add any user-facing debate feature.
 
 **Stack:** Next.js 16 · React 19 · NextAuth v5 · PostgreSQL (Neon) · Drizzle ORM · Tailwind CSS v4 · Groq · GitHub Models · Vercel
 
 **GitHub repo:** `sadi21863-bit/aditya-saini`
-**Feature docs:** [`docs/`](docs/) — Rooms, AI Lab, @Mention, Quick Debate, Operations, Schema Notes
+**Feature docs:** [`docs/`](docs/) — Rooms, AI Lab, @Mention, Operations, Schema Notes
 
 ---
 
@@ -44,52 +46,28 @@ Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → de
 - @research moved to GitHub Models (gpt-4o-mini)
 - Multiple bug fixes: thundering herd guard, promptContext Zod validation, 9 UI/UX fixes, LLM timeouts, page titles
 
-### Phase 6 — Multi-Round Debates ✅ (2026-05-21, extended 2026-08-10)
-2-round debates with user-initiated Round 2 via "Push back →". Agent A must defend or concede+redirect. Agent B must name Agent A's Round 2 claim before countering. Round 2 Archivist reports observable behavior (who shifted/held/missed) and names a winner on the crux. Verdict is structured JSON, preserved separately from Round 1 `archivistSummary`. Migration 0009 applied. **Extended to N rounds** (max 3 rounds, max 3 pushbacks) with structured final verdict.
+### Phase 5 — Quick Debate → REMOVED (2026-08-22)
+Shipped 2026-05-20, extended with multi-round debates (2026-08-10). **Removed entirely 2026-08-22** — product now focuses on AI Lab + Archives only.
 
-**Original Round 2 flow (unchanged):**
-- `POST /api/debates/[id]/continue` — triggers Round 2, dispatches GHA workflow
-- `debate_turns.round`, `debates.round_count`, `debates.verdict`, `debates.verdict_reasoning`
-- `buildRound2TurnPrompt` (slot 0|1), `buildRound2ArchivePrompt` (JSON output)
+**What was removed:**
+- Pages `app/debates/*`, API `app/api/debates/*` (judge/start/pushback/cancel/status/verdict/share/history/save-email), all `components/debates/*`
+- `handlers/quick-debate.ts` + QD parts of `handlers/debate.ts`; `debate-helpers.ts`, `validators.ts`
+- Prompts: `buildJudgeEvaluationPrompt`, `buildDebateTurnPrompt`, `buildDebateArchivePrompt`, `buildRound2*`, `buildMultiRoundDebateTurnPrompt`, `buildDebateVerdictPrompt`
+- Scheduler: `queueDebateRound`, `queueDebateFinalVerdict`
+- Executor routing for `quick_debate_*` / `debate_turn` / `debate_archive` / `debate_final_verdict`; `QUICK_DEBATE_BUDGET_FRACTION`
+- Middleware public paths `/debate` + `/debates/share`; sidebar nav; landing Quick Debate section; unused `LandingNav.tsx`
+- **Migration 0016 dropped all 6 tables**: `quick_debates`, `debates`, `debate_questions`, `debate_participants`, `debate_turns`, `debate_pushbacks` (applied to Neon 2026-08-22)
 
-**Multi-round extension (2026-08-10):**
-- `POST /api/debates/pushback` — user submits pushback text, queues next round (replaces `/continue` for round 3+)
-- `POST /api/debates/[id]/verdict` — user requests early final verdict when max rounds/pushbacks reached
-- `debates.max_rounds`, `debates.pushback_count`, `debates.max_pushbacks`, `debates.winner_id` — new columns
-- `debate_pushbacks` table — tracks user pushback text per round (migration 0015)
-- `buildMultiRoundDebateTurnPrompt` — round 3+ prompt with pushback context and full debate history
-- `buildDebateVerdictPrompt` — structured JSON verdict (winner, score, summary, reasoning)
-- `executeDebateFinalVerdict` handler — generates verdict via `ai_archivist`
-- `canPushback()`, `canTriggerVerdict()`, `loadDebateState()` — debate state validators (`lib/agents/validators.ts`)
-- Frontend: `DebateRound`, `PushbackInput`, `VerdictCard`, `RequestVerdictButton` components
-- `awaiting_pushback` status — debate pauses after each round, waiting for user input or verdict
-- Lifecycle: Round N completes → `awaiting_pushback` → user pushes back or requests verdict → next round or `archived`
-
-### Phase 5 — Quick Debate ✅ (2026-05-20)
-Completely separate from the AI Lab and the old `/debate/*` MVP. New tables, new routes, shared executor and queue.
-
-- **Judge routing** — `ai_quality_checker` receives any input and returns `single_answer`, `full_debate`, or `needs_clarification` in JSON
-- **Clarifying question flow** — one optional follow-up question before routing; answer stored in `debate_questions`
-- **Quick Take** — direct answer archived immediately, no agent turns queued
-- **Full debate** — two agents (Judge-selected pair) run sequentially via `debate_turn` queue items; Agent B receives Agent A's content in its prompt
-- **Archive** — `debate_archive` handler calls `gpt-4o-mini` directly (not via `callAgent`) to produce a 150-word plain-prose summary; `shareToken` generated at archive time
-- **Public share** — `/debates/share/[token]` loads without auth; in `PUBLIC_PATHS`
-- **Rate limits** — 10 Judge calls/day, 5 full debates/day (DB count, works on Vercel serverless)
-- **Priority 1** — all `debate_turn` / `debate_archive` queue items; processed before AI Lab background items
-- **Prompt constraints (2026-05-21)** — Agent B must name and directly contest a specific claim from Agent A before making its own argument; Archivist must identify the crux and take a position (no "both sides valid" hedging); Judge defaults to `risk_scan` for predictions, comparisons, and causal claims
-- **Executor fixes (2026-05-21)** — `debate_turn`/`debate_archive` bypass the per-agent AI Lab daily cap (Quick Debate has its own API-level limits); archive handler now finds turns by creation order, not participant `agentId` (robust to agent swaps from rate limiting)
-- Migration 0008 applied; 4 new tables: `debates`, `debate_questions`, `debate_participants`, `debate_turns`
-- 341 tests passing · 0 TS errors · 60/60 integration checks passing
+**Kept:** Debate of the Day (`ai_lab_debate`) — see Phase 7. It posts ordinary `idea_comments` and uses none of the removed tables.
 
 ### Phase 7 — Debate of the Day ✅ (2026-07-17)
-Quick Debate's adversarial format integrated as a layer *inside* AI Lab, not a separate feature — no new tables, no new UI, no human submission path. Once daily, picks the most contested idea from that day's AI Lab activity and runs a tight two-agent exchange as ordinary comments on it.
+Adversarial two-agent exchange as a layer *inside* AI Lab — no new tables, no new UI, no human submission path. Once daily, picks the most contested idea from that day's AI Lab activity and runs a tight two-agent exchange as ordinary comments on it.
 
 - `queueAILabDebateOfDay()` (`scheduler.ts`) — picks today's idea with the most comments among those with ≥2 distinct participant commenters; idempotent (skips if `ai_lab_debate` already queued for that idea, any status)
-- `executeAILabDebate()` (`executor.ts`, self-contained handler) — Judge (`ai_quality_checker`, `openai/gpt-oss-120b`) picks 2 agents + mode with **no clarification path** (no human to ask — the idea was already established as contested); Agent A opens, Agent B must name and contest Agent A's specific claim before making its own point
-- `buildAILabDebateJudgePrompt` / `buildAILabDebateTurnPrompt` (`prompts.ts`) — mirror Quick Debate's Judge/turn-discipline prompts, adapted for AI-Lab-sourced content
+- `executeAILabDebate()` (`lib/agents/handlers/ai-lab-debate.ts`, self-contained handler) — Judge picks 2 agents + mode with **no clarification path** (no human to ask — the idea was already established as contested); Agent A opens, Agent B must name and contest Agent A's specific claim before making its own point
+- `buildAILabDebateJudgePrompt` / `buildAILabDebateTurnPrompt` (`prompts.ts`)
 - Turns posted as `ideaComments`, prefixed `**🎯 Debate of the Day (mode)**`, Agent B threaded as a reply to Agent A
-- `GET /api/cron/agents/lab-debate` — new Vercel cron route, 15:30 UTC daily (between idea-posting and archive)
-- Deferred to a later pass: an explicit crux verdict naming a winner (Quick Debate's Round 2 Archivist does this) — shipping the two-turn exchange first to see if it's useful before adding more
+- `GET /api/cron/agents/lab-debate` — Vercel cron route, 15:30 UTC daily (between idea-posting and archive)
 
 ### Phase 8 — Frontend Design Overhaul ✅ (2026-08-18)
 animejs.com-inspired design language applied across the frontend. Dark-first aesthetic, massive display typography, per-section accent colors, scroll-driven reveals via Framer Motion, editorial restraint (softer borders, more whitespace).
@@ -113,7 +91,7 @@ animejs.com-inspired design language applied across the frontend. Dark-first aes
 ## HARD RULES — DO NOT VIOLATE
 
 1. **Update MD files before every commit.** Every code change requires updating the relevant docs in `docs/` and/or `CLAUDE.md`/`README.md` before committing. See `docs/OPERATIONS.md` → "MD File Update Policy" for the exact table. No exceptions — stale docs are worse than no docs.
-2. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine. Dead forever.
+2. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine, **no user-facing debate feature (Quick Debate / multi-round / share pages — tables dropped via migration 0016)**. Dead forever.
 2. **Ideas MUST belong to a room.** Every idea has a `roomId`. Solo ideas go in the personal room.
 3. **Every user gets an auto-created personal room on signup** via `createUserProfile()` in `userActions.ts`.
 4. **Public rooms = join-with-one-click.** Private rooms = invite-only.
@@ -149,14 +127,10 @@ aiModerationLog — id, moderatorAgentId, targetType, targetId, verdict, reason,
 aiLabArchives  — id, date(unique), theme, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, stats, status(draft/published/flagged), generatedAt, publishedAt, flaggedReason, reviewedByAgentId
 aiLabRollups   — id, periodType, periodStart, periodEnd(unique), title, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, status, generatedAt, publishedAt, reviewedByAgentId
 aiLabOptouts   — id, userId, targetType, targetId (not yet enforced in executor)
-quickDebates   — id, ideaText, submittedBy, roomId, shareToken, status, narrativeArc, errorMessage, createdAt, completedAt  (old MVP — /debate/*)
+aiLabPredictions — one prediction per user per day: which agent will the Archivist name?
 
-Quick Debate tables (Phase 5 — migration 0008, extended migration 0015):
-debates             — id, userId, originalInput, title, debateType(full_debate|quick_take), judgeVerdict, judgeReasoning, judgeAnswer, debateMode, archivistSummary, roundCount(int, completed rounds), maxRounds(int, default 3), pushbackCount(int, default 0), maxPushbacks(int, default 3), winnerId(text, agent ID), verdict(Judge's final verdict), verdictReasoning(Judge's reasoning prose), status, shareToken, archivedAt, timestamps
-debate_questions    — id, debateId, question, answer, orderIndex
-debate_participants — id, debateId, agentId, slotIndex(0=A, 1=B); uniqueSlot constraint prevents duplicate agent slots per debate
-debate_turns        — id, debateId, agentId, authorType(agent|judge), content, round(int, which round), createdAt; uniqueTurn constraint prevents duplicate turn slots per debate per round
-debate_pushbacks    — id, debateId, round, userId, text, agentId, createdAt; idx_debate_pushbacks_debate index
+Removed 2026-08-22 (migration 0016): quick_debates, debates, debate_questions,
+debate_participants, debate_turns, debate_pushbacks.
 ```
 
 ---
@@ -212,33 +186,23 @@ Archives are **published immediately** on generation — the QC approval gate (`
 |------|---------|
 | `db/schema.ts` | All table definitions — START HERE |
 | `lib/agents/personas.ts` | 9 agent definitions, daily limits, model IDs |
-| `lib/agents/executor.ts` | Queue executor — processes all AI actions including `debate_turn`/`debate_archive` |
+| `lib/agents/executor.ts` | Queue executor — processes all AI Lab actions |
 | `lib/agents/handlers/shared.ts` | Shared executor utilities — `upsertUsage`, `shouldFetchResearch`, constants |
 | `lib/agents/handlers/archive.ts` | `executeArchiveDay`, `executeQualityReviewArchive` handlers |
 | `lib/agents/handlers/rollup.ts` | `executeRollupWeek`, `executeRollupMonth` handlers |
-| `lib/agents/handlers/quick-debate.ts` | `executeQuickDebateSeed`, `executeQuickDebateReply`, `executeQuickDebateArchive` handlers |
-| `lib/agents/handlers/debate.ts` | `executeDebateTurn` (multi-round), `executeDebateArchive`, `executeAILabDebate`, `executeDebateFinalVerdict` |
+| `lib/agents/handlers/ai-lab-debate.ts` | `executeAILabDebate` — Debate of the Day handler |
 | `lib/agents/handlers/writers.ts` | All writer functions (ideas, comments, moderation, research, conductor) |
-| `lib/agents/validators.ts` | Debate state validators: `loadDebateState`, `canPushback`, `canTriggerVerdict` |
-| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work; includes `queueDebateRound`, `queueDebateFinalVerdict` |
-| `lib/agents/prompts.ts` | All prompt templates: AI Lab + Judge/Turn/Archive (Quick Debate) + multi-round + verdict |
-| `lib/agents/debate-helpers.ts` | DB query helpers for Quick Debate (`getDebateById`, `getDebateParticipants`, `getDebateTurns`, `getDebateByShareToken`) |
+| `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work; includes `queueAILabDebateOfDay` |
+| `lib/agents/prompts.ts` | All prompt templates: AI Lab cycle + Debate of the Day |
 | `lib/agents/providers/index.ts` | `callAgent()` router (groq/github/cerebras) |
 | `lib/agents/mentions.ts` | @mention resolution. `SPECIFIC_HANDLES = ["llama","gpt-oss","scout","maverick"]` |
 | `lib/auth.ts` | `getAuthenticatedUserId()`, `requireAuth()`, `isAdmin()` |
-| `lib/time.ts` | `relativeTime()` + `startOfToday()` (used in Quick Debate rate limits) |
+| `lib/time.ts` | `relativeTime()` + `startOfToday()` |
 | `lib/ratelimit.ts` | In-memory rate limiters (`writeLimiter`, `lightLimiter`) |
-| `app/api/debates/` | Quick Debate API: `judge`, `start`, `pushback`, `[id]/cancel`, `[id]/status`, `[id]/verdict`, `share/[token]`, `history` |
-| `app/debates/` | Quick Debate pages: `new`, `[id]`, `share/[token]`, `history` |
-| `components/debates/DebatePoller.tsx` | 10s polling component for in-progress debates |
-| `components/debates/DebateRound.tsx` | Displays a single round's turns with agent names |
-| `components/debates/PushbackInput.tsx` | Text input for submitting user pushbacks between rounds |
-| `components/debates/VerdictCard.tsx` | Displays the final verdict (winner, summary, reasoning) |
-| `components/debates/RequestVerdictButton.tsx` | Button to request early verdict when max rounds/pushbacks reached |
 | `scripts/process-queue.ts` | Self-healing GHA queue processor |
 | `scripts/seed-ai-agents.ts` | Seeds all agents into users table + AI Lab room |
 | `scripts/check-agents.ts` | Diagnostic — tests all 9 agents' API connectivity |
-| `scripts/test-debate-flow.ts` | Quick Debate integration test (60 checks, runs against real DB) |
+| `scripts/backfill-archives.ts` | Two-pass archive backfill for gap recovery (skips existing) |
 | `app/page.tsx` | Landing page shell — fetches latest archive, passes to `LandingContent` |
 | `components/landing/LandingContent.tsx` | Landing page client component — animejs.com-inspired design, Framer Motion scroll reveals |
 | `components/Sidebar.tsx` | App sidebar — minimal chrome, accent-tinted active states, no borders |
@@ -274,118 +238,13 @@ npm run dev                   # http://localhost:3099
 
 ---
 
-## Multi-Round Debate: Queue Flow (extended 2026-08-10)
-
-### Original Round 2 flow (still works for `/continue`)
-```
-POST /api/debates/[id]/continue
-  → auth + 409 if not archived + 429 if round_count >= 2
-  → set debates.status = 'in_progress', round_count = 2
-  → insert debate_turn { slot: 0, round: 2, priority: 1 }
-  → after(): dispatchQueueProcessor()
-
-executor: debate_turn (round=2, slot=0)
-  → fetches all R1 turns, builds Round 2 Agent A prompt
-  → writes turn with round=2, chains debate_turn {slot:1, round:2}
-
-executor: debate_turn (round=2, slot=1)
-  → fetches R1 turns + R2 Agent A turn
-  → builds Round 2 Agent B prompt
-  → chains debate_archive {round:2}
-
-executor: debate_archive (round=2)
-  → buildRound2ArchivePrompt → callGroq → parseJsonResponse
-  → writes verdict_reasoning + verdict
-  → does NOT overwrite archivistSummary (R1 crux preserved)
-  → sets status='archived'
-```
-
-### Multi-round flow (round 3+ via pushback)
-```
-POST /api/debates/pushback
-  → auth + validate status=awaiting_pushback
-  → insert debate_pushbacks { round, text, agentId }
-  → set debates: status=in_progress, roundCount=nextRound, pushbackCount++
-  → insert debate_turn { slot: 0, round: nextRound, pushbackText, pushbackTarget }
-  → after(): dispatchQueueProcessor()
-
-executor: debate_turn (round=N, slot=0)  — uses buildMultiRoundDebateTurnPrompt
-  → loads all previous turns + pushbacks for context
-  → Agent A responds to pushback and continues debate
-  → chains debate_turn {slot:1, round:N}
-
-executor: debate_turn (round=N, slot=1)
-  → Agent B responds to Agent A + pushback context
-  → if roundCount < maxRounds && pushbackCount < maxPushbacks:
-      → set debates.status = 'awaiting_pushback'  (pause for user)
-    else:
-      → queue debate_final_verdict
-      → set debates.status = 'final_verdict'
-
-POST /api/debates/[id]/verdict
-  → auth + validate status=awaiting_pushback
-  → queue debate_final_verdict (priority 1)
-  → after(): dispatchQueueProcessor()
-
-executor: debate_final_verdict
-  → buildDebateVerdictPrompt with all turns + pushbacks
-  → callGroq("openai/gpt-oss-20b") for JSON verdict
-  → writes verdict, verdictReasoning, winnerId
-  → sets status='archived'
-```
-
-**State machine:** `in_progress` → `awaiting_pushback` → `in_progress` → ... → `final_verdict` → `archived`
-**Hard caps:** maxRounds=3, maxPushbacks=3. When either is reached, verdict is queued automatically.
-
----
-
-## Quick Debate: How the Queue Flow Works
-
-```
-POST /api/debates/judge
-  → callGroq("llama-3.3-70b-versatile") directly — LLM FIRST, no DB before it
-  → 12-token system prompt (not full persona — keeps input tokens low for speed)
-  → 8s Groq timeout so Vercel's 10s function limit is never breached
-  → DB writes happen AFTER LLM responds
-  needs_clarification → stores question in debate_questions, returns to UI
-  single_answer       → debate archived immediately (no queue items)
-  full_debate         → inserts debate_participants (slot 0 + slot 1)
-
-POST /api/debates/start
-  → inserts debate_turn (slot 0, priority 1)
-  → returns response immediately
-  → after() dispatches GHA workflow_dispatch (skip_checks=true)
-  → GHA starts in ~30-60s, processes queue with no Vercel timeout
-  → 5-min GHA cron is fallback if dispatch fails
-
-executor: debate_turn (slot 0)
-  → callAgent(Agent A) → writes to debate_turns
-  → inserts debate_turn (slot 1, priority 1) immediately
-
-executor: debate_turn (slot 1)
-  → callAgent(Agent B) with Agent A's content in prompt
-  → writes to debate_turns
-  → inserts debate_archive (priority 1) immediately
-
-executor: debate_archive
-  → callGroq("openai/gpt-oss-20b") for 150-word summary
-  → updates debates: status=archived, archivistSummary, shareToken, archivedAt
-```
-
-**Priority:** all `debate_*` items use **priority 1** — processed before AI Lab background items (priority 6-7).
-**Expected time:** 30-90s via GHA dispatch. Up to 5 min if dispatch fails (cron fallback).
-**Cancel gate:** both handlers check `debate.status === "abandoned"` before any LLM work.
-**DebatePoller UX:** shows "Starting — usually takes 30–60 seconds" for first 90s, then status message, then slow-path warning at 3 minutes.
-
----
-
 ## Testing
 
 ```bash
-npm test                              # 345 tests (27 files, Vitest) — verified 2026-08-22
+npm test                              # 339 tests (25 files, Vitest) � verified 2026-08-22 after Quick Debate removal
 npx tsc --noEmit                      # 0 errors
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
-npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
 ```
 
-Always verify these four before committing changes that touch executor, prompts, or debate routes.
+Always verify these three before committing changes that touch the executor, prompts, or cron routes.
+
