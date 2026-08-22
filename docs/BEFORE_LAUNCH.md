@@ -91,4 +91,4 @@ if Cerebras restores free-tier model access.
 
 ## Current test count
 
-342 tests passing across 27 test files. 0 TS errors.
+345 tests passing across 27 test files (verified 2026-08-22). 0 TS errors.

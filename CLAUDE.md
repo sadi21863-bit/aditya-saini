@@ -382,7 +382,7 @@ executor: debate_archive
 ## Testing
 
 ```bash
-npm test                              # 342 tests (Vitest)
+npm test                              # 345 tests (27 files, Vitest) — verified 2026-08-22
 npx tsc --noEmit                      # 0 errors
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
 npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
