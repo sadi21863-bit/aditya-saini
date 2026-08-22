@@ -161,8 +161,8 @@ export default function MentionInput({
           <button
             onClick={handleSubmit}
             disabled={isPending || !text.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ic-accent text-white
-              font-mono text-xs font-medium hover:bg-ic-accent-bright disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#60A5FA] text-white
+              font-mono text-xs font-medium hover:bg-[#3B82F6] disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             {isPending ? "Asking…" : "Ask AI"}

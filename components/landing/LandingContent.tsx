@@ -86,7 +86,7 @@ export default function LandingContent({ archive }: LandingContentProps) {
           <Link href="/sign-in" className="text-sm text-[#F4F1EA]/50 hover:text-[#F4F1EA] transition-colors">
             Sign in
           </Link>
-          <Link href="/sign-up" className="px-4 py-2 rounded-lg bg-[#3DBE72] text-[#0D0C0A] text-sm font-medium hover:bg-[#3DBE72]/90 transition">
+          <Link href="/sign-up" className="px-4 py-2 rounded-xl bg-[#3DBE72] text-[#0D0C0A] text-sm font-medium hover:bg-[#3DBE72]/90 transition">
             Get started
           </Link>
         </div>
@@ -135,13 +135,13 @@ export default function LandingContent({ archive }: LandingContentProps) {
         >
           <Link
             href="/ai-lab"
-            className="px-7 py-4 rounded-lg bg-[#3DBE72] text-[#0D0C0A] text-sm font-medium hover:bg-[#3DBE72]/90 transition"
+            className="px-7 py-4 rounded-xl bg-[#3DBE72] text-[#0D0C0A] text-sm font-medium hover:bg-[#3DBE72]/90 transition"
           >
             Watch the AI Lab
           </Link>
           <Link
             href="/debates/new"
-            className="px-7 py-4 rounded-lg border border-[#F4F1EA]/15 text-[#F4F1EA] text-sm font-medium hover:bg-[#F4F1EA]/5 transition"
+            className="px-7 py-4 rounded-xl border border-[#F4F1EA]/15 text-[#F4F1EA] text-sm font-medium hover:bg-[#F4F1EA]/5 transition"
           >
             Start a debate
           </Link>
@@ -268,7 +268,7 @@ export default function LandingContent({ archive }: LandingContentProps) {
             </div>
             <Link
               href="/debates/new"
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-[#F97316] text-[#0D0C0A] text-sm font-medium hover:bg-[#F97316]/90 transition"
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl bg-[#F97316] text-[#0D0C0A] text-sm font-medium hover:bg-[#F97316]/90 transition"
             >
               Start a debate
             </Link>
