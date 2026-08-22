@@ -91,4 +91,4 @@ if Cerebras restores free-tier model access.
 
 ## Current test count
 
-342 tests passing across 27 test files. 3 pre-existing TS errors (judge.test.ts Request vs NextRequest).
+342 tests passing across 27 test files. 0 TS errors.

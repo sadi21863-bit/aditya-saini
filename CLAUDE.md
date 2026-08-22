@@ -383,7 +383,7 @@ executor: debate_archive
 
 ```bash
 npm test                              # 342 tests (Vitest)
-npx tsc --noEmit                      # 3 pre-existing TS errors (judge.test.ts Request vs NextRequest)
+npx tsc --noEmit                      # 0 errors
 npx tsx scripts/check-agents.ts       # 9/9 agents passing
 npx tsx scripts/test-debate-flow.ts   # 60/60 Quick Debate integration checks (verified 2026-05-21)
 ```

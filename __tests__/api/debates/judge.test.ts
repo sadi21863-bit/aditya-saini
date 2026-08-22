@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 // ─── Mocks ────────────────────────────────────────────────────────────
 
@@ -6,6 +7,11 @@ const mockCallGroq = vi.hoisted(() => vi.fn());
 const mockDbQuery = vi.hoisted(() => vi.fn());
 const mockDbInsert = vi.hoisted(() => vi.fn());
 const mockDbUpdate = vi.hoisted(() => vi.fn());
+const mockDbSelect = vi.hoisted(() => vi.fn(() => ({
+  from: vi.fn(() => ({
+    where: vi.fn(() => Promise.resolve([{ n: 0 }])),
+  })),
+})));
 
 vi.mock("@/lib/agents/providers/groq", () => ({
   callGroq: mockCallGroq,
@@ -14,19 +20,25 @@ vi.mock("@/lib/agents/providers/groq", () => ({
 vi.mock("@/db", () => ({
   db: {
     query: { users: { findFirst: mockDbQuery } },
-    insert: (...args: unknown[]) => mockDbInsert(...args),
-    update: (...args: unknown[]) => mockDbUpdate(...args),
+    select: mockDbSelect as unknown as (...args: unknown[]) => unknown,
+    insert: mockDbInsert as unknown as (...args: unknown[]) => unknown,
+    update: mockDbUpdate as unknown as (...args: unknown[]) => unknown,
   },
 }));
 
 vi.mock("@/db/schema", () => ({
   debates: {},
   debateParticipants: {},
+  debateQuestions: {},
+  aiUsage: {},
   users: {},
 }));
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(() => ({})),
+  count: vi.fn(() => ({})),
+  gte: vi.fn(() => ({})),
+  and: vi.fn(() => ({})),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -45,7 +57,7 @@ describe("POST /api/debates/judge", () => {
   // The handler is a Next.js route — we need to construct a mock Request.
 
   function makeRequest(body: Record<string, unknown>) {
-    return new Request("http://localhost:3000/api/debates/judge", {
+    return new NextRequest("http://localhost:3000/api/debates/judge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -65,6 +77,8 @@ describe("POST /api/debates/judge", () => {
       returning: vi.fn().mockResolvedValue([{ id: "debate-1" }]),
     };
     mockDbInsert.mockReturnValueOnce(mockInsertChain);
+    // Mock aiUsage insert (rate-limit tracking)
+    mockDbInsert.mockReturnValueOnce({ values: vi.fn().mockReturnThis() });
 
     // Mock the update
     const mockUpdateChain = {
@@ -95,6 +109,8 @@ describe("POST /api/debates/judge", () => {
       returning: vi.fn().mockResolvedValue([{ id: "debate-2" }]),
     };
     mockDbInsert.mockReturnValueOnce(mockInsertChain);
+    // Mock aiUsage insert
+    mockDbInsert.mockReturnValueOnce({ values: vi.fn().mockReturnThis() });
 
     const mockUpdateChain = {
       set: vi.fn().mockReturnThis(),
@@ -131,6 +147,8 @@ describe("POST /api/debates/judge", () => {
       returning: vi.fn().mockResolvedValue([{ id: "debate-3" }]),
     };
     mockDbInsert.mockReturnValueOnce(mockInsertChain);
+    // Mock aiUsage insert
+    mockDbInsert.mockReturnValueOnce({ values: vi.fn().mockReturnThis() });
 
     const mockUpdateChain = {
       set: vi.fn().mockReturnThis(),
