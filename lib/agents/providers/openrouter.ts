@@ -1,0 +1,65 @@
+import OpenAI from "openai";
+
+// Lazy-initialized so module import during `next build` doesn't throw when
+// OPENROUTER_API_KEY is not set in the build environment (only needed at runtime).
+let _openrouter: OpenAI | null = null;
+function getOpenRouter(): OpenAI {
+  if (!_openrouter) {
+    _openrouter = new OpenAI({
+      apiKey:  process.env.OPENROUTER_API_KEY ?? process.env.OPEN_ROUTER_API_KEY,
+      baseURL: "https://openrouter.ai/api/v1",
+    });
+  }
+  return _openrouter;
+}
+
+export async function callOpenRouter(
+  model: string,
+  system: string,
+  user: string,
+  opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number } = {}
+): Promise<string> {
+  const openrouter = getOpenRouter();
+  const params: Parameters<typeof openrouter.chat.completions.create>[0] = {
+    model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user",   content: user },
+    ],
+    temperature: opts.temperature ?? 0.8,
+    max_tokens:  opts.maxTokens  ?? 600,
+    stream:      false,
+  };
+
+  // response_format passthrough — OpenRouter forwards it to providers that
+  // support native JSON mode. Verified live 2026-08-22 via
+  // scripts/test-openrouter-json.ts:
+  //
+  //   nvidia/nemotron-3-ultra-550b-a55b:free   ✓ SUPPORTED (~4.5s)
+  //   nvidia/nemotron-3.5-lightning            ✓ SUPPORTED (~1.4s, fastest)
+  //   nvidia/nemotron-3-nano-30b-a3b:free      ✓ SUPPORTED (~1.7s)
+  //   google/gemma-4-31b-it:free               ✓ SUPPORTED but flaky 429s — avoid
+  //   z-ai/glm-5.2:free                        ✗ persistent 429 rate-limited
+  //   thinkingmachines/inkling:free            ✗ 403 agentic-harness only
+  //
+  // The authoritative gate used by callAgent is JSON_MODE_SUPPORTED in
+  // providers/index.ts; for anything not listed there,
+  // lib/agents/json-helpers.ts sanitizer + extractor handles prompt-only JSON.
+  if (opts.jsonMode) {
+    // @ts-ignore — response_format is valid per OpenAI-compatible APIs
+    params.response_format = { type: "json_object" };
+  }
+
+  // Optional headers per OpenRouter docs (attribution); harmless if unset.
+  const extraHeaders = {
+    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://ideaconnect.local",
+    "X-Title": "IdeaConnect AI Lab",
+  };
+
+  const response = await openrouter.chat.completions.create(params, {
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 45_000),
+    // @ts-ignore — extra headers allowed per-request
+    headers: extraHeaders,
+  }) as unknown as { choices: Array<{ message: { content: string | null } }> };
+  return response.choices[0]?.message?.content ?? "";
+}

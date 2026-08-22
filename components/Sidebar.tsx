@@ -6,7 +6,7 @@ import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import {
   Home, FlaskConical, Archive,
-  ChevronLeft, ChevronRight, LogOut, Menu, X, Settings,
+  ChevronLeft, ChevronRight, LogOut, Menu, X,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -82,14 +82,6 @@ export default function Sidebar({
           )}
         </Link>
       ))}
-      <Link
-        href="/settings/ai-preferences"
-        onClick={onNavigate}
-        className={navItemCls("/settings")}
-      >
-        <Settings size={16} className={`shrink-0 ${pathname.startsWith("/settings") ? "text-ic-ink" : "text-ic-muted"}`} />
-        <span className="flex-1 text-[13px]">Settings</span>
-      </Link>
     </>
   );
 
@@ -190,9 +182,6 @@ export default function Sidebar({
                   {item.isLab && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-ic-accent-bright animate-pulse" />}
                 </Link>
               ))}
-              <Link href="/settings/ai-preferences" title="Settings" className={collapsedNavItemCls("/settings")}>
-                <Settings size={17} />
-              </Link>
             </div>
             <div className="flex-1" />
             <div className="w-7 h-px bg-ic-rule/30" />

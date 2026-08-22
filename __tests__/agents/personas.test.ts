@@ -32,9 +32,9 @@ describe("personas — ALL_AGENTS structure", () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
-  it("provider is 'groq', 'cerebras', or 'github' for every agent", () => {
+  it("provider is 'groq', 'openrouter', or 'github' for every agent", () => {
     for (const agent of ALL_AGENTS) {
-      expect(["groq", "cerebras", "github"]).toContain(agent.provider);
+      expect(["groq", "openrouter", "github"]).toContain(agent.provider);
     }
   });
 
@@ -76,7 +76,7 @@ describe("personas — participant tier", () => {
     expect(getParticipants()).toHaveLength(4);
   });
 
-  it("participants are Llama (groq), GPT-OSS (groq), Scout (groq), Maverick (groq)", () => {
+  it("participants are Llama (groq), GPT-OSS (groq), Scout (openrouter), Maverick (groq)", () => {
     const participants  = getParticipants();
     const llamaAgent    = participants.find((a) => a.handle === "llama");
     const gptOssAgent   = participants.find((a) => a.handle === "gpt-oss");
@@ -90,7 +90,7 @@ describe("personas — participant tier", () => {
 
     expect(llamaAgent!.provider).toBe("groq");
     expect(gptOssAgent!.provider).toBe("groq");
-    expect(scoutAgent!.provider).toBe("groq");
+    expect(scoutAgent!.provider).toBe("openrouter");
     expect(maverickAgent!.provider).toBe("groq");
   });
 
@@ -117,9 +117,9 @@ describe("personas — participant tier", () => {
     expect(gptOss.model).toBe(expected);
   });
 
-  it("Scout uses openai/gpt-oss-120b model (migrated from retired llama-3.3 2026-08-22)", () => {
+  it("Scout uses nvidia/nemotron-3-ultra model (OpenRouter free, migrated 2026-08-22)", () => {
     const scout = getParticipants().find((a) => a.handle === "scout")!;
-    const expected = process.env.AGENT_MODEL_SCOUT ?? "openai/gpt-oss-120b";
+    const expected = process.env.AGENT_MODEL_SCOUT ?? "nvidia/nemotron-3-ultra-550b-a55b:free";
     expect(scout.model).toBe(expected);
   });
 
@@ -159,10 +159,10 @@ describe("personas — archivist tier", () => {
 });
 
 describe("personas — Phase 3 agents", () => {
-  it("Conductor agent exists with role=conductor and provider=groq (migrated from GitHub Models 2026-08-07)", () => {
+  it("Conductor agent exists with role=conductor and provider=openrouter (migrated 2026-08-22)", () => {
     const conductor = ALL_AGENTS.find((a) => a.role === "conductor");
     expect(conductor).toBeDefined();
-    expect(conductor!.provider).toBe("groq");
+    expect(conductor!.provider).toBe("openrouter");
     expect(conductor!.id).toBe("ai_conductor");
   });
 

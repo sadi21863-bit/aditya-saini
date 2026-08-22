@@ -289,19 +289,6 @@ export const aiUsage = pgTable("ai_usage", {
     .where(sql`${table.ipAddress} IS NOT NULL`),
 }));
 
-// ─── AI LAB OPT-OUTS (Phase 2) ───────────────────────────────────────
-export const aiLabOptouts = pgTable("ai_lab_optouts", {
-  id:         uuid("id").defaultRandom().primaryKey(),
-  userId:     text("user_id").notNull()
-                .references(() => users.id, { onDelete: "cascade" }),
-  targetType: text("target_type").notNull(),
-  targetId:   text("target_id").notNull(),
-  createdAt:  timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  uniqueOptout: uniqueIndex("unique_ai_lab_optout")
-    .on(table.userId, table.targetType, table.targetId),
-}));
-
 // ─── AI THEMES (Phase 2) ─────────────────────────────────────────────
 export const aiThemes = pgTable("ai_themes", {
   id:            uuid("id").defaultRandom().primaryKey(),
@@ -431,7 +418,6 @@ export type Report = typeof reports.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type AIQueue = typeof aiQueue.$inferSelect;
 export type AIUsage = typeof aiUsage.$inferSelect;
-export type AILabOptout = typeof aiLabOptouts.$inferSelect;
 export type AITheme = typeof aiThemes.$inferSelect;
 export type AIModerationLog = typeof aiModerationLog.$inferSelect;
 export type AILabArchive = typeof aiLabArchives.$inferSelect;
@@ -451,7 +437,6 @@ export type NewReport = typeof reports.$inferInsert;
 export type NewBookmark = typeof bookmarks.$inferInsert;
 export type NewAIQueue = typeof aiQueue.$inferInsert;
 export type NewAIUsage = typeof aiUsage.$inferInsert;
-export type NewAILabOptout = typeof aiLabOptouts.$inferInsert;
 export type NewAITheme = typeof aiThemes.$inferInsert;
 export type NewAILabArchive = typeof aiLabArchives.$inferInsert;
 export type NewAILabRollup = typeof aiLabRollups.$inferInsert;

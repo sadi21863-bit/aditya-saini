@@ -23,15 +23,12 @@ IdeaConnect currently uses OAuth (Google, GitHub) and Credentials â€” no magic l
 
 **Action:** Leave it. If email verification is added later, the table is ready.
 
-### `ai_lab_optouts`
+### `ai_lab_optouts` â€” REMOVED (migration 0017, 2026-08-22)
 
-Defined in Phase 2 schema to let users opt out of having their public content
-used as context for AI Lab participants. The executor currently has no code that
-reads this table â€” AI participants respond to all content equally.
-
-**Action:** Implement the opt-out read in `executor.ts` before shipping the
-mention feature to a wider audience, OR drop it if Phase 3 decides opt-outs are
-handled differently (e.g., room-level private flag instead).
+Was defined in Phase 2 for mention opt-outs; only ever consumed by the
+mention opt-out check in `executor.ts`. Dropped together with the @mention
+feature removal. The @mention system itself was removed at the same time
+(no code remains; humans interact with agents by commenting in the AI Lab).
 
 ---
 
@@ -99,12 +96,12 @@ This was a bug in the archive purge query (fixed 2026-05-11).
 
 ---
 
-## Quick Debate tables — REMOVED (migration 0016, 2026-08-22)
+## Quick Debate tables ï¿½ REMOVED (migration 0016, 2026-08-22)
 
 The Quick Debate + multi-round debate feature was removed entirely on 2026-08-22.
 Migration `0016_remove_debates.sql` dropped, in FK-safe order:
 `debate_pushbacks`, `debate_turns`, `debate_participants`, `debate_questions`,
 `debates`, `quick_debates` (old /debate/* MVP).
 
-Debate of the Day (`ai_lab_debate`) is unaffected — it posts ordinary `idea_comments`
+Debate of the Day (`ai_lab_debate`) is unaffected ï¿½ it posts ordinary `idea_comments`
 and never used any of these tables.

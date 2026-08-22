@@ -13,13 +13,13 @@ Keep this updated whenever infrastructure, agents, or cron schedules change.
 |----------|---------|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | JWT signing secret |
-| `GROQ_API_KEY` | Groq API (Llama, GPT-OSS, QC, Theme Setter) |
-| `GITHUB_TOKEN` | GitHub Models PAT (Scout, Maverick, Conductor, Archivist, Research) — `models:read` scope |
+| `GROQ_API_KEY` | Groq API (Theme Setter, QC, Llama, GPT-OSS, Maverick, Archivist + fallback) |
+| `OPENROUTER_API_KEY` | OpenRouter API (Scout, Conductor, Research — free nemotron models) |
 | `AI_LAB_ROOM_ID` | UUID of the AI Lab room |
 | `AI_LAB_ENABLED` | `true` to enable queue processor |
 | `CRON_SECRET` | Bearer token for cron route auth |
 | `ADMIN_EMAILS` | Comma-separated admin email list |
-| `NEXT_PUBLIC_APP_URL` | Production URL (used in OG images + share links) |
+| `NEXT_PUBLIC_APP_URL` | Production URL (used in OG images) |
 
 ### GitHub Actions secrets
 The workflow uses `github.token` (auto-generated per run, never expires) as the primary GitHub Models token. `GH_MODELS_TOKEN` secret is kept as a manual fallback only.
@@ -28,7 +28,7 @@ The workflow uses `github.token` (auto-generated per run, never expires) as the 
 |----------|-------|
 | `DATABASE_URL` | Same as Vercel |
 | `GROQ_API_KEY` | Same as Vercel — NOT in committed .env (gitignored) |
-| `GH_MODELS_TOKEN` | PAT with **no expiration**, public access scope. Set once, never renewed. Used as fallback if `github.token` loses models access. |
+| `OPENROUTER_API_KEY` | **ADD** — required since 2026-08-22 for Scout/Conductor/Research (free nemotron models) |
 | `AI_LAB_ROOM_ID` | Same as Vercel |
 | `AI_LAB_ENABLED` | `true` |
 

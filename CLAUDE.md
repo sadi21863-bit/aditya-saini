@@ -2,14 +2,18 @@
 
 ## What This Project Is
 
-IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. Its centerpiece is a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans can @mention agents to get direct responses. Every day is archived by the Archivist, with weekly/monthly rollups.
+IdeaConnect is a collaborative idea platform where small teams brainstorm, refine, and build ideas in **rooms**. Its centerpiece is a live **AI Lab** — a public room where 9 AI agents debate daily themes autonomously, and humans join the discussion by commenting directly in the Lab. Every day is archived by the Archivist, with weekly/monthly rollups.
 
 **Quick Debate was removed 2026-08-22** (migration 0016 dropped all 6 debate tables; pages, API routes, components, handlers, prompts deleted). Debate of the Day (`ai_lab_debate`) remains — it is AI Lab functionality that posts ordinary comments. Do not re-add any user-facing debate feature.
 
-**Stack:** Next.js 16 · React 19 · NextAuth v5 · PostgreSQL (Neon) · Drizzle ORM · Tailwind CSS v4 · Groq · GitHub Models · Vercel
+**The @mention system was removed 2026-08-22** (migration 0017 dropped `ai_lab_optouts`; MentionInput, ai-mention-actions, mentions.ts, queueMentionResponse, writeMentionResponse, lab_discussion echo, user-rate-limit, and the AI-preferences settings page all deleted). Humans interact with agents only by commenting in the AI Lab itself.
+
+**Providers:** Groq (primary, critical path) + OpenRouter free tier (Scout/Conductor/Research via `nvidia/nemotron-*`). Transient failures on either provider fall back to Groq `openai/gpt-oss-20b` (see `providers/index.ts`).
+
+**Stack:** Next.js 16 · React 19 · NextAuth v5 · PostgreSQL (Neon) · Drizzle ORM · Tailwind CSS v4 · Groq + OpenRouter · Vercel
 
 **GitHub repo:** `sadi21863-bit/aditya-saini`
-**Feature docs:** [`docs/`](docs/) — Rooms, AI Lab, @Mention, Operations, Schema Notes
+**Feature docs:** [`docs/`](docs/) — Rooms, AI Lab, Operations, Schema Notes
 
 ---
 
@@ -19,7 +23,7 @@ IdeaConnect is a collaborative idea platform where small teams brainstorm, refin
 Room CRUD, member management, invite system, idea/comment/spark/bookmark flows, notifications, follow system, profile pages, feed, explore, search, dark/light theme.
 
 ### Phase 2 — AI Lab ✅
-Full AI Lab system: queue-based executor, 9 agents, daily theme → ideas → debate → archive cycle, @mention system with 4-layer privacy isolation, quality review, weekly/monthly rollups, research layer, archive QC.
+Full AI Lab system: queue-based executor, 9 agents, daily theme -> ideas -> debate -> archive cycle, quality review, weekly/monthly rollups, research layer.
 
 ### Phase 3 — Expanded AI Lab ✅ (2026-05-12 to 2026-05-18)
 
@@ -91,7 +95,7 @@ animejs.com-inspired design language applied across the frontend. Dark-first aes
 ## HARD RULES — DO NOT VIOLATE
 
 1. **Update MD files before every commit.** Every code change requires updating the relevant docs in `docs/` and/or `CLAUDE.md`/`README.md` before committing. See `docs/OPERATIONS.md` → "MD File Update Policy" for the exact table. No exceptions — stale docs are worse than no docs.
-2. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine, **no user-facing debate feature (Quick Debate / multi-round / share pages — tables dropped via migration 0016)**. Dead forever.
+2. **NEVER re-add deleted features.** No genesis hashing, no OpenTimestamps, no XP, no tiers, no badges, no prior art, no peer reviews, no challenges, no protection levels, no remix system, no justice engine, **no user-facing debate feature (Quick Debate / multi-round / share pages — tables dropped via migration 0016)**, **no @mention system (MentionInput / ai-mention-actions / lab_discussion echo — `ai_lab_optouts` dropped via migration 0017)**. Dead forever.
 2. **Ideas MUST belong to a room.** Every idea has a `roomId`. Solo ideas go in the personal room.
 3. **Every user gets an auto-created personal room on signup** via `createUserProfile()` in `userActions.ts`.
 4. **Public rooms = join-with-one-click.** Private rooms = invite-only.
@@ -126,7 +130,7 @@ searchCache    — id, query, results(JSONB), source, fetchedAt
 aiModerationLog — id, moderatorAgentId, targetType, targetId, verdict, reason, reviewedAt
 aiLabArchives  — id, date(unique), theme, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, stats, status(draft/published/flagged), generatedAt, publishedAt, flaggedReason, reviewedByAgentId
 aiLabRollups   — id, periodType, periodStart, periodEnd(unique), title, summaryMarkdown, narrativeArc, keyDisagreements, keyQuestions, memorableQuotes, status, generatedAt, publishedAt, reviewedByAgentId
-aiLabOptouts   — id, userId, targetType, targetId (not yet enforced in executor)
+Removed 2026-08-22 (migration 0017): ai_lab_optouts (mention opt-outs).
 aiLabPredictions — one prediction per user per day: which agent will the Archivist name?
 
 Removed 2026-08-22 (migration 0016): quick_debates, debates, debate_questions,
@@ -135,7 +139,7 @@ debate_participants, debate_turns, debate_pushbacks.
 
 ---
 
-## AI Lab Agents (9 total)
+## AI Lab Agents (9 total — 2 providers)
 
 | Agent | ID | Role | Provider | Model | Daily Limit |
 |-------|-----|------|----------|-------|-------------|
@@ -143,17 +147,19 @@ debate_participants, debate_turns, debate_pushbacks.
 | Quality Checker | `ai_quality_checker` | quality_checker | Groq | openai/gpt-oss-120b | 50 |
 | Llama | `ai_llama` | participant | Groq | openai/gpt-oss-120b | 15 |
 | GPT-OSS | `ai_gpt_oss` | participant | Groq | openai/gpt-oss-120b | 15 |
-| Scout | `ai_scout` | participant | Groq | openai/gpt-oss-120b | 15 |
+| Scout | `ai_scout` | participant | OpenRouter | nvidia/nemotron-3-ultra-550b-a55b:free | 15 |
 | Maverick | `ai_maverick` | participant | Groq | openai/gpt-oss-20b | 15 |
-| Conductor | `ai_conductor` | conductor | Groq | openai/gpt-oss-20b | 8 |
+| Conductor | `ai_conductor` | conductor | OpenRouter | nvidia/nemotron-3-nano-30b-a3b:free | 8 |
 | Archivist | `ai_archivist` | archivist | Groq | openai/gpt-oss-120b | 10 |
-| Research | `ai_research` | research | Groq | openai/gpt-oss-20b | 20 |
+| Research | `ai_research` | research | OpenRouter | nvidia/nemotron-3.5-lightning | 20 |
 
-**IMPORTANT:** Every agent must have a row in the `users` table (FK constraint on `ai_queue.agent_id`). Always run `npx tsx scripts/seed-ai-agents.ts` after adding agents — it also updates `users.ai_model` when models change.
+**IMPORTANT:** Every agent must have a row in the `users` table (FK constraint on `ai_queue.agent_id`). Always run `npx tsx scripts/seed-ai-agents.ts` after adding agents — it also updates `users.ai_provider`/`users.ai_model` when providers/models change.
 
-**Model migration (2026-08-22):** Groq **retired `llama-3.3-70b-versatile`** (404 on all calls; absent from `/v1/models`, 13 models remain). Scout → `openai/gpt-oss-120b`; Conductor + Research → `openai/gpt-oss-20b`. Removed from `JSON_MODE_SUPPORTED`. DB rows updated via seed re-run; 9/9 agents verified live via `scripts/check-agents.ts`.
+**Provider split (2026-08-22):** Groq carries the critical pipeline (theme → ideas → QC → archive). Scout/Conductor/Research moved to the **OpenRouter free tier** (`nvidia/nemotron-*`, always-free, JSON mode verified live via `scripts/test-openrouter-json.ts`) for provider diversification after Groq retired `llama-3.3-70b-versatile` with zero notice. Any transient failure (429/5xx/timeout) on either provider falls back to Groq `openai/gpt-oss-20b` — see `providers/index.ts`. Requires `OPENROUTER_API_KEY` in Vercel + GHA secrets.
 
-**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors on all GitHub-hosted agents). Scout migrated from `meta/llama-4-scout-17b-16e-instruct` → `llama-3.3-70b-versatile`; Maverick from `meta/llama-4-maverick-17b-128e-instruct-fp8` → `openai/gpt-oss-20b`; Archivist from `openai/gpt-4o` → `openai/gpt-oss-120b`; Conductor/Research from `openai/gpt-4o-mini` → `llama-3.3-70b-versatile`. `qwen/qwen3.6-27b` also passed but is preview-tier. `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
+**Model migration (2026-08-22):** Groq **retired `llama-3.3-70b-versatile`** (404 on all calls; absent from `/v1/models`). Interim same-day fix put all three on gpt-oss; final state routes them to OpenRouter free models instead. Removed from `JSON_MODE_SUPPORTED`. DB rows updated via seed re-run; 9/9 agents verified live via `scripts/check-agents.ts`.
+
+**Model migration (2026-08-07):** All agents migrated from GitHub Models → Groq. GitHub Models retirement brownout started 2026-07-31 (410 errors on all GitHub-hosted agents). `AGENT_MODEL_FALLBACK` = `openai/gpt-oss-20b`.
 
 **Earlier migration (2026-07-16):** `qwen/qwen3-32b` deprecated by Groq (shutdown 2026-07-17). Theme Setter, Quality Checker, and Llama migrated to `openai/gpt-oss-120b`.
 
@@ -196,8 +202,9 @@ Archives are **published immediately** on generation — the QC approval gate (`
 | `lib/agents/handlers/writers.ts` | All writer functions (ideas, comments, moderation, research, conductor) |
 | `lib/agents/scheduler.ts` | Queue writers — decides when to schedule AI Lab work; includes `queueAILabDebateOfDay` |
 | `lib/agents/prompts.ts` | All prompt templates: AI Lab cycle + Debate of the Day |
-| `lib/agents/providers/index.ts` | `callAgent()` router (groq/github/cerebras) |
-| `lib/agents/mentions.ts` | @mention resolution. `SPECIFIC_HANDLES = ["llama","gpt-oss","scout","maverick"]` |
+| `lib/agents/providers/index.ts` | `callAgent()` router (groq/openrouter) + cross-provider fallback |
+| `lib/agents/providers/groq.ts` | Groq client (OpenAI-compatible) |
+| `lib/agents/providers/openrouter.ts` | OpenRouter client — free-tier nemotron models |
 | `lib/auth.ts` | `getAuthenticatedUserId()`, `requireAuth()`, `isAdmin()` |
 | `lib/time.ts` | `relativeTime()` + `startOfToday()` |
 | `lib/ratelimit.ts` | In-memory rate limiters (`writeLimiter`, `lightLimiter`) |
@@ -218,9 +225,11 @@ The workflow runs every 5 minutes. It has two steps:
 1. `check-agents.ts` — probes all 9 agents. **Fails the run if any agent is down** (`continue-on-error: false`). This is intentional — a silent 401 creating broken DB rows is worse than a loud failure.
 2. `process-queue.ts` — self-healing executor.
 
-**Required GHA secrets:** `DATABASE_URL`, `GROQ_API_KEY`, `GH_MODELS_TOKEN`, `AI_LAB_ROOM_ID`, `AI_LAB_ENABLED=true`
+**Required GHA secrets:** `DATABASE_URL`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `AI_LAB_ROOM_ID`, `AI_LAB_ENABLED=true`
 
-Note: `GROQ_API_KEY` is not in the committed `.env` file (gitignored). It MUST be set as a GHA secret or the Groq agents will 401.
+**Required Vercel env (additions):** `OPENROUTER_API_KEY` — Scout/Conductor/Research 401 without it; their calls then fall back to Groq `gpt-oss-20b` on transient errors, but a missing key is a hard 401 (not transient), so the agents stay down until the secret exists.
+
+Note: secrets are not in the committed `.env` files (gitignored). They MUST be set as GHA/Vercel env vars.
 
 ---
 

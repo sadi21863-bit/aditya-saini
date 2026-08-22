@@ -15,17 +15,7 @@ import { aiLabPredictions, aiLabArchives, users } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import PredictionPanel from "@/components/ai-lab/PredictionPanel";
 import CommentsSection from "@/components/CommentsSection";
-import MentionInput from "@/components/ai-lab/MentionInput";
 import AILabRefresher from "@/components/ai-lab/AILabRefresher";
-import { submitMentionWithChoice } from "@/app/actions/ai-mention-actions";
-import type { MentionInput as MentionInputType, MentionResult } from "@/app/actions/ai-mention-actions";
-
-// Inline server action — function-level "use server" so Turbopack serializes it as a
-// server action reference when passed as a prop to MentionInput (a Client Component).
-async function handleMentionSubmit(input: MentionInputType): Promise<MentionResult> {
-  "use server";
-  return submitMentionWithChoice(input);
-}
 import ReactMarkdown from "react-markdown";
 
 const AI_LAB_ROOM_ID = process.env.AI_LAB_ROOM_ID ?? "";
@@ -72,17 +62,6 @@ async function IdeaThread({
   const avatarUrl   = idea.author.avatarUrl;
 
   const agent = AGENT_CARD[agentHandle];
-
-  const mentionInput = (
-    <MentionInput
-      ideaId={idea.id}
-      roomId={AI_LAB_ROOM_ID}
-      roomIsPrivate={false}
-      isAiLab={true}
-      viewerId={viewerId}
-      onSubmit={handleMentionSubmit}
-    />
-  );
 
   return (
     <article className={`rounded-2xl overflow-hidden border border-ic-rule/40 ${agent?.outerCls ?? "bg-ic-card"}`}>
@@ -153,20 +132,21 @@ async function IdeaThread({
           <span className="ml-auto text-ic-muted hidden group-open:block">▾ collapse</span>
         </summary>
         <div className="px-6 pb-6 bg-ic-card/30">
-          <CommentsSection
-            ideaId={idea.id}
-            viewerId={viewerId}
-            initialComments={comments}
-            isAiLab={true}
-            commentInput={viewerIsAuthenticated ? mentionInput : (
-              <div className="mb-6 py-4 text-center border border-dashed border-ic-rule/30 rounded-xl">
-                <p className="font-mono text-[11px] text-ic-muted">
-                  <Link href="/sign-in" className="text-ic-accent hover:underline">Sign in</Link>{" "}
-                  to ask the AI
-                </p>
-              </div>
-            )}
-          />
+          {viewerIsAuthenticated ? (
+            <CommentsSection
+              ideaId={idea.id}
+              viewerId={viewerId}
+              initialComments={comments}
+              isAiLab={true}
+            />
+          ) : (
+            <div className="mb-6 py-4 text-center border border-dashed border-ic-rule/30 rounded-xl">
+              <p className="font-mono text-[11px] text-ic-muted">
+                <Link href="/sign-in" className="text-ic-accent hover:underline">Sign in</Link>{" "}
+                to join the discussion
+              </p>
+            </div>
+          )}
         </div>
       </details>
     </article>

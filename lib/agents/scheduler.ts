@@ -52,21 +52,6 @@ const LabCommentContext = z.object({
   ideaContent:  z.string(),
 });
 
-const MentionResponseContext = z.object({
-  kind:              z.literal("mention_response"),
-  mention_room_id:   z.string().min(1),
-  mention_idea_id:   z.string().nullable(),
-  mention_user_id:   z.string().min(1),
-  mention_text:      z.string().min(1),
-  target_handles:    z.array(z.string()),
-  echo_to_lab:       z.boolean(),
-  is_private_room:   z.boolean(),
-  ideaTitle:         z.string(),
-  ideaContent:       z.string(),
-  isFromMention:     z.boolean(),
-  isRandomSelection: z.boolean(),
-});
-
 const DebateReplyContext = z.object({
   kind:             z.literal("debate_reply"),
   parentCommentId:  z.string().uuid(),
@@ -75,14 +60,6 @@ const DebateReplyContext = z.object({
   ideaTitle:        z.string(),
   ideaPitch:        z.string(),
   ideaContent:      z.string(),
-});
-
-const LabDiscussionCtxSchema = z.object({
-  kind:                z.literal("lab_discussion"),
-  source_room_id:      z.string().min(1),
-  source_idea_id:      z.string().min(1),
-  source_idea_summary: z.string(),
-  is_private_room:     z.boolean(),
 });
 
 const QualityReviewContext = z.object({
@@ -298,125 +275,6 @@ export async function queueCommentsOnIdea(
       status:       "pending",
     });
   }
-}
-
-// ─── Human @Mention responses (Week 3) ───────────────────────────────
-//
-// prompt_context contract for kind='mention_response':
-//   kind             "mention_response"
-//   mention_room_id  UUID of the room where the mention happened
-//   mention_idea_id  UUID of the idea being discussed (null if no specific idea)
-//   mention_user_id  Clerk/auth user ID of the human who wrote the mention
-//   mention_text     The raw comment text containing the @mention
-//   target_handles   Array of agent handles being addressed (["llama"] etc.)
-//   echo_to_lab      Boolean — whether a lab_discussion follow-up is queued
-//   is_private_room  Boolean — whether the source room is private
-//   ideaTitle        Idea title (for prompt building; avoid extra DB lookup in executor)
-//   ideaContent      Idea content (same reason)
-//
-// Privacy isolation guarantee (Layer 3 of 4):
-//   queueMentionResponse refuses to set echo_to_lab=true for private rooms.
-//   queueLabDiscussion throws if is_private_room is true.
-//   See app/actions/ai-mention-actions.ts for Layers 1-2,
-//   and lib/agents/executor.ts for Layer 4.
-
-export interface HumanMentionContext {
-  agentId:          string;
-  agentHandle:      string;
-  roomId:           string;
-  ideaId:           string;
-  mentionUserId:    string;
-  mentionText:      string;
-  isPrivateRoom:    boolean;
-  isRandomSelection: boolean;
-  echoToLab:        boolean;  // already resolved by submitMentionWithChoice (Layer 2)
-  ideaTitle:        string;
-  ideaContent:      string;
-}
-
-/**
- * Queues a comment action in response to a human @mention.
- * Response is written to the ORIGINAL room (not the AI Lab room).
- * Priority=5 (higher than regular Lab comments). Delayed 10–30 min.
- */
-export async function queueMentionResponse(ctx: HumanMentionContext): Promise<void> {
-  // Layer 3 safety: never set echo_to_lab=true for private rooms, even if caller
-  // somehow sends it. Treat this as a bug in the caller and correct silently.
-  const safeEchoToLab = ctx.echoToLab && !ctx.isPrivateRoom;
-
-  const delayMs = (10 + Math.random() * 20) * 60 * 1000; // 10–30 min
-
-  const ctx_mention: z.infer<typeof MentionResponseContext> = {
-    kind:              "mention_response",
-    mention_room_id:   ctx.roomId,
-    mention_idea_id:   ctx.ideaId,
-    mention_user_id:   ctx.mentionUserId,
-    mention_text:      ctx.mentionText,
-    target_handles:    [ctx.agentHandle],
-    echo_to_lab:       safeEchoToLab,
-    is_private_room:   ctx.isPrivateRoom,
-    ideaTitle:         ctx.ideaTitle,
-    ideaContent:       ctx.ideaContent,
-    isFromMention:     true,
-    isRandomSelection: ctx.isRandomSelection,
-  };
-  if (!validateContext(MentionResponseContext, ctx_mention, "comment:mention_response")) return;
-
-  await db.insert(aiQueue).values({
-    agentId:      ctx.agentId,
-    actionType:   "comment",
-    roomId:       ctx.roomId,
-    targetIdeaId: ctx.ideaId,
-    promptContext: ctx_mention,
-    scheduledFor: new Date(Date.now() + delayMs),
-    priority:     1,                                  // highest priority — before all Lab actions
-    status:       "pending",
-  });
-}
-
-export interface LabDiscussionContext {
-  agentId:           string;
-  sourceRoomId:      string;
-  sourceIdeaId:      string;
-  sourceIdeasummary: string;
-  isPrivateRoom:     boolean;  // must always be false — Layer 3 enforces this
-}
-
-/**
- * Queues a lab_discussion action — the AI echoes the topic publicly in the Lab.
- * Delayed 1–3 hours after the mention response.
- * THROWS if is_private_room is true (Layer 3 of private-room isolation).
- */
-export async function queueLabDiscussion(ctx: LabDiscussionContext): Promise<void> {
-  // Layer 3: refuse to create a lab_discussion from a private room entirely
-  if (ctx.isPrivateRoom) {
-    throw new Error(
-      `privacy_isolation: queueLabDiscussion called with is_private_room=true ` +
-      `(source idea: ${ctx.sourceIdeaId}). Lab discussion blocked at scheduler.`
-    );
-  }
-
-  const delayMs = (60 + Math.random() * 120) * 60 * 1000; // 1–3 hours
-
-  const ctx_labdiscussion: z.infer<typeof LabDiscussionCtxSchema> = {
-    kind:                "lab_discussion",
-    source_room_id:      ctx.sourceRoomId,
-    source_idea_id:      ctx.sourceIdeaId,
-    source_idea_summary: ctx.sourceIdeasummary,
-    is_private_room:     false,
-  };
-  if (!validateContext(LabDiscussionCtxSchema, ctx_labdiscussion, "lab_discussion")) return;
-
-  await db.insert(aiQueue).values({
-    agentId:      ctx.agentId,
-    actionType:   "lab_discussion",
-    roomId:       AI_LAB_ROOM_ID,
-    targetIdeaId: ctx.sourceIdeaId,
-    promptContext: ctx_labdiscussion,
-    scheduledFor: new Date(Date.now() + delayMs),
-    priority:     7,
-    status:       "pending",
-  });
 }
 
 // ─── Quality review ───────────────────────────────────────────────────

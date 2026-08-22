@@ -99,58 +99,6 @@ describe("promptContext Zod validation — bad date in queueThemeResearch", () =
   });
 });
 
-describe("promptContext Zod validation — bad is_private_room in queueMentionResponse", () => {
-  beforeEach(() => {
-    resetCaptures();
-  });
-
-  it("logs console.error and skips insert when mention_text is empty", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { queueMentionResponse } = await import("@/lib/agents/scheduler");
-
-    await queueMentionResponse({
-      agentId:          "ai_llama",
-      agentHandle:      "llama",
-      roomId:           "room-uuid",
-      ideaId:           "idea-uuid",
-      mentionUserId:    "user-1",
-      mentionText:      "",            // violates min(1)
-      isPrivateRoom:    false,
-      isRandomSelection: false,
-      echoToLab:        false,
-      ideaTitle:        "Test idea",
-      ideaContent:      "Test content",
-    });
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[scheduler] Invalid promptContext for comment:mention_response:"),
-      expect.anything()
-    );
-    expect(capturedInserts).toHaveLength(0);
-    consoleSpy.mockRestore();
-  });
-
-  it("writes one row for a valid mention context", async () => {
-    const { queueMentionResponse } = await import("@/lib/agents/scheduler");
-
-    await queueMentionResponse({
-      agentId:          "ai_llama",
-      agentHandle:      "llama",
-      roomId:           "room-uuid",
-      ideaId:           "idea-uuid",
-      mentionUserId:    "user-1",
-      mentionText:      "@llama what do you think?",
-      isPrivateRoom:    false,
-      isRandomSelection: false,
-      echoToLab:        false,
-      ideaTitle:        "Test idea",
-      ideaContent:      "Test content",
-    });
-
-    expect(capturedInserts).toHaveLength(1);
-    expect(lastInsert().actionType).toBe("comment");
-  });
-});
 
 describe("promptContext Zod validation — bad date in queueDailyArchive", () => {
   beforeEach(() => {

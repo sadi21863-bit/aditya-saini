@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env.local" });
 import { ALL_AGENTS } from "../lib/agents/personas";
 import OpenAI from "openai";
 
@@ -26,6 +28,17 @@ function getGitHubClient(): OpenAI {
   return new OpenAI({
     apiKey:  process.env.GH_MODELS_TOKEN ?? process.env.GITHUB_TOKEN ?? "",
     baseURL: "https://models.github.ai/inference",
+  });
+}
+
+function getOpenRouterClient(): OpenAI {
+  return new OpenAI({
+    apiKey:  process.env.OPENROUTER_API_KEY ?? process.env.OPEN_ROUTER_API_KEY ?? "",
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://ideaconnect.local",
+      "X-Title": "IdeaConnect AI Lab",
+    },
   });
 }
 
@@ -58,23 +71,25 @@ async function probe(
 
 async function main() {
   console.log("\n🔍 IdeaConnect Agent Diagnostic\n");
-  console.log(`ENV: GROQ_API_KEY    = ${process.env.GROQ_API_KEY    ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GITHUB_TOKEN    = ${process.env.GITHUB_TOKEN    ? "✓ set" : "✗ MISSING"}`);
-  console.log(`ENV: GH_MODELS_TOKEN = ${process.env.GH_MODELS_TOKEN ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GROQ_API_KEY       = ${process.env.GROQ_API_KEY    ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: OPENROUTER_API_KEY = ${(process.env.OPENROUTER_API_KEY ?? process.env.OPEN_ROUTER_API_KEY) ? "✓ set" : "✗ MISSING"}`);
+  console.log(`ENV: GITHUB_TOKEN       = ${process.env.GITHUB_TOKEN    ? "✓ set" : "✗ MISSING"}`);
   console.log("");
 
   const groq   = getGroqClient();
   const github = getGitHubClient();
+  const openrouter = getOpenRouterClient();
 
   const results: Result[] = [];
 
   for (const agent of ALL_AGENTS) {
-    process.stdout.write(`  Testing @${agent.handle.padEnd(16)} (${agent.provider.padEnd(8)}) ${agent.model} ... `);
+    process.stdout.write(`  Testing @${agent.handle.padEnd(16)} (${agent.provider.padEnd(10)}) ${agent.model} ... `);
 
     let client: OpenAI;
     switch (agent.provider) {
-      case "groq":   client = groq;   break;
-      case "github": client = github; break;
+      case "groq":       client = groq;   break;
+      case "github":     client = github; break;
+      case "openrouter": client = openrouter; break;
       default:
         console.log("SKIP (unknown provider)");
         continue;

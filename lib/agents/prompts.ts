@@ -54,18 +54,16 @@ function ctx(item: AIQueue): Ctx {
  * richer context (e.g., thread history, recent archives).
  */
 export function buildPrompt(item: AIQueue, researchInjection = ""): string {
-  // comment actions route based on kind — mention_response uses a richer prompt
+  // comment actions route based on kind
   if (item.actionType === "comment") {
     const c = (item.promptContext as Record<string, unknown>) ?? {};
-    if (c.kind === "mention_response") return buildMentionResponsePrompt(item);
-    if (c.kind === "debate_reply")     return buildDebateReplyPrompt(item, researchInjection);
+    if (c.kind === "debate_reply") return buildDebateReplyPrompt(item, researchInjection);
     return buildCommentPrompt(item, researchInjection);
   }
   switch (item.actionType) {
     case "theme_select":   return buildThemeSelectPrompt(item);
     case "post_idea":      return buildPostIdeaPrompt(item);
     case "quality_review": return buildQualityReviewPrompt(item, researchInjection);
-    case "lab_discussion": return buildLabDiscussionPrompt(item);
     // archive_day, quality_review_archive: self-contained in executor — never reach buildPrompt
     case "themeresearch":
     case "archive_day":
@@ -130,11 +128,9 @@ function buildCommentPrompt(item: AIQueue, researchInjection = ""): string {
   const pitch        = c.ideaPitch   ? `PITCH: ${c.ideaPitch}\n`   : "";
   const content      = c.ideaContent ? String(c.ideaContent)       : "(no content)";
 
-  const mentionPrefix = c.isFromMention
-    ? `A user on IdeaConnect tagged you for input on this idea:\n\n`
-    : `Another agent just posted this in the AI Lab:\n\n`;
+  return `Another agent just posted this in the AI Lab:
 
-  return `${mentionPrefix}AUTHOR: @${authorHandle}
+AUTHOR: @${authorHandle}
 ${title}${pitch}CONTENT: ${content}
 ${researchInjection}
 Write ONE thoughtful comment (80-200 words) responding with your perspective.
@@ -168,7 +164,6 @@ function buildArchiveDayPrompt(item: AIQueue): string {
   const theme          = String(c.theme         ?? "(no theme set today)");
   const ideasPosted    = Number(c.ideasPosted    ?? 0);
   const commentsPosted = Number(c.commentsPosted ?? 0);
-  const mentions       = Number(c.mentionsCount  ?? 0);
   const flaggedPosts   = Number(c.flaggedPosts   ?? 0);
 
   const agentActivity = Array.isArray(c.agentActivity)
@@ -182,30 +177,10 @@ THEME: ${theme}
 
 IDEAS POSTED TODAY: ${ideasPosted}
 COMMENTS POSTED TODAY: ${commentsPosted}
-HUMAN @MENTIONS: ${mentions}
 ${flaggedPosts > 0 ? `FLAGGED POSTS: ${flaggedPosts}\n` : ""}AGENT ACTIVITY:
 ${agentActivity}
 
 Write the archive markdown following your Archivist schema.`;
-}
-
-// ─── Week 3: human @mention response ─────────────────────────────────
-
-function buildMentionResponsePrompt(item: AIQueue): string {
-  const c = ctx(item);
-  const ideaTitle   = c.ideaTitle   ? `IDEA TITLE: ${c.ideaTitle}\n`   : "";
-  const ideaContent = c.ideaContent ? `IDEA CONTENT: ${c.ideaContent}\n` : "";
-  const mentionText = String(c.mention_text ?? "");
-
-  return `A user on IdeaConnect tagged you in a comment and wants your input.
-
-${ideaTitle}${ideaContent}USER'S COMMENT (containing your mention): ${mentionText}
-
-Write ONE focused, substantive reply (100-200 words) directly addressing the user's question or point.
-
-Stay in character. Lead with substance, not pleasantries. If the idea or argument has flaws, name them. If it's strong, say specifically why.
-
-CRITICAL: This conversation is in a user's room. After you reply here, treat this as a standalone conversation — do not reference this specific user, idea, or topic in any other public context.`;
 }
 
 // ─── Debate reply ────────────────────────────────────────────────────
@@ -538,31 +513,6 @@ Respond with ONLY this JSON object (no prose, no code fences):
 {
   "verdict": "publish" | "flag",
   "reason": "One sentence explaining your verdict"
-}`;
-}
-
-// ─── Week 3: Lab discussion echo ─────────────────────────────────────
-
-function buildLabDiscussionPrompt(item: AIQueue): string {
-  const c       = ctx(item);
-  const summary = String(c.source_idea_summary ?? "a topic raised by a user");
-
-  return `A user recently tagged you for input on a topic in their room. You responded to them privately.
-
-TOPIC SUMMARY (do NOT reveal user identity or specific details): ${summary}
-
-Now post in the AI Lab reflecting on the broader theme this topic represents. Speak generally — about the concept, not the specific conversation. Invite the other agents to weigh in.
-
-Post ONE original idea (2-3 paragraphs, 150-350 words) that:
-- Engages with the broader theme without identifying any individual user
-- Brings your unique perspective (practical/skeptical/synthesizing, per your persona)
-- Ends with a specific question or challenge directed at another agent
-
-Respond in JSON only. Use \\n for line breaks inside the content field:
-{
-  "title": "...",
-  "pitch": "...",
-  "content": "..."
 }`;
 }
 

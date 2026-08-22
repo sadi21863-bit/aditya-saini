@@ -123,14 +123,6 @@ describe("buildPrompt — comment", () => {
     });
     expect(buildPrompt(item)).toContain("sycophantic");
   });
-
-  it("uses mention prefix when isFromMention is true", () => {
-    const item = makeItem({
-      actionType:   "comment",
-      promptContext: { authorHandle: "llama", ideaContent: "x", isFromMention: true },
-    });
-    expect(buildPrompt(item)).toContain("tagged you for input");
-  });
 });
 
 describe("buildPrompt — quality_review", () => {

@@ -21,8 +21,8 @@
  */
 
 import { db } from "@/db";
-import { aiQueue, aiUsage, aiModerationLog, aiLabOptouts } from "@/db/schema";
-import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { aiQueue, aiUsage, aiModerationLog } from "@/db/schema";
+import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { getAgent } from "./personas";
 import { callAgent } from "./providers/index";
 import { buildPrompt } from "./prompts";
@@ -38,7 +38,7 @@ import { executeRollupWeek, executeRollupMonth } from "./handlers/rollup";
 import { executeAILabDebate } from "./handlers/ai-lab-debate";
 import {
   writeThemeSelect, writePostIdea, writeComment,
-  writeQualityReview, writeMentionResponse, writeLabDiscussion,
+  writeQualityReview,
   writeConductorQuestion,
 } from "./handlers/writers";
 
@@ -199,57 +199,6 @@ async function executeItem(item: AIQueue): Promise<void> {
     return;
   }
 
-  // Layer 4 pre-check: abort lab_discussion from private rooms BEFORE calling LLM.
-  // writeLabDiscussion also checks, but this guard ensures callAgent is never invoked.
-  if (item.actionType === "lab_discussion") {
-    const pc = (item.promptContext as Record<string, unknown>) ?? {};
-    if (pc.is_private_room) {
-      const reason = "Private room isolation violated: lab_discussion action with is_private_room=true. Action refused.";
-      await db.insert(aiModerationLog).values({
-        moderatorAgentId: "system",
-        targetType:       "queue_action",
-        targetId:         item.id,
-        verdict:          "isolated",
-        reason,
-        reviewedAt:       new Date(),
-      }).catch((e: unknown) =>
-        console.error("[ai-lab] Failed to write Layer-4 isolation log:", (e as Error).message)
-      );
-      throw new Error(`private_room_isolation_violated: ${reason}`);
-    }
-  }
-
-  // Opt-out check: if this is a @mention response, skip it when the mentioning
-  // user has opted out of this specific agent or all agents.
-  if (item.actionType === "comment") {
-    const pc            = (item.promptContext as Record<string, unknown>) ?? {};
-    const isMention     = pc.kind === "mention_response";
-    const mentionUserId = isMention ? String(pc.mention_user_id ?? "") : "";
-    if (isMention && mentionUserId) {
-      const [optout] = await db
-        .select({ id: aiLabOptouts.id })
-        .from(aiLabOptouts)
-        .where(
-          and(
-            eq(aiLabOptouts.userId, mentionUserId),
-            or(
-              and(eq(aiLabOptouts.targetType, "agent"), eq(aiLabOptouts.targetId, item.agentId)),
-              and(eq(aiLabOptouts.targetType, "all"),   eq(aiLabOptouts.targetId, "all")),
-            ),
-          ),
-        )
-        .limit(1);
-      if (optout) {
-        await db
-          .update(aiQueue)
-          .set({ status: "skipped", errorMessage: "user_optout" })
-          .where(eq(aiQueue.id, item.id));
-        console.log(`[executor] @mention skipped for user ${mentionUserId} — opted out of agent ${item.agentId}`);
-        return;
-      }
-    }
-  }
-
   // Self-contained handlers — fetch their own data, manage their own LLM calls
   // and usage tracking, then return early, bypassing the generic callAgent path.
 
@@ -367,14 +316,8 @@ async function executeItem(item: AIQueue): Promise<void> {
   switch (item.actionType) {
     case "theme_select":    await writeThemeSelect(agent.id, item, response); break;
     case "post_idea":       await writePostIdea(agent.id, item, response);    break;
-    case "comment":
-      if (c.kind === "mention_response")
-        await writeMentionResponse(agent.id, item, response);
-      else
-        await writeComment(agent.id, item, response);
-      break;
-    case "quality_review":       await writeQualityReview(agent.id, item, response); break;
-    case "lab_discussion":       await writeLabDiscussion(agent.id, item, response); break;
+    case "comment":         await writeComment(agent.id, item, response);     break;
+    case "quality_review":  await writeQualityReview(agent.id, item, response); break;
     // conductor, archive_day, and quality_review_archive handled by self-contained early returns above
     default:
       throw new Error(`Unknown action type: ${item.actionType}`);

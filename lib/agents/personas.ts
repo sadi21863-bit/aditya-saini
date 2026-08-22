@@ -6,11 +6,13 @@ export type AIRole =
   | "archivist"
   | "research";
 
+export type AIProvider = "groq" | "openrouter" | "github";
+
 export interface Agent {
   id: string;
   name: string;
   handle: string;
-  provider: "groq";
+  provider: AIProvider;
   model: string;
   role: AIRole;
   persona: string;
@@ -43,27 +45,24 @@ const MODELS = {
   archivist: process.env.AGENT_MODEL_ARCHIVIST ?? "openai/gpt-oss-120b",
 
   // Participants (4 in v4.3 — added Maverick 2026-05-13)
-  // Llama migrated llama-3.3-70b-versatile → openai/gpt-oss-120b 2026-07-16
-  // (part of the qwen/qwen3-32b deprecation cleanup; consolidates on gpt-oss-120b).
+  // Llama migrated llama-3.3-70b-versatile → openai/gpt-oss-120b 2026-07-16.
   llama: process.env.AGENT_MODEL_LLAMA ?? "openai/gpt-oss-120b",
   gptOss: process.env.AGENT_MODEL_GPTOSS ?? "openai/gpt-oss-120b",
-  // Scout: GitHub Models meta/llama-4-scout → Groq llama-3.3-70b-versatile (2026-08-07)
-  // → openai/gpt-oss-120b (2026-08-22: Groq retired llama-3.3 — 404 on all calls,
-  // model absent from /v1/models). JSON mode verified live.
-  scout: process.env.AGENT_MODEL_SCOUT ?? "openai/gpt-oss-120b",
-  // Maverick: migrated from GitHub Models meta/llama-4-maverick-17b-128e-instruct-fp8 →
-  // Groq openai/gpt-oss-20b 2026-08-07 (GitHub Models retirement brownout). JSON mode
-  // verified live (JSON_MODE_SUPPORTED in providers/index.ts).
+  // Scout: GitHub Models → Groq llama-3.3 (2026-08-07) → gpt-oss-120b (2026-08-22,
+  // Groq retired llama-3.3) → OpenRouter free nemotron-ultra (2026-08-22, provider
+  // diversification — strongest free model, 1M ctx, native JSON verified).
+  scout: process.env.AGENT_MODEL_SCOUT ?? "nvidia/nemotron-3-ultra-550b-a55b:free",
+  // Maverick: GitHub Models → Groq openai/gpt-oss-20b 2026-08-07. JSON mode verified.
   maverick: process.env.AGENT_MODEL_MAVERICK ?? "openai/gpt-oss-20b",
 
-  // Conductor: GitHub Models gpt-4o-mini → Groq llama-3.3-70b-versatile (2026-08-07)
-  // → openai/gpt-oss-20b (2026-08-22: llama-3.3 retired by Groq). Small precise task
-  // (read thread summaries, pose one question) — 20b sufficient.
-  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "openai/gpt-oss-20b",
+  // Conductor: Groq llama-3.3 → gpt-oss-20b (2026-08-22) → OpenRouter free
+  // nemotron-nano (2026-08-22). Small precise task — nano is sufficient and fast (~1.7s).
+  conductor: process.env.AGENT_MODEL_CONDUCTOR ?? "nvidia/nemotron-3-nano-30b-a3b:free",
 
-  // @research: GitHub Models gpt-4o-mini → Groq llama-3.3-70b-versatile (2026-08-07)
-  // → openai/gpt-oss-20b (2026-08-22: llama-3.3 retired by Groq). Plain-text output.
-  research: process.env.AGENT_MODEL_RESEARCH ?? "openai/gpt-oss-20b",
+  // @research: Groq llama-3.3 → gpt-oss-20b (2026-08-22) → OpenRouter free
+  // nemotron-lightning (2026-08-22). Fastest model tested (~1.4s) — good for
+  // search-result summarization. Plain-text output.
+  research: process.env.AGENT_MODEL_RESEARCH ?? "nvidia/nemotron-3.5-lightning",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
@@ -206,8 +205,8 @@ ${BRUTAL_HONESTY_RULE}`,
     id: "ai_scout",
     name: "Scout",
     handle: "scout",
-    provider: "groq",
-    model: MODELS.scout, // llama-3.3-70b-versatile
+    provider: "openrouter",
+    model: MODELS.scout, // nvidia/nemotron-3-ultra (free tier)
     role: "participant",
     persona: `You are Scout, an AI participant in the IdeaConnect AI Lab. You are the Pattern Breaker — fast, direct, and structurally skeptical.
 
@@ -335,7 +334,7 @@ const CONDUCTOR_AGENT: Agent = {
   handle: "conductor",
   // 2026-08-07: migrated GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
   // (GitHub Models retirement brownout).
-  provider: "groq",
+  provider: "openrouter",
   model: MODELS.conductor,
   role: "conductor",
   persona: `You are the Conductor for IdeaConnect's AI Lab. Your sole function is to restart stalled debates.
@@ -363,12 +362,11 @@ const RESEARCH_AGENT: Agent = {
   id: "ai_research",
   name: "Research",
   handle: "research",
-  // 2026-08-07: migrated GitHub Models openai/gpt-4o-mini → Groq llama-3.3-70b-versatile
-  // (GitHub Models retirement brownout).
-  provider: "groq",
+  // 2026-08-22: Groq llama-3.3 retired → OpenRouter free nemotron-lightning.
+  // Migrated: Cerebras (2026-05-13) → GitHub gpt-4o-mini (2026-05-13) →
+  // Groq llama-3.3 (2026-08-07) → OpenRouter nemotron-lightning (2026-08-22).
+  provider: "openrouter",
   model: MODELS.research,
-  // Migrated: Groq → Cerebras llama3.1-8b (2026-05-13) → GitHub Models gpt-4o-mini (2026-05-13)
-  // → Groq llama-3.3-70b-versatile (2026-08-07, GitHub Models retired).
   role: "research",
   persona: `You are @research, the AI Lab's real-time fact-checker.
 

@@ -1,4 +1,5 @@
 import { callGroq } from "./groq";
+import { callOpenRouter } from "./openrouter";
 import { stripThinkingTags, normalizeHyphens } from "../response-cleaner";
 import type { Agent } from "../personas";
 
@@ -25,6 +26,10 @@ function isTransientError(err: unknown): boolean {
 const JSON_MODE_SUPPORTED = new Set([
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
+  // OpenRouter free tier — verified live 2026-08-22 (scripts/test-openrouter-json.ts)
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "nvidia/nemotron-3.5-lightning",
+  "nvidia/nemotron-3-nano-30b-a3b:free",
 ]);
 
 // GPT-OSS is a reasoning model that can consume many tokens on chain-of-thought
@@ -49,33 +54,36 @@ export async function callAgent(
   userPrompt: string,
   opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
 ): Promise<string> {
-  // Per-model overrides before calling Groq
-  const groqOpts = { ...opts };
-  if (groqOpts.jsonMode && !JSON_MODE_SUPPORTED.has(agent.model)) {
+  // Per-model overrides before calling the primary provider
+  const primaryOpts = { ...opts };
+  if (primaryOpts.jsonMode && !JSON_MODE_SUPPORTED.has(agent.model)) {
     // Don't forward jsonMode for models that don't support it
-    delete groqOpts.jsonMode;
+    delete primaryOpts.jsonMode;
   }
   // Use opts.maxTokens if given; else fall back to agent.maxTokens; else GPTOSS_MIN_TOKENS floor.
-  if (!groqOpts.maxTokens) {
-    groqOpts.maxTokens = agent.maxTokens
+  if (!primaryOpts.maxTokens) {
+    primaryOpts.maxTokens = agent.maxTokens
       ?? (agent.model === GPTOSS_MODEL ? GPTOSS_MIN_TOKENS : undefined);
   }
 
-  // Groq agents (Theme Setter, Quality Checker, Llama, GPT-OSS) try Groq first.
-  // On transient errors, fall back to Groq FALLBACK_MODEL as safety net.
-  // (Cerebras fallback retired 2026-05-27 when llama3.1-8b on Cerebras deprecates.)
+  const callPrimary = () =>
+    agent.provider === "openrouter"
+      ? callOpenRouter(agent.model, agent.persona, userPrompt, primaryOpts)
+      : callGroq(agent.model, agent.persona, userPrompt, primaryOpts);
+
   try {
     // normalizeHyphens: GPT-OSS emits U+2011/U+2012 non-breaking hyphens in narrative text.
     // Normalize to standard hyphen-minus before storage.
-    return normalizeHyphens(stripThinkingTags(
-      await callGroq(agent.model, agent.persona, userPrompt, groqOpts)
-    ));
+    return normalizeHyphens(stripThinkingTags(await callPrimary()));
   } catch (err) {
     if (!isTransientError(err)) throw err;
 
+    // Cross-provider safety net: any transient failure falls back to Groq's
+    // small model. OpenRouter free tier 429s/5xx are common — this keeps
+    // Scout/Conductor/Research alive during provider brownouts.
     try {
       console.warn(
-        `[ai-lab] Groq failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
+        `[ai-lab] ${agent.provider} failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
       );
       return normalizeHyphens(stripThinkingTags(
         await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 })
