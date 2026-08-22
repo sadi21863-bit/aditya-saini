@@ -15,7 +15,7 @@ function DebateRow({ d }: { d: Debate }) {
   return (
     <Link
       href={href}
-      className="block py-3 border-b border-ic-rule last:border-0 hover:text-ic-accent transition"
+      className="block py-4 border-b border-ic-rule/30 last:border-0 hover:bg-ic-card/30 -mx-3 px-3 rounded-xl transition-colors"
     >
       <p className="text-ic-ink text-sm font-display truncate">{d.title}</p>
       <p className="font-mono text-[10px] text-ic-muted mt-0.5">
@@ -40,18 +40,23 @@ export default async function DebateHistoryPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-2xl font-normal text-ic-ink">Debate History</h1>
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-2">
+            Quick Debate
+          </p>
+          <h1 className="font-display text-[clamp(28px,4vw,40px)] font-normal tracking-tight text-ic-ink">Debate History</h1>
+        </div>
         <Link
           href="/debates/new"
-          className="px-4 py-2 rounded-lg bg-ic-accent text-white text-sm font-medium hover:opacity-90 transition"
+          className="px-5 py-2.5 rounded-xl bg-[#F97316] text-white text-sm font-medium hover:bg-[#EA580C] transition-colors shrink-0"
         >
           New debate →
         </Link>
       </div>
 
       {inProgress.length > 0 && (
-        <section className="mb-8">
+        <section className="mb-10">
           <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
             In Progress
           </p>
@@ -59,7 +64,7 @@ export default async function DebateHistoryPage() {
         </section>
       )}
       {archived.length > 0 && (
-        <section className="mb-8">
+        <section className="mb-10">
           <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
             Archived
           </p>

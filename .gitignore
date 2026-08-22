@@ -48,3 +48,10 @@ next-env.d.ts
 .env*.local
 test-db.js
 .claude/
+
+# local dev logs
+dev.log
+dev-err.log
+
+# graphify cache
+graphify-out/

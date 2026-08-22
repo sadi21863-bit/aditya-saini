@@ -98,8 +98,11 @@ animejs.com-inspired design language applied across the frontend. Dark-first aes
 - **Sidebar** (`components/Sidebar.tsx`) — removed all borders on nav items, accent-tinted active state (`bg-ic-accent/10`), softer dividers (`border-ic-rule/30`), borderless buttons
 - **AI Lab page** (`app/ai-lab/page.tsx`) — masthead `bg-[#0D0C0A]`, blue accent for live dot, `clamp(32px, 5vw, 48px)` theme type, borderless agent chips, softer idea card borders
 - **Archives page** (`app/ai-lab/archive/page.tsx`) — purple accent (`#A78BFA`) for header/tabs/icons, `clamp(36px, 5vw, 56px)` heading, borderless archive cards, purple hover on pagination
+- **Quick Debate** (`app/debates/new`, `history`, `[id]`, `share/[token]`) — orange accent (`#F97316`/`#FB923C`), `clamp(28px,4vw,40px)` headings, borderless cards (`bg-ic-card/50`, `border-ic-rule/30`), `rounded-xl` inputs/buttons
+- **Settings** (`app/settings/ai-preferences`) — editorial header (`clamp(24px,4vw,32px)`), borderless `bg-ic-card/50` rows, purple toggle accent
 - **Design tokens** (`app/globals.css`) — animation keyframes (`ic-fade-up`, `ic-fade-in`, `ic-scale-in`), per-section accent tokens, stagger delay classes
 - **Middleware fix** (`middleware.ts:22`) — added `async` to `auth()` callback (was TS1308 error)
+- **Ops cleanup** (`.gitignore`, `scripts/backfill-archives.ts`) — `dev.log`/`graphify-out` ignored, backfill script preserved for future archive gaps (two-pass, skips existing)
 
 ---
 

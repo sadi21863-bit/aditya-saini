@@ -106,7 +106,7 @@ export default function NewDebatePage() {
   if (waitingAnswer && question) {
     return (
       <main className="max-w-2xl mx-auto px-6 py-16">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-4">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-4">
           One quick question
         </p>
         <p className="font-display text-xl text-ic-ink mb-6">{question}</p>
@@ -115,16 +115,16 @@ export default function NewDebatePage() {
           value={answer}
           onChange={e => setAnswer(e.target.value)}
           placeholder="Your answer…"
-          className="w-full rounded-lg border border-ic-rule bg-transparent p-4 text-ic-ink
+          className="w-full rounded-xl border border-ic-rule/30 bg-ic-card/50 p-4 text-ic-ink
                      placeholder:text-ic-muted resize-none focus:outline-none focus:ring-2
-                     focus:ring-ic-accent font-display text-base mb-4"
+                     focus:ring-[#FB923C]/30 focus:border-[#FB923C]/50 font-display text-base mb-4 transition-colors"
         />
         {error && <p className="text-ic-danger text-sm font-mono mb-3">{error}</p>}
         <button
           onClick={handleAnswerSubmit}
           disabled={loading || !answer.trim()}
-          className="px-6 py-3 rounded-lg bg-ic-accent text-white text-sm font-medium
-                     hover:opacity-90 disabled:opacity-50 transition"
+          className="px-6 py-3 rounded-xl bg-[#F97316] text-white text-sm font-medium
+                     hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
         >
           {loading ? "Working…" : "Continue →"}
         </button>
@@ -134,11 +134,11 @@ export default function NewDebatePage() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-16">
-      <div className="mb-8">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
+      <div className="mb-10">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-3">
           Quick Debate
         </p>
-        <h1 className="font-display text-4xl font-normal tracking-tight text-ic-ink mb-3">
+        <h1 className="font-display text-[clamp(32px,5vw,48px)] font-normal tracking-tight text-ic-ink mb-3">
           Submit your idea
         </h1>
         <p className="text-ic-ink-soft text-base leading-relaxed max-w-lg">
@@ -153,15 +153,15 @@ export default function NewDebatePage() {
           minLength={10}
           maxLength={2000}
           placeholder="What's the idea or question? (10–2000 characters)"
-          className="w-full rounded-lg border border-ic-rule bg-transparent p-4 text-ic-ink
+          className="w-full rounded-xl border border-ic-rule/30 bg-ic-card/50 p-4 text-ic-ink
                      placeholder:text-ic-muted resize-none focus:outline-none focus:ring-2
-                     focus:ring-ic-accent font-display text-base leading-relaxed"
+                     focus:ring-[#FB923C]/30 focus:border-[#FB923C]/50 font-display text-base leading-relaxed transition-colors"
         />
         {error && (
           <p className="text-ic-danger text-sm font-mono">{error}</p>
         )}
         {rateLimit && (
-          <div className="rounded-lg border border-ic-warning bg-ic-warning-bg px-4 py-3 text-sm text-ic-warning-ink">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <p className="font-medium">{rateLimit.message}</p>
             {rateLimit.resetAt && (
               <p className="mt-1 text-xs opacity-75">
@@ -174,8 +174,8 @@ export default function NewDebatePage() {
           <button
             onClick={handleSubmit}
             disabled={loading || input.trim().length < 10}
-            className="px-6 py-3 rounded-lg bg-ic-accent text-white text-sm font-medium
-                       hover:opacity-90 disabled:opacity-50 transition"
+            className="px-6 py-3 rounded-xl bg-[#F97316] text-white text-sm font-medium
+                       hover:bg-[#EA580C] disabled:opacity-50 transition-colors"
           >
             {loading ? "Judging…" : "Submit →"}
           </button>

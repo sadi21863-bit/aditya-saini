@@ -81,10 +81,10 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
     <main className="max-w-2xl mx-auto px-4 py-10 sm:px-6">
 
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-3">
         AI Debate · IdeaConnect
       </p>
-      <h1 className="font-display text-3xl font-normal tracking-tight text-ic-ink leading-snug mb-8">
+      <h1 className="font-display text-[clamp(28px,4vw,38px)] font-normal tracking-tight text-ic-ink leading-snug mb-10">
         {debate.title}
       </h1>
 
@@ -96,7 +96,7 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
         ].map(({ agent, colors, label }) => (
           <div
             key={label}
-            className={`rounded-xl p-4 border border-ic-rule border-l-4 ${colors.bg} ${colors.accent}`}
+            className={`rounded-xl p-4 border border-ic-rule/30 border-l-4 ${colors.bg} ${colors.accent}`}
           >
             <p className={`font-mono text-[11px] uppercase tracking-widest mb-1 ${colors.label}`}>
               {label}
@@ -120,13 +120,13 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
             const agent = isA ? agentA : agentB;
             const label = isA ? "Agent A" : "Agent B";
             return (
-              <div key={turn.id} className={`rounded-xl p-5 border border-ic-rule border-l-4 ${col.bg} ${col.accent}`}>
+              <div key={turn.id} className={`rounded-xl p-5 border border-ic-rule/30 border-l-4 ${col.bg} ${col.accent}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`font-mono text-[11px] font-semibold ${col.label}`}>
                     {agent?.name ?? label}
                   </span>
                   {turn.round > 1 && (
-                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule text-ic-muted">
+                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule/50 text-ic-muted">
                       Round {turn.round}
                     </span>
                   )}
@@ -142,9 +142,9 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
       {round2Turns.length > 0 && (
         <>
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-ic-rule" />
+            <div className="flex-1 h-px bg-ic-rule/30" />
             <span className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">Round 2</span>
-            <div className="flex-1 h-px bg-ic-rule" />
+            <div className="flex-1 h-px bg-ic-rule/30" />
           </div>
           <div className="space-y-4 mb-8">
             {round2Turns.map(turn => {
@@ -153,12 +153,12 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
               const agent = isA ? agentA : agentB;
               const label = isA ? "Agent A" : "Agent B";
               return (
-                <div key={turn.id} className={`rounded-xl p-5 border border-ic-rule border-l-4 ${col.bg} ${col.accent}`}>
+                <div key={turn.id} className={`rounded-xl p-5 border border-ic-rule/30 border-l-4 ${col.bg} ${col.accent}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`font-mono text-[11px] font-semibold ${col.label}`}>
                       {agent?.name ?? label}
                     </span>
-                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule text-ic-muted">
+                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule/50 text-ic-muted">
                       Round {turn.round}
                     </span>
                   </div>
@@ -172,8 +172,8 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
 
       {/* ── Verdict banner ───────────────────────────────────────────── */}
       {debate.verdict && (
-        <div className="rounded-xl border-2 border-ic-accent bg-ic-accent/5 p-5 mb-10">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-ic-accent mb-2">
+        <div className="rounded-xl border-2 border-[#F97316]/20 bg-[#F97316]/5 p-5 mb-10">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#F97316] mb-2">
             Verdict
           </p>
           <p className="font-display text-base font-semibold text-ic-ink mb-2">
@@ -187,7 +187,7 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
 
       {/* Round 1 archive summary (no Round 2) */}
       {debate.archivistSummary && !debate.verdict && (
-        <div className="rounded-xl border border-ic-rule bg-ic-paper-deep p-5 mb-10">
+        <div className="rounded-xl bg-ic-card/50 p-5 mb-10">
           <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
             Archive
           </p>
@@ -196,12 +196,12 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
       )}
 
       {/* ── CTA ──────────────────────────────────────────────────────── */}
-      <div className="pt-6 border-t border-ic-rule">
+      <div className="pt-6 border-t border-ic-rule/30">
         <p className="text-sm text-ic-muted mb-3">Debate your own idea →</p>
         <Link
           href="/debates/new"
-          className="inline-block px-6 py-3 rounded-lg bg-ic-accent text-white text-sm
-                     font-medium hover:opacity-90 transition"
+          className="inline-block px-6 py-3 rounded-xl bg-[#F97316] text-white text-sm
+                     font-medium hover:bg-[#EA580C] transition-colors"
         >
           Start a debate
         </Link>

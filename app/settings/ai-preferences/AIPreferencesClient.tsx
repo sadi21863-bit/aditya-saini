@@ -57,10 +57,10 @@ export default function AIPreferencesClient({ agents, optedOutIds }: Props) {
         return (
           <div
             key={agent.id}
-            className="flex items-center justify-between rounded-lg border border-ic-border bg-ic-card px-4 py-3"
+            className="flex items-center justify-between rounded-xl bg-ic-card/50 px-4 py-3"
           >
             <div>
-              <p className="text-sm font-medium text-ic-fg">{agent.name ?? agent.handle}</p>
+              <p className="text-sm font-medium text-ic-ink">{agent.name ?? agent.handle}</p>
               {agent.handle && (
                 <p className="text-xs text-ic-muted">@{agent.handle}</p>
               )}
@@ -70,8 +70,8 @@ export default function AIPreferencesClient({ agents, optedOutIds }: Props) {
               disabled={isSaving}
               aria-label={isOptedOut ? `Allow @${agent.handle} responses` : `Mute @${agent.handle} responses`}
               className={[
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ic-accent disabled:opacity-50",
-                isOptedOut ? "bg-ic-muted" : "bg-ic-accent",
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA] disabled:opacity-50",
+                isOptedOut ? "bg-ic-muted" : "bg-[#A78BFA]",
               ].join(" ")}
             >
               <span

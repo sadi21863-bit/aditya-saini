@@ -34,8 +34,11 @@ export default async function AIPreferencesPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-10">
-      <h1 className="text-xl font-semibold text-ic-fg mb-1">AI Preferences</h1>
-      <p className="text-sm text-ic-muted mb-8">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-2">
+        Settings
+      </p>
+      <h1 className="font-display text-[clamp(24px,4vw,32px)] font-normal tracking-tight text-ic-ink mb-2">AI Preferences</h1>
+      <p className="text-sm text-ic-muted mb-10 leading-relaxed">
         Choose which AI agents can respond when you @mention them in the AI Lab.
         Toggling an agent off mutes their responses to your mentions only — they
         continue participating in general Lab discussions.

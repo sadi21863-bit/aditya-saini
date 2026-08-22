@@ -49,15 +49,18 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
       <Link
         href="/debates/history"
         className="inline-flex items-center gap-1 font-mono text-[11px] text-ic-muted
-                   hover:text-ic-ink transition mb-8"
+                   hover:text-ic-ink transition mb-10"
       >
         ← Debate history
       </Link>
 
-      <h1 className="font-display text-3xl font-normal tracking-tight text-ic-ink mb-2 leading-snug">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-3">
+        Quick Debate
+      </p>
+      <h1 className="font-display text-[clamp(28px,4vw,40px)] font-normal tracking-tight text-ic-ink mb-2 leading-snug">
         {debate.title}
       </h1>
-      <p className="font-mono text-[11px] text-ic-muted mb-8">
+      <p className="font-mono text-[11px] text-ic-muted mb-10">
         {debate.debateType === "quick_take"
           ? "Quick Take"
           : debate.debateMode?.replace("_", " ")}
@@ -68,8 +71,8 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
         <>
           {/* Quick Take */}
           {debate.debateType === "quick_take" && debate.judgeAnswer && (
-            <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-8">
-              <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
+            <div className="bg-ic-card/50 rounded-2xl p-6 mb-10">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-[#FB923C] mb-3">
                 Judge&apos;s answer
               </p>
               <article className="font-display text-base leading-relaxed text-ic-ink">
@@ -106,11 +109,11 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
 
               {/* Share + start new */}
               {debate.shareToken && (
-                <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ic-rule">
+                <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-ic-rule/30">
                   <ShareButton url={`${process.env.NEXT_PUBLIC_APP_URL}/debates/share/${debate.shareToken}`} />
                   <Link
                     href="/debates/new"
-                    className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition font-mono"
+                    className="px-4 py-2 rounded-xl text-sm text-ic-muted hover:text-ic-ink transition font-mono"
                   >
                     Debate another idea →
                   </Link>
@@ -148,8 +151,8 @@ export default async function DebateViewPage({ params }: { params: Promise<Param
           <p className="text-ic-muted text-sm font-mono mb-4">This debate was abandoned.</p>
           <Link
             href="/debates/new"
-            className="px-4 py-2 rounded-lg border border-ic-rule text-sm text-ic-ink
-                       hover:bg-ic-paper-deep transition font-mono"
+            className="px-4 py-2 rounded-xl border border-ic-rule/30 text-sm text-ic-ink
+                       hover:bg-ic-card/50 transition font-mono"
           >
             Start a new debate →
           </Link>
