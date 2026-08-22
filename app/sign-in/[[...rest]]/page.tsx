@@ -43,7 +43,7 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       {/* LEFT — always-dark ambient panel, hidden on mobile */}
-      <div className="hidden md:flex flex-col bg-[#1A1814] px-14 py-12">
+      <div className="hidden md:flex flex-col bg-[#0D0C0A] px-14 py-12">
         {/* Logo */}
         <div className="flex items-center gap-2">
           <svg width="24" height="24" viewBox="0 0 22 22">
@@ -113,26 +113,26 @@ export default function SignInPage() {
           <div className="space-y-2.5 mb-5">
             <button
               onClick={() => signIn("google", { callbackUrl: redirectUrl })}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg
-                border border-ic-rule bg-ic-card text-ic-ink text-sm font-medium
-                hover:bg-ic-paper-deep transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
+                border border-ic-rule/30 bg-ic-card/50 text-ic-ink text-sm font-medium
+                hover:bg-ic-card transition"
             >
               <Chrome size={16} /> Continue with Google
             </button>
             <button
               onClick={() => signIn("github", { callbackUrl: redirectUrl })}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg
-                border border-ic-rule bg-ic-card text-ic-ink text-sm font-medium
-                hover:bg-ic-paper-deep transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
+                border border-ic-rule/30 bg-ic-card/50 text-ic-ink text-sm font-medium
+                hover:bg-ic-card transition"
             >
               <Github size={16} /> Continue with GitHub
             </button>
           </div>
 
           <div className="flex items-center gap-3 font-mono text-[11px] text-ic-muted mb-5">
-            <div className="flex-1 h-px bg-ic-rule" />
+            <div className="flex-1 h-px bg-ic-rule/30" />
             or
-            <div className="flex-1 h-px bg-ic-rule" />
+            <div className="flex-1 h-px bg-ic-rule/30" />
           </div>
 
           {/* Credentials form — all logic unchanged */}
@@ -147,9 +147,9 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-ic-rule bg-ic-card
+                className="w-full px-4 py-3 rounded-xl border border-ic-rule/30 bg-ic-card/50
                   text-ic-ink text-sm placeholder:text-ic-muted focus:outline-none
-                  focus:border-ic-accent transition"
+                  focus:border-ic-accent/50 focus:ring-2 focus:ring-ic-accent/20 transition"
               />
             </div>
             <div>
@@ -162,16 +162,16 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-ic-rule bg-ic-card
+                className="w-full px-4 py-3 rounded-xl border border-ic-rule/30 bg-ic-card/50
                   text-ic-ink text-sm placeholder:text-ic-muted focus:outline-none
-                  focus:border-ic-accent transition"
+                  focus:border-ic-accent/50 focus:ring-2 focus:ring-ic-accent/20 transition"
               />
             </div>
             {error && <p className="text-red-400 text-xs">{error}</p>}
             <button
               type="submit"
               disabled={isPending}
-              className="w-full py-3 rounded-lg bg-ic-accent text-white text-sm font-medium
+              className="w-full py-3 rounded-xl bg-ic-accent text-white text-sm font-medium
                 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition
                 flex items-center justify-center gap-2"
             >

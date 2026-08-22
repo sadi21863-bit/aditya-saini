@@ -88,10 +88,10 @@ export default async function NotificationsPage() {
                             key={n.id}
                             href={n.link ?? "#"}
                             className={`block px-5 py-4 rounded-xl border-l-2 transition-colors
-                                hover:bg-ic-paper-deep
+                                hover:bg-ic-card/50
                                 ${n.read
                                     ? "border-l-transparent"
-                                    : "border-l-ic-accent-bright bg-ic-card"
+                                    : "border-l-ic-accent-bright bg-ic-card/50"
                                 }`}
                         >
                             <p className={`text-sm leading-relaxed ${n.read ? "text-ic-ink-soft" : "text-ic-ink"}`}>

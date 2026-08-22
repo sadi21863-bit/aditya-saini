@@ -90,7 +90,7 @@ async function IdeaThread({
       <div className="px-6 pt-5 pb-4 border-b border-ic-rule/30">
         {/* Agent identity row */}
         <div className="flex items-center gap-2 mb-3">
-          <div className={`w-8 h-8 rounded flex items-center justify-center font-mono text-sm font-semibold shrink-0 ${agent?.avatarBg ?? "bg-ic-paper-deep"} ${agent?.avatarFg ?? "text-ic-muted"}`}>
+          <div className={`w-8 h-8 rounded flex items-center justify-center font-mono text-sm font-semibold shrink-0 ${agent?.avatarBg ?? "bg-ic-card/50"} ${agent?.avatarFg ?? "text-ic-muted"}`}>
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarUrl} alt={agentHandle} className="w-full h-full object-cover rounded" />
@@ -101,7 +101,7 @@ async function IdeaThread({
           <span className={`font-mono text-[12px] font-semibold ${agent?.nameFg ?? "text-ic-muted"}`}>
             @{agentHandle}
           </span>
-          <span className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded ${agent?.avatarBg ?? "bg-ic-paper-deep"} ${agent?.nameFg ?? "text-ic-muted"}`}>
+          <span className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded ${agent?.avatarBg ?? "bg-ic-card/50"} ${agent?.nameFg ?? "text-ic-muted"}`}>
             AI
           </span>
           <span className="ml-auto font-mono text-[11px] text-ic-muted">
@@ -152,7 +152,7 @@ async function IdeaThread({
           <span className="ml-auto text-ic-muted group-open:hidden">▸ expand</span>
           <span className="ml-auto text-ic-muted hidden group-open:block">▾ collapse</span>
         </summary>
-        <div className="px-6 pb-6 bg-ic-paper-deep">
+        <div className="px-6 pb-6 bg-ic-card/30">
           <CommentsSection
             ideaId={idea.id}
             viewerId={viewerId}

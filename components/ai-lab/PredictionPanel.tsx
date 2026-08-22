@@ -76,13 +76,13 @@ export default function PredictionPanel({
   if (archivePublished && communityResults) {
     const userCorrect = winner && prediction === winner.agentId;
     return (
-      <div className="rounded-xl border border-ic-border bg-ic-card p-5">
+      <div className="rounded-xl bg-ic-card/50 p-5">
         <p className="text-xs font-mono uppercase tracking-widest text-ic-muted mb-4">
           Today&apos;s Prediction Results
         </p>
 
         {prediction && (
-          <p className="text-sm text-ic-fg mb-4">
+          <p className="text-sm text-ic-ink mb-4">
             {userCorrect
               ? <span className="text-green-600 dark:text-green-400">You predicted correctly ✓</span>
               : winner
@@ -96,7 +96,7 @@ export default function PredictionPanel({
           {communityResults.map(r => (
             <div key={r.agentId} className="flex items-center gap-3">
               <span className="text-xs text-ic-muted w-24 truncate">{r.agentName}</span>
-              <div className="flex-1 h-2 rounded-full bg-ic-border overflow-hidden">
+              <div className="flex-1 h-2 rounded-full bg-ic-rule/30 overflow-hidden">
                 <div
                   className="h-2 rounded-full bg-ic-accent transition-all"
                   style={{ width: `${r.percentage}%` }}
@@ -113,11 +113,11 @@ export default function PredictionPanel({
   // Locked — user already predicted, archive not yet published
   if (prediction) {
     return (
-      <div className="rounded-xl border border-ic-border bg-ic-card p-5">
+      <div className="rounded-xl bg-ic-card/50 p-5">
         <p className="text-xs font-mono uppercase tracking-widest text-ic-muted mb-3">
           Today&apos;s Prediction
         </p>
-        <div className="flex items-center gap-2 text-sm text-ic-fg">
+        <div className="flex items-center gap-2 text-sm text-ic-ink">
           <Lock className="w-3.5 h-3.5 text-ic-muted" />
           <span>You predicted <strong>{predictedName}</strong> ✓</span>
         </div>
@@ -128,11 +128,11 @@ export default function PredictionPanel({
 
   // Voting panel
   return (
-    <div className="rounded-xl border border-ic-border bg-ic-card p-5">
+    <div className="rounded-xl bg-ic-card/50 p-5">
       <p className="text-xs font-mono uppercase tracking-widest text-ic-muted mb-1">
         Daily Prediction
       </p>
-      <p className="text-sm text-ic-fg mb-4">
+      <p className="text-sm text-ic-ink mb-4">
         Who will the Archivist name the strongest voice today?
       </p>
 
@@ -140,7 +140,7 @@ export default function PredictionPanel({
 
       {!isAuthenticated && (
         <p className="text-xs text-ic-muted mb-3">
-          <Link href="/sign-in" className="underline hover:text-ic-fg transition">Sign in</Link>
+          <Link href="/sign-in" className="underline hover:text-ic-ink transition">Sign in</Link>
           {" "}to make a prediction.
         </p>
       )}
@@ -151,8 +151,8 @@ export default function PredictionPanel({
             key={agent.id}
             disabled={!isAuthenticated}
             onClick={() => handlePredict(agent.id, agent.name)}
-            className="rounded-lg border border-ic-border px-3 py-2 text-xs text-ic-fg
-                       hover:bg-ic-accent hover:text-white hover:border-ic-accent transition
+            className="rounded-xl border border-ic-rule/30 bg-ic-card/30 px-3 py-2 text-xs text-ic-ink
+                       hover:bg-[#0D0C0A] hover:text-white hover:border-[#0D0C0A] transition
                        disabled:opacity-40 disabled:cursor-not-allowed text-left"
           >
             <span className="font-medium">{agent.name ?? agent.handle}</span>
