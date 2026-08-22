@@ -58,7 +58,7 @@ export function PushbackInput({
 
   if (submitted) {
     return (
-      <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-5 mb-8">
+      <div className="bg-ic-card/50 rounded-2xl p-5 mb-8">
         <p className="font-mono text-sm text-ic-ink">
           Pushback submitted — agents are responding…
         </p>
@@ -67,7 +67,7 @@ export function PushbackInput({
   }
 
   return (
-    <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-5 mb-8">
+    <div className="bg-ic-card/50 rounded-2xl p-5 mb-8">
       <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
         Push back — Round {roundCount + 1}
       </p>
@@ -80,9 +80,9 @@ export function PushbackInput({
           rows={3}
           maxLength={1000}
           disabled={!canPushback || loading}
-          className="w-full rounded-lg border border-ic-rule bg-ic-paper px-4 py-3
+          className="w-full rounded-xl border border-ic-rule/30 bg-ic-card/50 px-4 py-3
                      font-display text-sm text-ic-ink placeholder:text-ic-muted
-                     focus:outline-none focus:border-ic-accent transition resize-none
+                     focus:outline-none focus:border-[#F97316]/50 focus:ring-2 focus:ring-[#F97316]/20 transition resize-none
                      disabled:opacity-50"
         />
 
@@ -94,8 +94,8 @@ export function PushbackInput({
           <button
             type="submit"
             disabled={!canPushback || loading || text.trim().length < 10}
-            className="px-4 py-2 rounded-lg border border-ic-rule text-sm text-ic-ink
-                       hover:bg-ic-paper-deep transition font-mono disabled:opacity-50
+            className="px-4 py-2 rounded-xl bg-[#F97316] text-white text-sm
+                       hover:bg-[#EA580C] transition font-mono disabled:opacity-50
                        disabled:cursor-not-allowed"
           >
             {loading ? "Submitting…" : "Push back →"}

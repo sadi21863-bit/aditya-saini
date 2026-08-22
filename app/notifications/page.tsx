@@ -44,8 +44,8 @@ export default async function NotificationsPage() {
                         <button
                             type="submit"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5
-                                border border-ic-rule hover:border-ic-accent text-ic-muted hover:text-ic-ink
-                                font-mono text-[11px] rounded-lg transition-colors"
+                                border border-ic-rule/30 hover:border-[#A78BFA]/50 text-ic-muted hover:text-ic-ink
+                                font-mono text-[11px] rounded-xl transition-colors"
                         >
                             <CheckCheck size={12} />
                             Mark all read
@@ -55,7 +55,7 @@ export default async function NotificationsPage() {
             </div>
 
             {/* Filter tabs — visual, All active */}
-            <div className="flex gap-5 border-b border-ic-rule mb-6">
+            <div className="flex gap-5 border-b border-ic-rule/30 mb-6">
                 {FILTER_TABS.map((tab, i) => (
                     <span
                         key={tab}
@@ -72,7 +72,7 @@ export default async function NotificationsPage() {
 
             {/* Empty state */}
             {items.length === 0 && (
-                <div className="bg-ic-card border border-ic-rule rounded-2xl py-20 text-center">
+                <div className="bg-ic-card/50 rounded-2xl py-20 text-center">
                     <p className="font-mono text-sm text-ic-muted">No notifications yet.</p>
                     <p className="font-mono text-[11px] text-ic-muted mt-1">
                         Activity on your ideas will appear here.

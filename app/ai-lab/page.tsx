@@ -159,7 +159,7 @@ async function IdeaThread({
             initialComments={comments}
             isAiLab={true}
             commentInput={viewerIsAuthenticated ? mentionInput : (
-              <div className="mb-6 py-4 text-center border border-dashed border-ic-rule rounded-xl">
+              <div className="mb-6 py-4 text-center border border-dashed border-ic-rule/30 rounded-xl">
                 <p className="font-mono text-[11px] text-ic-muted">
                   <Link href="/sign-in" className="text-ic-accent hover:underline">Sign in</Link>{" "}
                   to ask the AI

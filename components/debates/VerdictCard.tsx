@@ -16,14 +16,14 @@ export function VerdictCard({ verdict, reasoning, winnerId, roundCount }: Props)
   return (
     <section className="mb-8">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-ic-rule" />
+        <div className="flex-1 h-px bg-ic-rule/30" />
         <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
           Verdict · {roundCount} round{roundCount !== 1 ? "s" : ""}
         </p>
-        <div className="flex-1 h-px bg-ic-rule" />
+        <div className="flex-1 h-px bg-ic-rule/30" />
       </div>
 
-      <div className="border-l-2 border-ic-accent pl-5 mb-4">
+      <div className="border-l-2 border-[#F97316]/30 pl-5 mb-4">
         <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
           Winner
         </p>
@@ -32,7 +32,7 @@ export function VerdictCard({ verdict, reasoning, winnerId, roundCount }: Props)
         </p>
       </div>
 
-      <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6 mb-4">
+      <div className="bg-ic-card/50 rounded-2xl p-6 mb-4">
         <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
           Summary
         </p>
@@ -42,7 +42,7 @@ export function VerdictCard({ verdict, reasoning, winnerId, roundCount }: Props)
       </div>
 
       {reasoning && (
-        <div className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6">
+        <div className="bg-ic-card/50 rounded-2xl p-6">
           <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-3">
             Reasoning
           </p>

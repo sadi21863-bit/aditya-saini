@@ -66,14 +66,14 @@ export function DebatePoller({ debateId: _debateId, currentStatus, createdAt }: 
               startRef.current = Date.now();
               router.refresh();
             }}
-            className="px-4 py-2 rounded-lg border border-ic-rule text-sm text-ic-ink
-                       hover:bg-ic-paper-deep transition"
+            className="px-4 py-2 rounded-xl border border-ic-rule/30 text-sm text-ic-ink
+                       hover:bg-ic-card/50 transition"
           >
             Refresh
           </button>
           <Link
             href="/debates/new"
-            className="px-4 py-2 rounded-lg text-sm text-ic-muted hover:text-ic-ink transition"
+            className="px-4 py-2 rounded-xl text-sm text-ic-muted hover:text-ic-ink transition"
           >
             Try again →
           </Link>
@@ -102,7 +102,7 @@ export function DebatePoller({ debateId: _debateId, currentStatus, createdAt }: 
   return (
     <div className="mt-10">
       <div className="flex items-center gap-3 mb-2">
-        <span className="w-2 h-2 rounded-full bg-ic-accent-bright animate-pulse shrink-0" />
+        <span className="w-2 h-2 rounded-full bg-[#F97316] animate-pulse shrink-0" />
         <p className="font-mono text-sm text-ic-ink">{statusLine()}</p>
       </div>
       {sub && (

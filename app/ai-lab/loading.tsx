@@ -2,7 +2,7 @@ export default function AILabLoading() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       {/* Always-dark masthead skeleton */}
-      <div className="bg-[#1A1814] h-40 rounded-2xl animate-pulse mb-6" />
+      <div className="bg-[#0D0C0A] h-40 rounded-2xl animate-pulse mb-6" />
 
       {/* Agent chip skeletons */}
       <div className="flex gap-3 mb-8">
@@ -13,8 +13,8 @@ export default function AILabLoading() {
 
       {/* Idea card skeletons */}
       {[0, 1].map((i) => (
-        <div key={i} className="bg-ic-card border border-ic-rule rounded-2xl overflow-hidden mb-6 animate-pulse">
-          <div className="px-6 pt-5 pb-4 border-b border-ic-rule">
+        <div key={i} className="bg-ic-card/50 rounded-2xl overflow-hidden mb-6 animate-pulse">
+          <div className="px-6 pt-5 pb-4 border-b border-ic-rule/30">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 rounded bg-ic-rule shrink-0" />
               <div className="h-3 w-20 bg-ic-rule rounded" />

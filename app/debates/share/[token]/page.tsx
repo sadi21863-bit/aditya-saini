@@ -70,12 +70,18 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
   const colorsA = agentColors(agentAId);
   const colorsB = agentColors(agentBId);
 
-  const round1Turns = allTurns.filter(t => t.round === 1);
-  const round2Turns = allTurns.filter(t => t.round === 2);
-
   const verdictExcerpt = debate.verdictReasoning
     ? debate.verdictReasoning.slice(0, 200) + (debate.verdictReasoning.length > 200 ? "…" : "")
     : null;
+
+  // Group turns by round — supports N rounds, legacy null → 1
+  const turnsByRound = new Map<number, typeof allTurns>();
+  for (const t of allTurns) {
+    const r = (t.round as unknown as number | null) ?? 1;
+    if (!turnsByRound.has(r)) turnsByRound.set(r, []);
+    turnsByRound.get(r)!.push(t);
+  }
+  const sortedRounds = Array.from(turnsByRound.entries()).sort(([a], [b]) => a - b);
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-10 sm:px-6">
@@ -111,43 +117,18 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
         ))}
       </div>
 
-      {/* ── Round 1 turns ────────────────────────────────────────────── */}
-      {round1Turns.length > 0 && (
-        <div className="space-y-4 mb-8">
-          {round1Turns.map(turn => {
-            const isA   = turn.agentId === agentAId;
-            const col   = isA ? colorsA : colorsB;
-            const agent = isA ? agentA : agentB;
-            const label = isA ? "Agent A" : "Agent B";
-            return (
-              <div key={turn.id} className={`rounded-xl p-5 border border-ic-rule/30 border-l-4 ${col.bg} ${col.accent}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`font-mono text-[11px] font-semibold ${col.label}`}>
-                    {agent?.name ?? label}
-                  </span>
-                  {turn.round > 1 && (
-                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule/50 text-ic-muted">
-                      Round {turn.round}
-                    </span>
-                  )}
-                </div>
-                <p className="text-ic-ink text-sm leading-relaxed">{turn.content}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Round 2 turns ────────────────────────────────────────────── */}
-      {round2Turns.length > 0 && (
-        <>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-ic-rule/30" />
-            <span className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">Round 2</span>
-            <div className="flex-1 h-px bg-ic-rule/30" />
-          </div>
-          <div className="space-y-4 mb-8">
-            {round2Turns.map(turn => {
+      {/* ── Turns by round (N-round aware) ───────────────────────────── */}
+      {sortedRounds.map(([roundNum, turns]) => (
+        <div key={roundNum} className="mb-8">
+          {roundNum > 1 && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-ic-rule/30" />
+              <span className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">Round {roundNum}</span>
+              <div className="flex-1 h-px bg-ic-rule/30" />
+            </div>
+          )}
+          <div className="space-y-4">
+            {turns.map(turn => {
               const isA   = turn.agentId === agentAId;
               const col   = isA ? colorsA : colorsB;
               const agent = isA ? agentA : agentB;
@@ -158,17 +139,19 @@ export default async function PublicSharePage({ params }: { params: Promise<Para
                     <span className={`font-mono text-[11px] font-semibold ${col.label}`}>
                       {agent?.name ?? label}
                     </span>
-                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule/50 text-ic-muted">
-                      Round {turn.round}
-                    </span>
+                    {roundNum > 1 && (
+                      <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-ic-rule/50 text-ic-muted">
+                        Round {roundNum}
+                      </span>
+                    )}
                   </div>
                   <p className="text-ic-ink text-sm leading-relaxed">{turn.content}</p>
                 </div>
               );
             })}
           </div>
-        </>
-      )}
+        </div>
+      ))}
 
       {/* ── Verdict banner ───────────────────────────────────────────── */}
       {debate.verdict && (

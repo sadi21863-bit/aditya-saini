@@ -26,11 +26,11 @@ export function DebateRound({ roundNumber, turns, label }: Props) {
     <section className="mb-8">
       {roundNumber > 1 && (
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-ic-rule" />
+          <div className="flex-1 h-px bg-ic-rule/30" />
           <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted">
             {label ?? `Round ${roundNumber}`}
           </p>
-          <div className="flex-1 h-px bg-ic-rule" />
+          <div className="flex-1 h-px bg-ic-rule/30" />
         </div>
       )}
 
@@ -40,7 +40,7 @@ export function DebateRound({ roundNumber, turns, label }: Props) {
           return (
             <div
               key={turn.id}
-              className="bg-ic-paper-deep border border-ic-rule rounded-2xl p-6"
+              className="bg-ic-card/50 rounded-2xl p-6"
             >
               <p className="font-mono text-[11px] uppercase tracking-widest text-ic-muted mb-1">
                 {agent?.name ?? turn.agentId ?? "Agent"}

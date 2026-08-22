@@ -37,8 +37,8 @@ export function RequestVerdictButton({ debateId }: { debateId: string }) {
       <button
         onClick={requestVerdict}
         disabled={loading}
-        className="px-4 py-2 rounded-lg border border-ic-rule text-sm text-ic-ink
-                   hover:bg-ic-paper-deep transition font-mono disabled:opacity-50"
+        className="px-5 py-2.5 rounded-xl bg-[#F97316] text-white text-sm font-medium
+                   hover:bg-[#EA580C] transition disabled:opacity-50"
       >
         {loading ? "Generating verdict…" : "Get final verdict →"}
       </button>

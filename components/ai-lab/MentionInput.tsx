@@ -93,7 +93,7 @@ export default function MentionInput({
 
   return (
     <div className="mb-8">
-      <div className="bg-ic-paper border border-ic-rule rounded-xl focus-within:border-ic-accent transition-colors p-3">
+      <div className="bg-ic-card/50 border border-ic-rule/30 rounded-xl focus-within:border-[#60A5FA]/50 transition-colors p-3">
         <textarea
           value={text}
           onChange={(e) => { setText(e.target.value); setStatus("idle"); }}

@@ -100,6 +100,9 @@ animejs.com-inspired design language applied across the frontend. Dark-first aes
 - **Archives page** (`app/ai-lab/archive/page.tsx`) — purple accent (`#A78BFA`) for header/tabs/icons, `clamp(36px, 5vw, 56px)` heading, borderless archive cards, purple hover on pagination
 - **Quick Debate** (`app/debates/new`, `history`, `[id]`, `share/[token]`) — orange accent (`#F97316`/`#FB923C`), `clamp(28px,4vw,40px)` headings, borderless cards (`bg-ic-card/50`, `border-ic-rule/30`), `rounded-xl` inputs/buttons
 - **Settings** (`app/settings/ai-preferences`) — editorial header (`clamp(24px,4vw,32px)`), borderless `bg-ic-card/50` rows, purple toggle accent
+- **Debate subcomponents** (`components/debates/*`, `components/ai-lab/*`) — `bg-ic-card/50`, `border-ic-rule/30`, `rounded-xl`, orange CTA (`#F97316`), blue mention accent (`#60A5FA`), `rounded-xl` poller/inputs; `DebatePoller` orange pulse, `VerdictCard` `border-ic-rule/30`
+- **Notifications & AI Lab loading** (`app/notifications/page.tsx`, `app/ai-lab/loading.tsx`) — `border-ic-rule/30`, `bg-ic-card/50`, masthead `#0D0C0A`
+- **Public share fix** (`app/debates/share/[token]/page.tsx:73`) — generic `turnsByRound` Map for N-round debates (was hardcoded 1+2, now renders Round 1..N with legacy `null→1` fallback)
 - **Design tokens** (`app/globals.css`) — animation keyframes (`ic-fade-up`, `ic-fade-in`, `ic-scale-in`), per-section accent tokens, stagger delay classes
 - **Middleware fix** (`middleware.ts:22`) — added `async` to `auth()` callback (was TS1308 error)
 - **Ops cleanup** (`.gitignore`, `scripts/backfill-archives.ts`) — `dev.log`/`graphify-out` ignored, backfill script preserved for future archive gaps (two-pass, skips existing)
