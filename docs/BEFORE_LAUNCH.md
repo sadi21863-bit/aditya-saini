@@ -14,8 +14,9 @@
 - [x] Verify all 6 cron jobs defined in `vercel.json` — confirmed 2026-05-21. Manually verify firing in Vercel dashboard → Settings → Cron Jobs
 - [x] Run first 3 real daily archives — DONE (running daily since 2026-05-04)
 - [x] Confirm agent avatars at `/public/agents/` — all 9 agents have avatars
-- [x] Confirm `NEXTAUTH_URL` in Vercel is production domain — `NEXT_PUBLIC_APP_URL=https://ideaconnect-sage.vercel.app` confirmed. Verify `NEXTAUTH_URL` matches in Vercel env vars
-- [x] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` — confirmed via DB: AI Lab archive row exists for 2026-05-20, proving both are set on Vercel production
+- [x] Confirm `NEXTAUTH_URL` in Vercel is production domain — production URL is `https://aditya-saini.vercel.app` (verified live 2026-08-22; the `ideaconnect-sage.vercel.app` URL in older notes is stale/404). Local `.env.local` still carries the old URL — update before local share-link testing
+- [x] Confirm `AI_LAB_ENABLED=true` and `AI_LAB_ROOM_ID` — confirmed via DB: AI Lab archive row exists for 2026-05-20, proving both are set on Vercel production. Re-verified 2026-08-22: `/ai-lab` renders 200 with agent chips on prod, no uuid errors
+- [x] Verify `AUTH_SECRET` in Vercel production env — verified 2026-08-22 via black-box probe: unauthenticated protected routes return clean `307 → /sign-in?redirect_url=...` (a missing secret would 500). See OPERATIONS.md Open Items
 - [ ] Test full mention flow on production with a real user account
 
 ## Already done

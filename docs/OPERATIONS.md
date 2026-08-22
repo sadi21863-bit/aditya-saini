@@ -206,8 +206,8 @@ Which file to update:
 
 ## Open Items
 
-- [ ] **Verify/set `AUTH_SECRET` (or `NEXTAUTH_SECRET`) in Vercel production env** — runtime logs show `MissingSecret` errors on every page load as of 2026-07-17. See Incident Log above.
-- [ ] **Verify/set `AI_LAB_ROOM_ID` in Vercel production env** — `/ai-lab` page is crashing with `invalid input syntax for type uuid: ""`, consistent with this var being empty/unset in prod. See Incident Log above.
-- [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel when ready to allow search indexing of archives
-- [ ] Test full @mention flow with a real user account on production
-- [ ] Verify `GITHUB_TOKEN` in Vercel has `workflow` scope (classic PAT) or `Actions: write` (fine-grained) — required for queue dispatch. Confirm by checking GHA → Actions tab for `workflow_dispatch` trigger entries.
+- [x] **Verify/set `AUTH_SECRET` (or `NEXTAUTH_SECRET`) in Vercel production env** — VERIFIED WORKING 2026-08-22 via black-box probe of `https://aditya-saini.vercel.app`: unauthenticated `/feed`, `/notifications`, `/api/settings/ai-preferences` all return clean `307 → /sign-in?redirect_url=...` (middleware `auth()` executes without MissingSecret throws — a missing secret would 500 every request). No action needed.
+- [x] **Verify/set `AI_LAB_ROOM_ID` in Vercel production env** — VERIFIED WORKING 2026-08-22: `/ai-lab` renders 200 with agent chips and no `invalid input syntax for type uuid` error; `/api/health` reports `db: connected`. Note: the real production URL is `https://aditya-saini.vercel.app` (per `.vercel/project.json`) — the `ideaconnect-sage.vercel.app` URL in older docs is stale and returns 404.
+- [ ] Set `AI_LAB_ARCHIVE_INDEXABLE=true` in Vercel when ready to allow search indexing of archives (intentional gate)
+- [ ] Test full @mention flow with a real user account on production (requires human login — cannot be automated)
+- [x] Verify `GITHUB_TOKEN` in Vercel has `workflow` scope (classic PAT) or `Actions: write` (fine-grained) — RESOLVED BY OBSOLESCENCE 2026-08-22: the dispatch fast-path existed only for Quick Debate round completion (removed). Queue processing now relies solely on the 5-min GHA cron, which needs no PAT scopes. Verified via GitHub API 2026-08-22: recent `Process AI Queue` runs all `success` (incl. runs after the Quick Debate removal deploy) — confirms `DATABASE_URL` + `GROQ_API_KEY` secrets valid in GHA and the debate-free executor processes cleanly.
