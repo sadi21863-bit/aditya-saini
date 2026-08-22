@@ -62,7 +62,8 @@ const MODELS = {
   // @research: Groq llama-3.3 → gpt-oss-20b (2026-08-22) → OpenRouter free
   // nemotron-lightning (2026-08-22). Fastest model tested (~1.4s) — good for
   // search-result summarization. Plain-text output.
-  research: process.env.AGENT_MODEL_RESEARCH ?? "nvidia/nemotron-3.5-lightning",
+  // NOTE: must be the ":free" variant — the un-suffixed lightning model is PAID.
+  research: process.env.AGENT_MODEL_RESEARCH ?? "nvidia/nemotron-3.5-lightning:free",
 };
 
 // ─── ADMIN TIER ──────────────────────────────────────────────────────
