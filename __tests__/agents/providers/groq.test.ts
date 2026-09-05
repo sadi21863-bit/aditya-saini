@@ -32,6 +32,7 @@ describe("callGroq — requests", () => {
   it("sends model, system message, and user message to chat.completions.create", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [{ message: { content: "hello from groq" } }],
+      usage: { total_tokens: 42 },
     });
 
     const result = await callGroq("qwen/qwen3-32b", "You are helpful.", "Say hi");
@@ -46,7 +47,7 @@ describe("callGroq — requests", () => {
       }),
       expect.anything()
     );
-    expect(result).toBe("hello from groq");
+    expect(result).toEqual({ text: "hello from groq", totalTokens: 42 });
   });
 
   it("defaults temperature to 0.8 and max_tokens to 600", async () => {
@@ -81,7 +82,7 @@ describe("callGroq — requests", () => {
     });
 
     const result = await callGroq("model", "sys", "usr");
-    expect(result).toBe("");
+    expect(result).toEqual({ text: "", totalTokens: null });
   });
 
   it("propagates errors from the underlying OpenAI client", async () => {

@@ -49,10 +49,19 @@ const GPTOSS_MIN_TOKENS = 2500;
 // verification — gpt-oss-20b passes Groq's native JSON mode).
 const FALLBACK_MODEL = process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b";
 
+export interface CallAgentOpts {
+  temperature?: number;
+  maxTokens?: number;
+  jsonMode?: boolean;
+  /** Mutable box — callAgent fills it with provider-reported total tokens so
+   *  callers can record real usage in aiUsage.tokens. */
+  usageOut?: { tokens: number };
+}
+
 export async function callAgent(
   agent: Agent,
   userPrompt: string,
-  opts?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
+  opts?: CallAgentOpts
 ): Promise<string> {
   // Per-model overrides before calling the primary provider
   const primaryOpts = { ...opts };
@@ -65,6 +74,7 @@ export async function callAgent(
     primaryOpts.maxTokens = agent.maxTokens
       ?? (agent.model === GPTOSS_MODEL ? GPTOSS_MIN_TOKENS : undefined);
   }
+  delete (primaryOpts as Partial<CallAgentOpts>).usageOut;
 
   const callPrimary = () =>
     agent.provider === "openrouter"
@@ -74,7 +84,9 @@ export async function callAgent(
   try {
     // normalizeHyphens: GPT-OSS emits U+2011/U+2012 non-breaking hyphens in narrative text.
     // Normalize to standard hyphen-minus before storage.
-    return normalizeHyphens(stripThinkingTags(await callPrimary()));
+    const res = await callPrimary();
+    if (opts?.usageOut && res.totalTokens) opts.usageOut.tokens += res.totalTokens;
+    return normalizeHyphens(stripThinkingTags(res.text));
   } catch (err) {
     if (!isTransientError(err)) throw err;
 
@@ -85,9 +97,9 @@ export async function callAgent(
       console.warn(
         `[ai-lab] ${agent.provider} failed for ${agent.handle} (${agent.model}); falling back to Groq ${FALLBACK_MODEL}. Error: ${(err as Error).message}`
       );
-      return normalizeHyphens(stripThinkingTags(
-        await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 })
-      ));
+      const fb = await callGroq(FALLBACK_MODEL, agent.persona, userPrompt, { ...opts, maxTokens: 600 });
+      if (opts?.usageOut && fb.totalTokens) opts.usageOut.tokens += fb.totalTokens;
+      return normalizeHyphens(stripThinkingTags(fb.text));
     } catch (fallbackErr) {
       console.error(
         `[ai-lab] Groq fallback (${FALLBACK_MODEL}) also failed for ${agent.handle}: ${(fallbackErr as Error).message}`

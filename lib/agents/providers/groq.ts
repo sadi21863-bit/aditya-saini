@@ -13,12 +13,18 @@ function getGroq(): OpenAI {
   return _groq;
 }
 
+export interface ProviderResult {
+  text: string;
+  /** Total tokens reported by the provider for this call (null if unavailable). */
+  totalTokens: number | null;
+}
+
 export async function callGroq(
   model: string,
   system: string,
   user: string,
   opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number } = {}
-): Promise<string> {
+): Promise<ProviderResult> {
   const groq = getGroq();
   const params: Parameters<typeof groq.chat.completions.create>[0] = {
     model,
@@ -54,6 +60,12 @@ export async function callGroq(
   }
 
   // Cast through unknown: create() returns ChatCompletion|Stream union; we never use streaming.
-  const response = await groq.chat.completions.create(params, { signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000) }) as unknown as { choices: Array<{ message: { content: string | null } }> };
-  return response.choices[0]?.message?.content ?? "";
+  const response = await groq.chat.completions.create(params, { signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000) }) as unknown as {
+    choices: Array<{ message: { content: string | null } }>;
+    usage?: { total_tokens?: number };
+  };
+  const text = response.choices[0]?.message?.content ?? "";
+  const totalTokens =
+    typeof response.usage?.total_tokens === "number" ? response.usage.total_tokens : null;
+  return { text, totalTokens };
 }

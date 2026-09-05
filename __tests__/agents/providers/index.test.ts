@@ -41,7 +41,7 @@ describe("callAgent — Groq primary agents (success path)", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("calls Groq and returns on success", async () => {
-    mockCallGroq.mockResolvedValueOnce("groq response");
+    mockCallGroq.mockResolvedValueOnce({ text: "groq response", totalTokens: 10 });
 
     const result = await callAgent(groqAgent, "What do you think?");
 
@@ -56,7 +56,7 @@ describe("callAgent — Groq primary agents (success path)", () => {
   });
 
   it("passes jsonMode when model supports it", async () => {
-    mockCallGroq.mockResolvedValueOnce('{"key":"value"}');
+    mockCallGroq.mockResolvedValueOnce({ text: '{"key":"value"}', totalTokens: 10 });
 
     await callAgent(groqAgent, "prompt", { jsonMode: true });
 
@@ -69,14 +69,14 @@ describe("callAgent — Groq primary agents (success path)", () => {
   });
 
   it("strips thinking tags from response", async () => {
-    mockCallGroq.mockResolvedValueOnce("<think>reasoning</think>The real answer.");
+    mockCallGroq.mockResolvedValueOnce({ text: "<think>reasoning</think>The real answer.", totalTokens: 10 });
 
     const result = await callAgent(groqAgent, "prompt");
     expect(result).toBe("The real answer.");
   });
 
   it("uses GPTOSS_MIN_TOKENS floor for GPT-OSS models", async () => {
-    mockCallGroq.mockResolvedValueOnce("response");
+    mockCallGroq.mockResolvedValueOnce({ text: "response", totalTokens: 10 });
 
     await callAgent(gptOssAgent, "prompt");
 
@@ -98,7 +98,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     const rateLimitErr = Object.assign(new Error("rate limit"), { status: 429 });
     mockCallGroq
       .mockRejectedValueOnce(rateLimitErr)
-      .mockResolvedValueOnce("fallback answer");
+      .mockResolvedValueOnce({ text: "fallback answer", totalTokens: 10 });
 
     const result = await callAgent(groqAgent, "prompt");
 
@@ -117,7 +117,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     const serverErr = Object.assign(new Error("service unavailable"), { status: 503 });
     mockCallGroq
       .mockRejectedValueOnce(serverErr)
-      .mockResolvedValueOnce("fallback ok");
+      .mockResolvedValueOnce({ text: "fallback ok", totalTokens: 10 });
 
     const result = await callAgent(groqAgent, "prompt");
 
@@ -135,7 +135,7 @@ describe("callAgent — Groq fallback on transient errors", () => {
     const timeoutErr = new Error("ETIMEDOUT: connection timed out");
     mockCallGroq
       .mockRejectedValueOnce(timeoutErr)
-      .mockResolvedValueOnce("ok");
+      .mockResolvedValueOnce({ text: "ok", totalTokens: 10 });
 
     await callAgent(groqAgent, "prompt");
 

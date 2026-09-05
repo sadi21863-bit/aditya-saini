@@ -299,8 +299,10 @@ async function executeItem(item: AIQueue): Promise<void> {
   // models that support it (Llama). Ignored for models that don't (Qwen3, GPT-OSS).
   const JSON_ACTIONS = new Set(["theme_select", "post_idea", "quality_review"]);
   const prompt      = buildPrompt(item, researchInjection);
+  const usageOut    = { tokens: 0 };
   const rawResponse = await callAgent(agent, prompt, {
     jsonMode: JSON_ACTIONS.has(item.actionType),
+    usageOut,
   });
 
   // Defense-in-depth: strip thinking tags even though callAgent already does it
@@ -323,7 +325,7 @@ async function executeItem(item: AIQueue): Promise<void> {
       throw new Error(`Unknown action type: ${item.actionType}`);
   }
 
-  // Upsert usage record — increment request_count for (agent, date)
+  // Upsert usage record — increment request_count + tokens for (agent, date)
   await db
     .insert(aiUsage)
     .values({
@@ -332,6 +334,7 @@ async function executeItem(item: AIQueue): Promise<void> {
       requestCount:  1,
       lastRequestAt: new Date(),
       lastProvider:  agent.provider,
+      tokens:        usageOut.tokens,
     })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
@@ -340,6 +343,7 @@ async function executeItem(item: AIQueue): Promise<void> {
         requestCount:  sql`${aiUsage.requestCount} + 1`,
         lastRequestAt: new Date(),
         lastProvider:  agent.provider,
+        tokens:        sql`${aiUsage.tokens} + ${usageOut.tokens}`,
       },
     });
 }

@@ -158,12 +158,16 @@ export async function queueThemeSelection(): Promise<void> {
     .orderBy(desc(aiThemes.date))
     .limit(14);
 
-  // Pull today's research from cache if available
+  // Pull today's research from cache if available — filtered to the current
+  // day's deterministic theme query so a second same-day cached query (if any)
+  // cannot swap the theme's citations. getThemeQuery() is deterministic per
+  // date (day-of-year bank in research.ts).
+  const expectedQuery = getThemeQuery();
   const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
   const researchRows = await db
     .select({ results: searchCache.results, source: searchCache.source })
     .from(searchCache)
-    .where(gte(searchCache.fetchedAt, startOfDay))
+    .where(and(eq(searchCache.query, expectedQuery), gte(searchCache.fetchedAt, startOfDay)))
     .orderBy(desc(searchCache.fetchedAt))
     .limit(1);
 
@@ -576,15 +580,20 @@ export async function queueAILabDebateOfDay(dateStr?: string): Promise<void> {
     .where(inArray(ideaComments.ideaId, todaysIdeas.map((i) => i.id)));
 
   let best: { id: string; title: string | null; content: string | null; context: string | null } | null = null;
-  let bestScore = -1;
+  let bestDistinct = -1;
+  let bestTotal = -1;
   for (const idea of todaysIdeas) {
     const commenters = commentRows.filter((c) => c.ideaId === idea.id);
     const distinctParticipants = new Set(
       commenters.map((c) => c.userId).filter((id): id is string => !!id && participantIds.has(id))
     );
     if (distinctParticipants.size < 2) continue;
-    if (commenters.length > bestScore) {
-      bestScore = commenters.length;
+    if (
+      distinctParticipants.size > bestDistinct ||
+      (distinctParticipants.size === bestDistinct && commenters.length > bestTotal)
+    ) {
+      bestDistinct = distinctParticipants.size;
+      bestTotal = commenters.length;
       best = idea;
     }
   }

@@ -17,14 +17,20 @@ export async function upsertUsage(
   date:     string,
   provider  = "groq",
   feature   = "ai_lab",
+  tokens    = 0,
 ): Promise<void> {
   await db
     .insert(aiUsage)
-    .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider, feature })
+    .values({ agentId, date, requestCount: 1, lastRequestAt: new Date(), lastProvider: provider, feature, tokens })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
       targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
-      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: new Date(), lastProvider: provider },
+      set: {
+        requestCount: sql`${aiUsage.requestCount} + 1`,
+        lastRequestAt: new Date(),
+        lastProvider: provider,
+        tokens: sql`${aiUsage.tokens} + ${tokens}`,
+      },
     });
 }
 
@@ -49,13 +55,13 @@ Say no for topics that are philosophical, speculative, or based entirely on reas
 Respond in JSON only:
 {"needsResearch": true/false, "query": "2-5 word search query if yes, null if no"}`;
 
-    const raw = await callGroq(
+    const res = await callGroq(
       process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b",
       "You are a research triage assistant. Respond in JSON only.",
       prompt,
       { maxTokens: 80, jsonMode: true }
     );
-    const parsed = JSON.parse(raw.trim());
+    const parsed = JSON.parse(res.text.trim());
     return { needsResearch: Boolean(parsed.needsResearch), query: String(parsed.query ?? "") };
   } catch {
     return null;
@@ -109,7 +115,7 @@ Current evidence: [one neutral sentence]
 No opinions. No predictions. Facts only.`;
 
   try {
-    const summary = await callGroq(
+    const res = await callGroq(
       process.env.AGENT_MODEL_FALLBACK ?? "openai/gpt-oss-20b",
       researchAgent.persona,
       synthesisPrompt,
@@ -118,7 +124,7 @@ No opinions. No predictions. Facts only.`;
 
     const [newComment] = await db
       .insert(ideaComments)
-      .values({ ideaId, userId: researchAgent.id, content: summary.trim(), parentId: null })
+      .values({ ideaId, userId: researchAgent.id, content: res.text.trim(), parentId: null })
       .returning({ id: ideaComments.id });
 
     if (newComment) {
@@ -128,7 +134,7 @@ No opinions. No predictions. Facts only.`;
         .where(eq(ideas.id, ideaId));
     }
 
-    await upsertUsage(researchAgent.id, today);
+    await upsertUsage(researchAgent.id, today, "groq", "ai_lab", res.totalTokens ?? 0);
     console.log(`[executor] @research posted for idea ${ideaId}`);
   } catch (e) {
     console.error("[executor] writeResearchComment failed:", (e as Error).message);

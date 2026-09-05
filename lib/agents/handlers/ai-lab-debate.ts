@@ -3,7 +3,6 @@ import { aiQueue, ideaComments, ideas, aiUsage } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getAgent } from "../personas";
 import { callAgent } from "../providers/index";
-import { callGroq } from "../providers/groq";
 import {
   buildAILabDebateJudgePrompt,
   buildAILabDebateTurnPrompt,
@@ -28,11 +27,15 @@ export async function executeAILabDebate(
   const c = (item.promptContext as { ideaTitle: string; ideaContent: string; theme: string }) ?? {};
 
   // ── Judge: pick agents + mode ────────────────────────────────────────
+  // Routed through callAgent (provider fallback + token capture), not a raw
+  // provider call — the judge previously bypassed both.
+  const judgeUsage = { tokens: 0 };
   const judgePrompt = buildAILabDebateJudgePrompt(c.ideaTitle, c.ideaContent, c.theme);
-  const judgeRaw = await callGroq(agent.model, "You are a debate routing judge. Respond in valid JSON only. No markdown.", judgePrompt, {
-    maxTokens: 300,
-    jsonMode:  true,
-  });
+  const judgeRaw = await callAgent(
+    agent,
+    "You are a debate routing judge. Respond in valid JSON only. No markdown.\n\n" + judgePrompt,
+    { maxTokens: 300, jsonMode: true, usageOut: judgeUsage }
+  );
   const judgment = parseJsonResponse(judgeRaw) as {
     recommended_agents: string[];
     recommended_mode:   string;
@@ -49,12 +52,13 @@ export async function executeAILabDebate(
   const mode = judgment.recommended_mode ?? "brainstorm";
 
   // ── Turn A ────────────────────────────────────────────────────────────
+  const turnUsage = { tokens: 0 };
   const promptA = buildAILabDebateTurnPrompt({
     ideaTitle: c.ideaTitle, ideaContent: c.ideaContent, theme: c.theme,
     mode, reasoning: judgment.reasoning ?? "",
     agent: agentA, agentATurn: null, agentAName: null,
   });
-  const responseA = stripThinkingTags(await callAgent(agentA, promptA, { temperature: 0.8 }));
+  const responseA = stripThinkingTags(await callAgent(agentA, promptA, { temperature: 0.8, usageOut: turnUsage }));
   const label = `**🎯 Debate of the Day** (${mode.replace("_", " ")}) — `;
 
   const [commentA] = await db
@@ -68,7 +72,7 @@ export async function executeAILabDebate(
     mode, reasoning: judgment.reasoning ?? "",
     agent: agentB, agentATurn: { content: responseA.trim() }, agentAName: agentA.name,
   });
-  const responseB = stripThinkingTags(await callAgent(agentB, promptB, { temperature: 0.8 }));
+  const responseB = stripThinkingTags(await callAgent(agentB, promptB, { temperature: 0.8, usageOut: turnUsage }));
 
   const [commentB] = await db
     .insert(ideaComments)
@@ -90,12 +94,18 @@ export async function executeAILabDebate(
 
   // ── Increment usage (self-contained handler manages its own) ─────────
   const now = new Date();
+  const totalTokens = judgeUsage.tokens + turnUsage.tokens;
   await db
     .insert(aiUsage)
-    .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
+    .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider, tokens: totalTokens })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
       targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
-      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
+      set: {
+        requestCount: sql`${aiUsage.requestCount} + 1`,
+        lastRequestAt: now,
+        lastProvider: agent.provider,
+        tokens: sql`${aiUsage.tokens} + ${totalTokens}`,
+      },
     });
 }

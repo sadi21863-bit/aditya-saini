@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ProviderResult } from "./groq";
 
 // Lazy-initialized so module import during `next build` doesn't throw when
 // OPENROUTER_API_KEY is not set in the build environment (only needed at runtime).
@@ -18,7 +19,7 @@ export async function callOpenRouter(
   system: string,
   user: string,
   opts: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number } = {}
-): Promise<string> {
+): Promise<ProviderResult> {
   const openrouter = getOpenRouter();
   const params: Parameters<typeof openrouter.chat.completions.create>[0] = {
     model,
@@ -60,6 +61,12 @@ export async function callOpenRouter(
     signal: AbortSignal.timeout(opts.timeoutMs ?? 45_000),
     // @ts-ignore — extra headers allowed per-request
     headers: extraHeaders,
-  }) as unknown as { choices: Array<{ message: { content: string | null } }> };
-  return response.choices[0]?.message?.content ?? "";
+  }) as unknown as {
+    choices: Array<{ message: { content: string | null } }>;
+    usage?: { total_tokens?: number };
+  };
+  const text = response.choices[0]?.message?.content ?? "";
+  const totalTokens =
+    typeof response.usage?.total_tokens === "number" ? response.usage.total_tokens : null;
+  return { text, totalTokens };
 }

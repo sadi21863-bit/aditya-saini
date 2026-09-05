@@ -95,6 +95,32 @@ export async function executeArchiveDay(
     quotes:  Array<{ agent: string; text: string; context: string }>;
   }> = [];
 
+  // Token accounting for this handler (G1 fix — aiUsage.tokens was never populated)
+  const usage = { tokens: 0 };
+
+  // Blind-judging roster: anonymize participant handles as "Voice A/B/…" so the
+  // Archivist cannot favor same-lineage models by name (MT-Bench self-enhancement bias).
+  const participantHandles = Array.from(
+    new Set(
+      allCommentRows
+        .map((r) => r.userId)
+        .filter((id): id is string => !!id && id.startsWith("ai_"))
+        .map((id) => id.replace(/^ai_/, "").replace(/_/g, "-"))
+    )
+  );
+  const shuffled = [...participantHandles].sort(() => Math.random() - 0.5);
+  const voiceLabels = ["Voice A", "Voice B", "Voice C", "Voice D", "Voice E", "Voice F", "Voice G", "Voice H", "Voice I"];
+  const handleToVoice = new Map<string, string>();
+  shuffled.forEach((h, i) => handleToVoice.set(h, voiceLabels[i] ?? `Voice ${i + 1}`));
+  const voiceToHandle = new Map([...handleToVoice.entries()].map(([h, v]) => [v, h]));
+  const scrubHandles = (text: string): string => {
+    let out = text;
+    for (const [h, v] of handleToVoice) {
+      out = out.replaceAll(`@${h}`, v).replaceAll(h, v);
+    }
+    return out;
+  };
+
   for (const idea of labIdeas) {
     const commentList = allCommentRows
       .filter((r) => r.ideaId === idea.id)
@@ -111,13 +137,14 @@ export async function executeArchiveDay(
     );
 
     try {
-      const raw     = await callGroq(
+      const res     = await callGroq(
         "openai/gpt-oss-20b",
         "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
         summaryPrompt,
         { temperature: 0.3, maxTokens: 400, jsonMode: true }
       );
-      const p = parseJsonResponse(raw) as { summary: string; quotes: Array<{ agent: string; text: string; context: string }> };
+      usage.tokens += res.totalTokens ?? 0;
+      const p = parseJsonResponse(res.text) as { summary: string; quotes: Array<{ agent: string; text: string; context: string }> };
       ideaSummaries.push({
         title:   idea.title ?? "(untitled)",
         summary: String(p.summary ?? ""),
@@ -135,9 +162,11 @@ export async function executeArchiveDay(
   // 2026-08-07: GitHub Models retired → Groq openai/gpt-oss-120b.
   const summaryBlock = ideaSummaries
     .map((s, i) =>
-      `IDEA ${i + 1}: "${s.title}"\n${s.summary}${
+      `IDEA ${i + 1}: "${scrubHandles(s.title ?? "")}"\n${scrubHandles(s.summary)}${
         s.quotes.length > 0
-          ? `\nQuote candidates: ${s.quotes.map((q) => `@${q.agent}: "${q.text}"`).join(" | ")}`
+          ? `\nQuote candidates: ${s.quotes
+              .map((q) => `${handleToVoice.get(q.agent) ?? scrubHandles(`@${q.agent}`)}: "${q.text}"`)
+              .join(" | ")}`
           : ""
       }`
     )
@@ -158,7 +187,14 @@ STATS:
 
 Write the full archive narrative following your Archivist instructions.
 Use the quote candidates above for memorable_quotes — copy verbatim, do not paraphrase.
-Include a "strongest_voice_agent_handle" field — the handle of the single agent whose argument was most incisive, original, or well-supported today. Use the exact handle string as it appears in the agent identifiers above (e.g. "llama", "scout", "maverick"). If no agent clearly stood out, omit the field or set it to null.
+IMPORTANT — anonymized judging: participant names have been replaced with labels
+(Voice A, Voice B, …). Judge ONLY the argument quality in the text; if any real
+name leaked through, ignore it for scoring. In memorable_quotes, keep quotes
+verbatim but replace any leaked name with its Voice label.
+Include a "strongest_voice" field set to exactly one of these labels:
+${[...voiceToHandle.keys()].join(", ")}.
+Pick the single voice whose argument was most incisive, original, or
+well-supported today. If no one clearly stood out, omit the field or null.
 Output ONLY the JSON object.`;
 
   const rawResponse = await callGroq(
@@ -167,13 +203,14 @@ Output ONLY the JSON object.`;
     synthesisPrompt,
     { temperature: 0.7, maxTokens: agent.maxTokens ?? 4000, jsonMode: true }
   );
+  usage.tokens += rawResponse.totalTokens ?? 0;
 
-  if (!rawResponse.trim()) throw new Error("Empty response from archivist synthesis");
+  if (!rawResponse.text.trim()) throw new Error("Empty response from archivist synthesis");
 
   // ── 4. Parse ──────────────────────────────────────────────────────────────
   let parsed: ArchivistOutput;
   try {
-    parsed = parseJsonResponse(rawResponse) as unknown as ArchivistOutput;
+    parsed = parseJsonResponse(rawResponse.text) as unknown as ArchivistOutput;
   } catch (e) {
     throw new Error(`Archivist produced invalid JSON: ${(e as Error).message}`);
   }
@@ -181,16 +218,22 @@ Output ONLY the JSON object.`;
   const narrativeArc = stripThinkingTags(String(parsed.narrative_arc ?? "")).trim();
   if (!narrativeArc) throw new Error("Empty narrative_arc after cleanup");
 
-  // Resolve strongest_voice_agent_handle → users.id
+  // De-anonymize strongest_voice label → users.id. Accept legacy handle form too.
   let winnerAgentId: string | null = null;
-  const strongestHandle = parsed.strongest_voice_agent_handle?.trim().toLowerCase();
-  if (strongestHandle) {
-    const [winnerRow] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.handle, strongestHandle), eq(users.isAi, true)))
-      .limit(1);
-    winnerAgentId = winnerRow?.id ?? null;
+  const strongestRaw = String((parsed as unknown as Record<string, unknown>).strongest_voice
+    ?? (parsed as unknown as Record<string, unknown>).strongest_voice_agent_handle ?? "").trim();
+  if (strongestRaw) {
+    const lower = strongestRaw.toLowerCase();
+    const resolvedHandle =
+      voiceToHandle.get(strongestRaw) ?? voiceToHandle.get(lower) ?? lower.replace(/^@/, "");
+    if (resolvedHandle) {
+      const [winnerRow] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.handle, resolvedHandle), eq(users.isAi, true)))
+        .limit(1);
+      winnerAgentId = winnerRow?.id ?? null;
+    }
   }
 
   // ── 5. Insert archive row as published ──────────────────────────────
@@ -243,6 +286,7 @@ Output ONLY the JSON object.`;
       requestCount:  1,
       lastRequestAt: new Date(),
       lastProvider:  agent.provider,
+      tokens:        usage.tokens,
     })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
@@ -251,6 +295,7 @@ Output ONLY the JSON object.`;
         requestCount:  sql`${aiUsage.requestCount} + 1`,
         lastRequestAt: new Date(),
         lastProvider:  agent.provider,
+        tokens:        sql`${aiUsage.tokens} + ${usage.tokens}`,
       },
     });
 }
@@ -272,6 +317,7 @@ export async function executeQualityReviewArchive(
   const c         = (item.promptContext as Record<string, unknown>) ?? {};
   const archiveId = c.archiveId ? String(c.archiveId) : null;
   const rollupId  = c.rollupId  ? String(c.rollupId)  : null;
+  const qcUsage = { tokens: 0 };
 
   if (!archiveId && !rollupId) {
     throw new Error("quality_review_archive requires archiveId or rollupId in promptContext");
@@ -332,13 +378,14 @@ export async function executeQualityReviewArchive(
 
       const summaryPrompt = buildIdeaSummaryPrompt(idea.title ?? "(untitled)", idea.content ?? idea.context ?? "", commentList);
       try {
-        const raw = await callGroq(
+        const res = await callGroq(
           "openai/gpt-oss-20b",
           "You are a precise debate analyst. Respond with JSON only. No markdown fences.",
           summaryPrompt,
           { temperature: 0.3, maxTokens: 400, jsonMode: true }
         );
-        const p = parseJsonResponse(raw) as { summary: string };
+        qcUsage.tokens += res.totalTokens ?? 0;
+        const p = parseJsonResponse(res.text) as { summary: string };
         ideaSummaries.push({ title: idea.title ?? "(untitled)", handle, summary: String(p.summary ?? "") });
       } catch (e) {
         console.warn(`[executor] QC archive-review Pass 1 failed for idea ${idea.id}:`, (e as Error).message);
@@ -417,11 +464,13 @@ export async function executeQualityReviewArchive(
   // 2026-08-07: GitHub Models retired → migrated from openai/gpt-4o-mini.
   // gpt-oss-20b is faster than the QC's default gpt-oss-120b and JSON mode is
   // verified live; keeps load off the 120b TPM pool (participants + theme setter).
+  const qcUsageBox = { tokens: 0 };
   const rawResponse = await callAgent(
     { ...agent, provider: "groq", model: "openai/gpt-oss-20b" } as Parameters<typeof callAgent>[0],
     prompt,
-    { jsonMode: true, maxTokens: 400, temperature: 0.1 }
+    { jsonMode: true, maxTokens: 400, temperature: 0.1, usageOut: qcUsageBox }
   );
+  qcUsage.tokens += qcUsageBox.tokens;
 
   const cleaned = stripThinkingTags(rawResponse);
   if (!cleaned.trim()) throw new Error("Empty response from Quality Checker");
@@ -439,10 +488,10 @@ export async function executeQualityReviewArchive(
   // ── Increment usage ──────────────────────────────────────────────────
   await db
     .insert(aiUsage)
-    .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider })
+    .values({ agentId: agent.id, date: today, requestCount: 1, lastRequestAt: now, lastProvider: agent.provider, tokens: qcUsage.tokens })
     .onConflictDoUpdate({
       target: [aiUsage.agentId, aiUsage.date],
       targetWhere: sql`${aiUsage.agentId} IS NOT NULL AND ${aiUsage.date} IS NOT NULL`,
-      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider },
+      set: { requestCount: sql`${aiUsage.requestCount} + 1`, lastRequestAt: now, lastProvider: agent.provider, tokens: sql`${aiUsage.tokens} + ${qcUsage.tokens}` },
     });
 }

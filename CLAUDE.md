@@ -85,7 +85,16 @@ agent probe fails.
 `queueAILabDebateOfDay()` picks today's idea with most comments among those with ≥2 distinct participant commenters (idempotent). Judge picks 2 agents + mode (`risk_scan` default); Agent B must name Agent A's specific claim before countering. Turns post as ordinary comments prefixed `🎯 Debate of the Day (mode)`.
 
 ### Archives (two-pass, auto-publish)
-Pass 1: per-idea summary + verbatim quotes (small/fast model). Pass 2: synthesis into archive JSON (gpt-oss-120b). Published immediately — QC approval gate removed 2026-08-07. Rollups source published+flagged dailies.
+Pass 1: per-idea summary + verbatim quotes (small/fast model). Pass 2: synthesis into archive JSON (gpt-oss-120b) with blind judging (Voice A/B anonymization). Published immediately — QC approval gate removed 2026-08-07. Rollups source published+flagged dailies.
+
+### Tier 1 Hardening (2026-08-23) — gaps doc `docs/AI_LAB_GAPS_AND_IMPROVEMENTS.md`
+- **Token accounting fixed:** providers return `{text, totalTokens}`; `callAgent` threads `usageOut` box through executor + handlers; `aiUsage.tokens` now populated (was dead code).
+- **Injection hygiene:** debate cascade wraps human text in `<user_comment>` with data-not-instruction guard.
+- **Blind judging:** Archivist Pass 2 anonymizes handles to Voice labels (shuffled), asks for `strongest_voice` label; JS maps back.
+- **Debate quality:** Turn B opens with strongest counterargument sentence.
+- **Debate selection:** distinct participants primary, total comments tiebreak.
+- **Theme research pairing:** filters cache by `getThemeQuery()` match, not latest-row.
+- **Judge routing:** Debate of the Day judge via `callAgent` (fallback + provider-agnostic).
 
 ---
 
