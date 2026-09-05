@@ -129,6 +129,9 @@ Schema gotchas live in `docs/SCHEMA_NOTES.md` — read before writing raw SQL ag
 | `lib/agents/executor.ts` | `processQueue()` — claim, quota-check, route, write, usage-upsert |
 | `lib/agents/handlers/*.ts` | archive, rollup, ai-lab-debate, writers, shared |
 | `lib/agents/prompts.ts` | buildPrompt + self-contained prompt builders |
+| `app/admin/page.tsx` | Admin hub — links to usage + archives |
+| `app/admin/usage/page.tsx` | Usage dashboard — 7-day tokens/requests per agent vs budget |
+| `app/admin/ai-lab/archives/page.tsx` | Archive moderation — draft/flagged review |
 | `lib/agents/providers/index.ts` | `callAgent()` router + fallback + JSON_MODE_SUPPORTED gate |
 | `lib/agents/providers/groq.ts` / `openrouter.ts` | OpenAI-compatible clients |
 | `lib/agents/json-helpers.ts` | fence-stripping + outermost-brace JSON extraction |
